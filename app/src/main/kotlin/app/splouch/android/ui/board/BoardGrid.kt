@@ -1,0 +1,262 @@
+package app.splouch.android.ui.board
+
+import androidx.compose.animation.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.splouch.android.ui.theme.AutoSizeText
+import app.splouch.android.ui.theme.LocalBoardColors
+import app.splouch.android.ui.theme.LocalBoardFonts
+import app.splouch.core.board.DeltaFormat
+import app.splouch.core.board.ScoreboardState.TimeStyle
+import app.splouch.core.wire.MeetSettings
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import androidx.compose.runtime.snapshotFlow
+
+/** One row of the lane grid, for either tab. */
+data class GridRow(
+    val lane: String,
+    val pulsing: Boolean = false,
+    val name: String = "",
+    val alt: String = "",
+    val club: String = "",
+    val time: String = "",
+    val timeStyle: TimeStyle = TimeStyle.NORMAL,
+    val lockEdge: Int = 0,
+    val deltaSeconds: Double? = null,
+    val deltaBetter: Boolean? = null,
+    val place: String = "",
+)
+
+/** The six-column board shared by the Scoreboard and Results tabs (app.md L-04..L-09, L-15..L-17, R-04). */
+@Composable
+fun BoardGrid(
+    rows: List<GridRow>,
+    settings: MeetSettings,
+    labels: Map<String, String>,
+    landscape: Boolean,
+    modifier: Modifier = Modifier,
+    footer: (@Composable () -> Unit)? = null,
+) {
+    if (landscape) LandscapeGrid(rows, settings, labels, modifier) else PortraitGrid(rows, settings, modifier, footer)
+}
+
+// ── portrait: the two-line compact row (L-15) ────────────────────────────────
+
+@Composable
+private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, modifier: Modifier, footer: (@Composable () -> Unit)?) {
+    val colors = LocalBoardColors.current
+    val cfg = LocalConfiguration.current
+    val base = minOf(cfg.screenHeightDp * 0.042f, cfg.screenWidthDp * 0.045f).coerceIn(13f, 24f)
+    val minHeight = (base * 2.8f).dp
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        rows.forEachIndexed { i, r ->
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = minHeight)
+                    .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LaneNumber(r.lane, r.pulsing, base.sp, Modifier.width((cfg.screenWidthDp * 0.09f).dp))
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base.sp) else Box(Modifier.weight(1f))
+                        if (settings.showClub) Text(r.club, color = colors.thText, fontSize = (base * 0.75f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp))
+                    }
+                    if (settings.showName && r.alt.isNotEmpty()) {
+                        // L-06: relay members, dimmed, under the name.
+                        Text(r.alt, color = colors.thText, fontSize = (base * 0.62f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = LocalBoardFonts.current.family)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TimeText(r.time, r.timeStyle, r.lockEdge, (base * 0.92f).sp, Modifier.weight(1f), TextAlign.Start)
+                        if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, (base * 0.78f).sp)
+                        if (settings.showPosition) PlaceText(r.place, (base * 0.78f).sp, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
+                    }
+                }
+            }
+            HorizontalDivider(color = colors.headerBorder, thickness = 1.dp)
+        }
+        footer?.invoke()
+    }
+}
+
+// ── landscape: the full table, font scaled to lane count (L-16) ──────────────
+
+@Composable
+private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, modifier: Modifier) {
+    val colors = LocalBoardColors.current
+    val fonts = LocalBoardFonts.current
+    val anyHeader = settings.showLaneHeader || (settings.showName && settings.showNameHeader) || (settings.showClub && settings.showClubHeader) ||
+        settings.showTimeHeader || (settings.showDelta && settings.showDeltaHeader) || (settings.showPosition && settings.showPositionHeader)
+    Column(modifier.fillMaxSize()) {
+        if (anyHeader) {
+            Row(Modifier.fillMaxWidth().background(colors.thBg).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                val th: @Composable (String, Boolean, Modifier, TextAlign) -> Unit = { text, show, m, align ->
+                    Text(if (show) text else "", color = colors.thText, fontSize = 13.sp, fontFamily = fonts.family, maxLines = 1, textAlign = align, modifier = m.padding(horizontal = 6.dp))
+                }
+                th(labels["lane"].orEmpty(), settings.showLaneHeader, Modifier.width(LaneW), TextAlign.Center)
+                if (settings.showName) th(labels["name"].orEmpty(), settings.showNameHeader, Modifier.weight(1f), TextAlign.Start)
+                if (settings.showClub) th(labels["club"].orEmpty(), settings.showClubHeader, Modifier.weight(0.6f), TextAlign.Center)
+                th(labels["time"].orEmpty(), settings.showTimeHeader, Modifier.width(TimeW), TextAlign.Center)
+                if (settings.showDelta) th(labels["delta"].orEmpty(), settings.showDeltaHeader, Modifier.width(DeltaW), TextAlign.Center)
+                if (settings.showPosition) th(labels["place"].orEmpty(), settings.showPositionHeader, Modifier.width(PlaceW), TextAlign.Center)
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val rowHeight: Dp = maxHeight / rows.size.coerceAtLeast(1)
+            val size = (rowHeight.value * 0.48f).coerceIn(10f, 32f).sp
+            Column(Modifier.fillMaxSize()) {
+                rows.forEachIndexed { i, r ->
+                    Row(
+                        Modifier.fillMaxWidth().height(rowHeight).background(if (i % 2 == 0) colors.rowOdd else colors.rowEven),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LaneNumber(r.lane, r.pulsing, size, Modifier.width(LaneW))
+                        if (settings.showName) {
+                            Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                                AutoSizeText(r.name, Modifier.fillMaxWidth(), maxSize = size * 0.85f)
+                                if (r.alt.isNotEmpty()) Text(r.alt, color = colors.thText, fontSize = size * 0.5f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
+                            }
+                        }
+                        if (settings.showClub) Text(r.club, color = colors.rowText, fontSize = size * 0.68f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family,
+                            textAlign = TextAlign.Center, modifier = Modifier.weight(0.6f).padding(horizontal = 6.dp))
+                        TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.72f, Modifier.width(TimeW), TextAlign.Center)
+                        if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) { DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.58f) }
+                        if (settings.showPosition) PlaceText(r.place, size * 0.7f, Modifier.width(PlaceW))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val LaneW = 52.dp
+private val TimeW = 130.dp
+private val DeltaW = 96.dp
+private val PlaceW = 56.dp
+
+// ── cells ────────────────────────────────────────────────────────────────────
+
+/**
+ * L-12's pulse: the lane number cycles row colour → timing colour → row colour once a
+ * second while the lane runs without a clock to show. A cycle that has started finishes,
+ * so stopping every lane on the same re-base cannot flick the column.
+ */
+@Composable
+private fun LaneNumber(text: String, pulsing: Boolean, size: TextUnit, modifier: Modifier) {
+    val colors = LocalBoardColors.current
+    val color = remember { Animatable(colors.rowText) }
+    val pulsingNow by rememberUpdatedState(pulsing)
+    LaunchedEffect(colors) {
+        while (isActive) {
+            snapshotFlow { pulsingNow }.first { it }
+            do {
+                color.animateTo(colors.time, tween(500))
+                color.animateTo(colors.rowText, tween(500))
+            } while (pulsingNow)
+        }
+    }
+    Text(text, color = color.value, fontSize = size, fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.Center, maxLines = 1, modifier = modifier)
+}
+
+/**
+ * L-11: a running time is grey; on the stop edge it flashes white and settles to the
+ * timing colour; running again drops the lock at once. Results reuse the settled look (R-09).
+ */
+@Composable
+private fun TimeText(text: String, style: TimeStyle, lockEdge: Int, size: TextUnit, modifier: Modifier, align: TextAlign) {
+    val colors = LocalBoardColors.current
+    val target = if (style == TimeStyle.RUNNING) colors.timeRunning else colors.time
+    val color = remember { Animatable(target) }
+    LaunchedEffect(style, lockEdge, colors) {
+        if (style == TimeStyle.LOCKED && lockEdge > 0) {
+            color.snapTo(Color.White)
+            color.animateTo(colors.time, tween(800))
+        } else {
+            color.snapTo(target)
+        }
+    }
+    Text(text, color = color.value, fontSize = size, fontFamily = LocalBoardFonts.current.timing, textAlign = align, maxLines = 1, softWrap = false, modifier = modifier)
+}
+
+@Composable
+private fun DeltaText(seconds: Double?, better: Boolean?, size: TextUnit) {
+    val colors = LocalBoardColors.current
+    val color = when (better) { true -> colors.deltaBetter; false -> colors.deltaWorse; null -> colors.rowText }
+    Text(DeltaFormat.text(seconds), color = color, fontSize = size, fontFamily = LocalBoardFonts.current.timing, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
+}
+
+/** A place is prefixed `#`; no place means an empty cell, no dash and no `#` (L-15, R-07). */
+@Composable
+private fun PlaceText(place: String, size: TextUnit, modifier: Modifier) {
+    val colors = LocalBoardColors.current
+    Row(modifier, horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        if (place.isNotEmpty()) {
+            Text("#", color = colors.headerLabel.copy(alpha = 0.5f), fontSize = size, fontFamily = LocalBoardFonts.current.digits, maxLines = 1)
+            Text(place, color = colors.headerLabel, fontSize = size, fontWeight = FontWeight.Bold, fontFamily = LocalBoardFonts.current.digits, maxLines = 1)
+        }
+    }
+}
+
+/** The header bar both tabs share: EVENT and HEAT as small label over large value (L-01), the event name (L-02), the wall clock (L-03). */
+@Composable
+fun BoardHeader(eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, landscape: Boolean, clock: String?) {
+    val colors = LocalBoardColors.current
+    val fonts = LocalBoardFonts.current
+    val labelSize = if (landscape) 10.sp else 12.sp
+    val valueSize = if (landscape) 20.sp else 24.sp
+    Row(
+        Modifier.fillMaxWidth().background(colors.headerBg).padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        HeaderCell(eventLabel, event, labelSize, valueSize, fonts.family, fonts.digits)
+        HeaderCell(heatLabel, heat, labelSize, valueSize, fonts.family, fonts.digits)
+        AutoSizeText(eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family, maxSize = if (landscape) 15.sp else 17.sp, minSize = 9.sp)
+        if (clock != null) Text(clock, color = colors.headerValue, fontSize = valueSize, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+    }
+    HorizontalDivider(color = colors.headerBorder, thickness = 1.dp)
+}
+
+@Composable
+private fun HeaderCell(label: String, value: String, labelSize: TextUnit, valueSize: TextUnit, labelFont: FontFamily, valueFont: FontFamily) {
+    val colors = LocalBoardColors.current
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = colors.headerLabel, fontSize = labelSize, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
+        // The web colours these with `header_label` and sets the seven-segment face; give the tall glyphs their line.
+        Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = valueSize, lineHeight = valueSize * 1.25f, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
+    }
+}

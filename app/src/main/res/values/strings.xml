@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The only compiled-in string: the launcher label. Everything the app shows on screen
+     comes from the server (app.md T-05) or the captured snapshot in core (T-10). -->
+<resources>
+    <string name="app_name">Splouch</string>
+</resources>

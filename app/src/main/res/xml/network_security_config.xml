@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- app.md P-12: cleartext for the local network only. A Pi is plain HTTP and is
+     reached by its mDNS name (`splouch.local`, `<host>.local`); anything remote must be
+     HTTPS. Android's config matches host names, not address ranges, so a Pi is never
+     dialled by a raw IP — ServerAddress enforces the same rule before a request is made. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">local</domain>
+    </domain-config>
+</network-security-config>
