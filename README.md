@@ -54,13 +54,27 @@ Only `.local` names, `localhost`, `127.0.0.1` and `10.0.2.2` may be dialled over
 HTTP (release builds: `.local` only). See `app/src/main/res/xml/network_security_config.xml`
 and app.md `P-12`.
 
-## Refreshing the built-in strings
+## Strings
+
+app.md T-05 draws the line by what a word is *about*, not by which repo renders it.
+
+- **The server's words** are the ones the web pages also show: the tabs, the empty
+  states, the filter sheet, and the picker's chrome and compliance text. The app reads
+  them through `StringTable.mobile` from `GET /i18n/{lang}`, cached on disk with its
+  ETag, over the compiled snapshot below. Never translate one of these in the app.
+- **The app's words** are the ones about the app or the device: the server sheet,
+  connection and address errors, and the standard buttons. They are ordinary Android
+  resources in `app/src/main/res/values/strings.xml`, with `values-fr` and `values-es`.
 
 `core/src/main/resources/i18n/<lang>.json` are the compiled floor of app.md T-10: the
 body of `GET /i18n/{lang}` for each language the default cloud lists, verbatim.
-Regenerate them from the default cloud before a release and whenever
-`shared/locales/` changes, never by hand:
+Regenerate them from the default cloud before a release and whenever the server's
+`shared/locales` table changes, never by hand:
 
 ```sh
 scripts/update-strings.sh https://splouch.ca
 ```
+
+`SnapshotCoverageTests` fails the build when the app asks for a `mobile` key the
+snapshot does not carry. The fix is on the server, then a recapture — not a word
+added here.

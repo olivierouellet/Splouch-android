@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="server">Serveur</string>
+    <string name="add_server">Ajouter un serveur</string>
+    <string name="server_placeholder">https://… ou http://splouch.local:5000</string>
+    <string name="nearby">À proximité</string>
+    <string name="remove">Retirer</string>
+    <string name="checking">Vérification…</string>
+
+    <string name="server_unreachable">Impossible de joindre ce serveur</string>
+    <string name="not_splouch">Ce n\'est pas un serveur Splouch</string>
+    <string name="invalid_address">Entrez une adresse valide</string>
+    <string name="cleartext_not_local">Le http simple n\'est permis que pour les noms .local</string>
+    <string name="meet_gone">Cette compétition n\'est plus disponible</string>
+
+    <string name="cancel">Annuler</string>
+    <string name="done">Terminé</string>
+    <string name="ok">OK</string>
+    <string name="retry">Réessayer</string>
+</resources>

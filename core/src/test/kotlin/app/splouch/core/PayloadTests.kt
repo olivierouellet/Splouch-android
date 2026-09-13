@@ -70,7 +70,7 @@ class PayloadTests {
     }
 
     @Test fun `meet config from cloud and from pi`() {
-        val c = MeetConfig.fromCloudJson(j("""{"name":"Meet","app_window_title":"","live":false,"settings":{"num_lanes":"10","show_club":false,"locale":"fr","labels":{"event":"ÉP"},"label_style":"long","label_overrides":{"fr":{"long":{"event":"COURSE"}}},"theme_colors":{"bg":"#000"}}}"""))!!
+        val c = MeetConfig.fromCloudJson(j("""{"name":"Meet","app_window_title":"","live":false,"settings":{"num_lanes":"10","show_club":false,"locale":"fr","labels":{"event":"ÉP"},"label_style":"long","theme_colors":{"bg":"#000"}}}"""))!!
         assertEquals("Meet", c.title)
         assertEquals(false, c.live)
         assertEquals(10, c.settings.numLanes)
@@ -78,7 +78,6 @@ class PayloadTests {
         assertTrue(c.settings.showName)
         assertEquals("fr", c.settings.locale)
         assertEquals("long", c.settings.labelStyle)
-        assertEquals("COURSE", c.settings.labelOverrides["fr"]!!["long"]!!["event"])
         val p = MeetConfig.fromPiJson(j("""{"meet_title":"Pool","num_lanes":6,"labels":{"event":"EV"},"locale":"en","theme_fonts":{"digits":"DSEG14Classic"}}"""))!!
         assertEquals("Pool", p.title)
         assertNull(p.live)

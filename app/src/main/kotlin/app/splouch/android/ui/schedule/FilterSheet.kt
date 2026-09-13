@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,7 +44,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
-import app.splouch.android.ui.ui
+import app.splouch.android.R
 import app.splouch.core.schedule.Filter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.session.AppModel
@@ -93,7 +94,7 @@ fun FilterSheet(model: AppModel, meet: MeetState, state: ScheduleFilterState, on
             // S-11: chips; tapping one removes it.
             FlowRow(Modifier.fillMaxWidth().heightIn(min = 46.dp).padding(12.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (state.filters.isEmpty()) {
-                    Text(t.ui("no_filters"), color = colors.scheduleClub, fontSize = 13.sp, fontFamily = fonts.family)
+                    Text(t.mobile("no_filters"), color = colors.scheduleClub, fontSize = 13.sp, fontFamily = fonts.family)
                 }
                 state.filters.forEach { f ->
                     val (bg, fg) = chipColors(f.type)
@@ -105,13 +106,15 @@ fun FilterSheet(model: AppModel, meet: MeetState, state: ScheduleFilterState, on
             Box(Modifier.weight(1f)) {
                 if (suggestions.isEmpty()) {
                     // S-19: "no search results" is distinct from "no matches" on the list.
-                    if (query.isNotBlank()) Text(t.ui("no_search_results"), color = colors.scheduleClub, fontSize = 14.sp, fontFamily = fonts.family, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(24.dp))
+                    if (query.isNotBlank()) Text(t.mobile("no_search_results"), color = colors.scheduleClub, fontSize = 14.sp, fontFamily = fonts.family, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(24.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize()) {
                         items(suggestions, key = { it.type.wire + "|" + it.name + "|" + it.club }) { s ->
                             val f = Filter(s.type, s.name)
                             val already = state.contains(f)
                             val (bg, fg) = chipColors(s.type)
+                            // Both keys spelled out, so `SnapshotCoverageTests` sees them.
+                            val typeLabel = if (s.type == SuggestionType.SWIMMER) t.mobile("swimmer") else t.mobile("club")
                             Row(
                                 Modifier.fillMaxWidth().background(colors.bg)
                                     // S-10: already-added suggestions are marked and inert.
@@ -119,7 +122,7 @@ fun FilterSheet(model: AppModel, meet: MeetState, state: ScheduleFilterState, on
                                     .padding(16.dp, 13.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Text(t.ui(if (s.type == SuggestionType.SWIMMER) "swimmer" else "club").uppercase(), color = fg, fontSize = 10.sp, letterSpacing = 1.sp,
+                                Text(typeLabel.uppercase(), color = fg, fontSize = 10.sp, letterSpacing = 1.sp,
                                     modifier = Modifier.background(bg, RoundedCornerShape(3.dp)).padding(5.dp, 2.dp))
                                 Text(s.name, color = colors.rowText.copy(alpha = if (already) 0.45f else 1f), fontSize = 15.sp, fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 if (s.club.isNotEmpty()) Text(s.club, color = colors.scheduleClub, fontSize = 12.sp, fontFamily = fonts.family, maxLines = 1)
@@ -141,8 +144,8 @@ fun FilterSheet(model: AppModel, meet: MeetState, state: ScheduleFilterState, on
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             text = { Text(t.mobile("reset_confirm")) },
-            confirmButton = { TextButton(onClick = { confirmReset = false; onChange(state.reset()) }) { Text(t.ui("ok")) } },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(t.ui("cancel")) } },
+            confirmButton = { TextButton(onClick = { confirmReset = false; onChange(state.reset()) }) { Text(stringResource(R.string.ok)) } },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

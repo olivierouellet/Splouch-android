@@ -73,17 +73,19 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState) {
                 )
                 NavigationBarItem(selected = false, onClick = { model.closeMeet() }, colors = itemColors,
                     icon = { Icon(painterResource(R.drawable.ic_back), t.mobile("back_to_meets")) })
+                // Each label is a literal `mobile("…")` call so `SnapshotCoverageTests` can
+                // see it: a key reached through a variable would slip past that check.
                 listOf(
-                    Triple("scoreboard", R.drawable.ic_tab_scoreboard, 0),
-                    Triple("results", R.drawable.ic_tab_results, 1),
-                    Triple("schedule", R.drawable.ic_tab_schedule, 2),
-                ).forEach { (key, icon, index) ->
+                    Triple(t.mobile("scoreboard"), R.drawable.ic_tab_scoreboard, 0),
+                    Triple(t.mobile("results"), R.drawable.ic_tab_results, 1),
+                    Triple(t.mobile("schedule"), R.drawable.ic_tab_schedule, 2),
+                ).forEach { (label, icon, index) ->
                     NavigationBarItem(
                         selected = pager.currentPage == index,
                         onClick = { scope.launch { pager.animateScrollToPage(index) } },
                         colors = itemColors,
-                        icon = { Icon(painterResource(icon), t.mobile(key)) },
-                        label = if (landscape) null else ({ Text(t.mobile(key), fontSize = 11.sp, maxLines = 1) }),
+                        icon = { Icon(painterResource(icon), label) },
+                        label = if (landscape) null else ({ Text(label, fontSize = 11.sp, maxLines = 1) }),
                     )
                 }
             }

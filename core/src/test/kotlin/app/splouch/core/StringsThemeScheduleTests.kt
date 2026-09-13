@@ -39,18 +39,18 @@ class StringsThemeScheduleTests {
         assertEquals("Relay", t.eventVocab["relay"])   // English floor per key
     }
 
-    @Test fun `labels - operator's as sent, or the chosen table with overrides and the narrow-column rule`() {
+    @Test fun `labels - the operator's as sent, or the chosen table with the narrow-column rule`() {
         val t = StringTable("fr", null, frBuiltIn, en)
-        val settings = MeetSettings(numLanes = 8, locale = "fr", labels = mapOf("event" to "OP", "lane" to "OPLN"), labelStyle = "short",
-            labelOverrides = mapOf("fr" to mapOf("long" to mapOf("event" to "COURSE", "lane" to "CORRIDOR"), "short" to mapOf("lane" to "CO"))))
+        val settings = MeetSettings(numLanes = 8, locale = "fr", labels = mapOf("event" to "OP", "lane" to "OPLN"), labelStyle = "short")
+        // No user choice: exactly what the operator picked, nothing layered over it.
         assertEquals(mapOf("event" to "OP", "lane" to "OPLN"), Labels.resolve(settings, null, null, t))
         val long = Labels.resolve(settings, null, "long", t)
-        assertEquals("COURSE", long["event"])
+        assertEquals("ÉPREUVE", long["event"])
         assertEquals("SÉRIE", long["heat"])
-        assertEquals("CO", long["lane"])          // long override on a narrow column ignored
+        assertEquals("CL", long["lane"])          // narrow columns keep their short word
         val short = Labels.resolve(settings, "fr", null, t)
         assertEquals("ÉP", short["event"])
-        assertEquals("CO", short["lane"])
+        assertEquals("CL", short["lane"])
     }
 
     @Test fun `event name composes from parts and falls back`() {

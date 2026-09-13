@@ -14,9 +14,9 @@ scope for a native client; everything else starts `deferred`.
 `Level` is copied from `app.md` v1 for triage only. **`app.md` is authoritative** —
 if the two ever disagree, that document wins and this one is stale.
 
-**Verification status (2026-09-13):** `./gradlew :core:test` passes (64 unit tests over the
-socket loop, race clock, frame merge, results grid, strings, filters and the app model)
-and the two live checks in `LiveServerTests` pass against a local Pi server (handshake,
+**Verification status (2026-09-13):** `./gradlew test` passes (68 unit tests over the
+socket loop, race clock, frame merge, results grid, strings, filters, the app model and
+the string-snapshot coverage check) and the two live checks in `LiveServerTests` pass against a local Pi server (handshake,
 config, schedule, connect burst, joined session). `./gradlew :app:assembleDebug` builds.
 Run on a Medium Phone AVD (API 37) against a local Pi playing a recorded session and
 against a local cloud relaying it: the Pi session opens straight to the board, live frames
@@ -25,8 +25,13 @@ and offline meets with the server's strings and disclaimer, the Schedule tab hig
 the current heat and the filter sheet's typeahead answers. Landscape shows the full table
 with the header row and drops the tab labels. A heat change blanked the board and the
 Results tab then held the finished heat with locked times, deltas and places; the tab
-choice survived a relaunch. Not yet exercised on a device: the lock flash and the pulse,
-a language or label-style change mid-meet, the mDNS browse, and A-09.
+choice survived a relaunch. After the i18n rework (2026-09-13) the split was checked on
+the same AVD against splouch.ca: the picker's disclaimer and privacy note, the tab
+names, the filter sheet and the language and label-style controls all render the
+server's French, while the server sheet and the standard buttons follow the device
+locale (English by default, French under a per-app locale). Not yet exercised on a
+device: the lock flash and the pulse, a language change made from the preference
+sheet mid-meet, the mDNS browse, and A-09.
 
 Suggested order: `P-13` (handshake) → `C-01`–`C-05` (sockets) → `P-01`/`P-08` (meet
 list, open a meet) → `L-01`–`L-14` (scoreboard). Results, Schedule and the `T-*`
@@ -42,7 +47,7 @@ language controls reuse all of it.
 | `P-03` | Offline meets stay listed, marked with a dimmed status dot | must | `done` | dimmed ring for `offline`, pulsing green dot for live |
 | `P-04` | Empty state when no meets are active | must | `done` | `strings.no_meets` from `/picker/config` |
 | `P-05` | Picker branding: title, logo, logo above or below the title | should | `done` | title, `/picker_logo`, `logo_above` |
-| `P-06` | Unofficial-results disclaimer under the list | must | `done` | server text from `/picker/config`; the web template's English default only until it answers |
+| `P-06` | Unofficial-results disclaimer under the list | must | `done` | server text from `/picker/config`, falling back to the same key in the `GET /i18n/{lang}` snapshot; never a compiled copy |
 | `P-07` | Privacy note, shown whenever attendance counting is on for this server | must | `done` | gated on `analytics_enabled` |
 | `P-08` | Selecting a meet opens the app shell for it | must | `done` | `AppModel.openMeet` → `GET /meet/{id}/config` → `MeetSession` |
 | `P-09` | Pull-to-refresh re-fetches the meet list | should | `done` | Material `PullToRefreshBox` |
@@ -180,8 +185,8 @@ language controls reuse all of it.
 | `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`… | must | `done` | `BoardColors` |
 | `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | should | `done` |  |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | must | `done` | six faces bundled in `res/font`, unknown → system monospace |
-| `T-04` | Column headers and header labels are the server's words, never the app's | must | `done` | `settings.labels`, or the `/i18n/{lang}` table under a user choice; `label_overrides` layered (see below) |
-| `T-05` | The app's own chrome — tab names, empty states, filter UI — is fetched and cached, not translated in the app | must | `done` | `StringTable` from cache/built-in; English floor for keys the server lacks (see below) |
+| `T-04` | Column headers and header labels are the server's words, never the app's | must | `done` | `settings.labels` as sent, or the `/i18n/{lang}` table once the user picks a language or style (`Labels.resolve`); nothing is layered over either — there is no per-meet override |
+| `T-05` | The app's own chrome — tab names, empty states, filter UI — is fetched and cached, not translated in the app | must | `done` | Every word the web page also shows comes from `GET /i18n/{lang}` → `mobile` through `StringTable`, cached with its ETag; words about the app or the device — the server sheet, connection and address errors, the standard buttons — are native resources in `values`, `values-fr` and `values-es`. `SnapshotCoverageTests` fails the build if the app asks for a `mobile` key the captured snapshot lacks |
 | `T-06` | Language defaults to the meet's locale and the user may override it | must | `done` | `prefs.lang ?: settings.locale ?: device` |
 | `T-07` | Missing theme keys fall back to the documented defaults rather than rendering unstyled | must | `done` | `Theme.DEFAULT_COLORS` / `DEFAULT_FONTS` |
 | `T-08` | A language control, per device, applying to every meet opened afterwards | should | `done` | `PrefsSheet` on the picker, `GET /locales` |
@@ -195,40 +200,20 @@ language controls reuse all of it.
 Raised while building this app; each needs an answer in `app.md` or `api.md` (or in
 `shared/locales/`) rather than here. Until then the app does what the note says.
 
-1. **`T-05` — strings the server does not have.** The `[mobile]` section carries
-   nothing for the filter sheet or the server sheet, and the web template hard-codes
-   those words in French. This app renders a compiled-in English word for exactly these
-   keys and only when the server's table lacks them (`app/.../ui/Strings.kt`): `filter`,
-   `no_filters`, `no_search_results`, `no_matches`, `swimmer`, `club`, `server`,
-   `add_server`, `server_placeholder`, `nearby`, `cancel`, `done`, `ok`, `retry`,
-   `remove`, `language`, `prefs_auto`, `prefs_labels`, `prefs_short`, `prefs_long`,
-   `meet_gone`, `server_unreachable`, `not_splouch`, `invalid_address`,
-   `cleartext_not_local`, `open_board`, `checking`, `needs_android_14`. The key names
-   match the iOS ledger's list so one addition to `shared/locales/*.toml` serves both
-   apps and removes the floor. Should these be added to `[mobile]`?
-
-2. **`label_overrides` (api.md §5.4) is described but never assigned to a client.**
-   `app.md` T-04 says the app renders `settings.labels`, or the `/i18n/{lang}` table
-   once the user chose a language or style; it never says to layer
-   `settings.label_overrides[lang][style]` over that table, which is the only way a
-   Pi's custom wording reaches a phone through the cloud. This app **applies it**, with
-   T-09's narrow-column rule (a `long` override is honoured for `event` and `heat`
-   only). Confirm, and say so in T-04.
-
-3. **`P-03` versus `R-02`.** `GET /meets` keeps offline meets "so an attendee can read
+1. **`P-03` versus `R-02`.** `GET /meets` keeps offline meets "so an attendee can read
    the last known state" (api.md §5.6), but `R-02` wipes the Results board the moment
    `meet_live` is false, which is exactly what an offline meet replays on join. The web
    does the same, so this app follows `R-02`: on an offline meet the Scoreboard holds
    its last frame and the Results tab shows "Waiting for results…". If the intent is to
    keep the last results readable, `R-02` needs an exception for a retained meet.
 
-4. **`S-21` — the Pi does not announce a start list loaded by a test session.**
+2. **`S-21` — the Pi does not announce a start list loaded by a test session.**
    `schedule_update` is emitted only from the meet-file upload route
    (`server/routes/settings.py`); `POST /test_play`'s companion LENEX changes
    `GET /schedule.json` without it. A phone that was open before the session started
    keeps "No schedule available yet." until pull-to-refresh (`A-05`). Server-side.
 
-5. **The cloud's join replay is a partial snapshot.** Against a local cloud relaying a
+3. **The cloud's join replay is a partial snapshot.** Against a local cloud relaying a
    Pi test session, `join_meet` replayed `meet_live` and an `update_scoreboard` carrying
    only `lane_time`, `lane_place`, `lane_delta*` and `lane_running` keys — no
    `current_event`, `current_heat`, `event_name` or `lane_name*`. A late joiner sees

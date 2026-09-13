@@ -12,8 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.ImageCache
+import app.splouch.android.R
 import app.splouch.android.ui.picker.PickerScreen
 import app.splouch.android.ui.shell.MeetShell
 import app.splouch.android.ui.theme.BoardTheme
@@ -24,6 +26,7 @@ import app.splouch.core.theme.Theme
 fun SplouchRoot(model: AppModel, images: ImageCache) {
     val state by model.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val meetGone = stringResource(R.string.meet_gone)
 
     // P-14: once per handshake, where the server name shows; never blocks anything.
     LaunchedEffect(state.contractNotice) {
@@ -31,7 +34,7 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
     }
     // A-09: the meet went away; the picker is already back on screen.
     LaunchedEffect(state.meetGone) {
-        if (state.meetGone) { snackbar.showSnackbar(state.pickerStrings.ui("meet_gone")); model.dismissMeetGone() }
+        if (state.meetGone) { snackbar.showSnackbar(meetGone); model.dismissMeetGone() }
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {

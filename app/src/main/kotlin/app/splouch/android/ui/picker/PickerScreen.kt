@@ -50,13 +50,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.splouch.android.ImageCache
 import app.splouch.android.R
-import app.splouch.android.ui.ui
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.UiState
 import app.splouch.core.wire.MeetSummary
@@ -82,8 +82,8 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache) {
                     if (!state.isDefaultServer) Text(state.server.display, fontSize = 13.sp, color = Color(0xFFBBBBBB))
                 },
                 actions = {
-                    IconButton(onClick = { showPrefs = true }) { Icon(painterResource(R.drawable.ic_language), t.ui("language"), tint = Color(0xFF999999)) }
-                    IconButton(onClick = { showServers = true }) { Icon(painterResource(R.drawable.ic_server), t.ui("server"), tint = Color(0xFF999999)) }
+                    IconButton(onClick = { showPrefs = true }) { Icon(painterResource(R.drawable.ic_language), t.mobile("language"), tint = Color(0xFF999999)) }
+                    IconButton(onClick = { showServers = true }) { Icon(painterResource(R.drawable.ic_server), stringResource(R.string.server), tint = Color(0xFF999999)) }
                 },
             )
         },
@@ -100,14 +100,14 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache) {
                 when {
                     state.serverError != null -> item {
                         Column(Modifier.fillMaxWidth().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (state.serverError == "not a Splouch server") t.ui("not_splouch") else t.ui("server_unreachable"), color = Color(0xFF999999), textAlign = TextAlign.Center)
+                            Text(stringResource(if (state.serverError == "not a Splouch server") R.string.not_splouch else R.string.server_unreachable), color = Color(0xFF999999), textAlign = TextAlign.Center)
                             Text(state.server.display, color = Color(0xFF666666), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = { model.retry() }) { Text(t.ui("retry")) }
+                            Button(onClick = { model.retry() }) { Text(stringResource(R.string.retry)) }
                         }
                     }
                     state.serverInfo == null -> item {
-                        Text(t.ui("checking"), color = Color(0xFF555555), modifier = Modifier.padding(top = 60.dp))
+                        Text(stringResource(R.string.checking), color = Color(0xFF555555), modifier = Modifier.padding(top = 60.dp))
                     }
                     state.kind == ServerKind.PI -> item {
                         // §0.2: a Pi has one meet and no picker — the board opens directly; this is
@@ -117,12 +117,12 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache) {
                     else -> {
                         val meets = state.picker.meets
                         if (meets.isEmpty() && state.picker.loaded) {
-                            item { Text(cfg?.strings?.get("no_meets") ?: "", color = Color(0xFF444444), fontSize = 17.sp, modifier = Modifier.padding(top = 60.dp)) }
+                            item { Text(cfg?.strings?.get("no_meets") ?: t.mobile("no_meets"), color = Color(0xFF444444), fontSize = 17.sp, modifier = Modifier.padding(top = 60.dp)) }
                         }
                         items(meets, key = { it.id }) { m ->
                             val img = if (m.hasPickerImage) state.server.httpUrl("/picker_image/${m.id}") else null
                             MeetCard(
-                                name = m.name.ifBlank { cfg?.strings?.get("unnamed_meet") ?: "" },
+                                name = m.name.ifBlank { cfg?.strings?.get("unnamed_meet") ?: t.mobile("unnamed_meet") },
                                 meta = listOf(m.meetDate, m.location, m.sport).filter { it.isNotBlank() },
                                 live = !m.offline,
                                 image = img?.let { url -> remoteBitmap(images, url) },
@@ -130,15 +130,15 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache) {
                         }
                         item {
                             Spacer(Modifier.height(28.dp))
-                            // P-06: the server's words, never a compiled copy that would need a review to fix.
+                            // P-06: the server's words — /picker/config first, the T-10 snapshot of the same key as the floor.
                             Text(
-                                cfg?.strings?.get("results_disclaimer") ?: DISCLAIMER_FLOOR,
+                                cfg?.strings?.get("results_disclaimer") ?: t.mobile("results_disclaimer"),
                                 color = Color(0xFF999999), fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 17.sp,
                                 modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF333333), RoundedCornerShape(8.dp)).background(Color(0xFF141414), RoundedCornerShape(8.dp)).padding(12.dp, 12.dp),
                             )
                             // P-07: only when this server counts attendance.
                             if (cfg?.analyticsEnabled == true) {
-                                Text(cfg.strings["privacy_note"] ?: "", color = Color(0xFF555555), fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 17.sp, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                                Text(cfg.strings["privacy_note"] ?: t.mobile("privacy_note"), color = Color(0xFF555555), fontSize = 12.sp, textAlign = TextAlign.Center, lineHeight = 17.sp, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
                             }
                         }
                     }
@@ -151,9 +151,6 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache) {
 }
 
 private val Bg = Color(0xFF0D0D0D)
-
-/** The same default the web picker template carries; the server's text replaces it whenever it answers. */
-private const val DISCLAIMER_FLOOR = "These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app."
 
 @Composable
 private fun Branding(title: String, hasLogo: Boolean, logoAbove: Boolean, state: UiState, images: ImageCache) {

@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,7 +40,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.R
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
-import app.splouch.android.ui.ui
 import app.splouch.core.schedule.EmptyState
 import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
@@ -82,7 +82,7 @@ fun ScheduleTab(model: AppModel, meet: MeetState) {
             Text(meet.config.title.uppercase(), color = colors.headerLabel, fontSize = 13.sp, letterSpacing = 1.sp, fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { showFilter = true }, shape = RoundedCornerShape(6.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
                 Icon(painterResource(R.drawable.ic_filter), null, tint = colors.headerValue)
-                Text(t.ui("filter"), color = colors.headerValue, fontSize = 13.sp, fontFamily = fonts.family, modifier = Modifier.padding(start = 6.dp))
+                Text(t.mobile("filter"), color = colors.headerValue, fontSize = 13.sp, fontFamily = fonts.family, modifier = Modifier.padding(start = 6.dp))
                 // S-12: how many filters are active.
                 if (filter.filters.isNotEmpty()) {
                     Text(filter.filters.size.toString(), color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
@@ -93,14 +93,14 @@ fun ScheduleTab(model: AppModel, meet: MeetState) {
         HorizontalDivider(color = colors.headerBorder)
         when {
             heats == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(if (meet.scheduleError) t.ui("retry") else "", color = colors.thText)
+                Text(if (meet.scheduleError) stringResource(R.string.retry) else "", color = colors.thText)
             }
             empty == EmptyState.NO_SCHEDULE -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 // S-07: loaded, no schedule yet.
                 Text(t.mobile("no_schedule"), color = colors.thText, fontSize = 20.sp, fontFamily = fonts.family, textAlign = TextAlign.Center, modifier = Modifier.padding(24.dp))
             }
             empty == EmptyState.NO_MATCHES -> Box(Modifier.fillMaxWidth().padding(48.dp, 48.dp), contentAlignment = Alignment.Center) {
-                Text(t.ui("no_matches"), color = colors.scheduleClub, fontSize = 15.sp, fontFamily = fonts.family, textAlign = TextAlign.Center)
+                Text(t.mobile("no_matches"), color = colors.scheduleClub, fontSize = 15.sp, fontFamily = fonts.family, textAlign = TextAlign.Center)
             }
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 itemsIndexed(visible, key = { _, v -> v.heat.event + "/" + v.heat.heat }) { _, v ->

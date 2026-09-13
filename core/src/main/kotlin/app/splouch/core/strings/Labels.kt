@@ -5,7 +5,9 @@ import app.splouch.core.wire.MeetSettings
 /**
  * Column headers and header labels (app.md T-04, T-09). The app never holds the label
  * table: it renders `settings.labels` as sent, or — once the user has chosen a language
- * or a style — the matching table from `GET /i18n/{lang}`.
+ * or a style — the matching table from `GET /i18n/{lang}`. Those are the only two
+ * sources, and nothing is layered over either: there is no per-meet override
+ * (api.md §5.4).
  */
 object Labels {
     const val SHORT = "short"
@@ -22,15 +24,8 @@ object Labels {
     fun resolve(settings: MeetSettings, chosenLang: String?, chosenStyle: String?, table: StringTable): Map<String, String> {
         if (chosenLang == null && chosenStyle == null) return settings.labels
         val style = chosenStyle ?: settings.labelStyle ?: SHORT
-        val lang = chosenLang ?: settings.locale ?: table.lang
         val base = HashMap(table.labels(SHORT))
         if (style == LONG) for (k in WIDE_KEYS) table.labels(LONG)[k]?.let { base[k] = it }
-        // This Pi's custom wording, which the cloud cannot see in its locale files
-        // (api.md §5.4). A long override on a narrow column is ignored, as in the bundled table.
-        settings.labelOverrides[lang]?.let { byStyle ->
-            byStyle[SHORT]?.let { base.putAll(it) }
-            if (style == LONG) byStyle[LONG]?.forEach { (k, v) -> if (k in WIDE_KEYS) base[k] = v }
-        }
         return base
     }
 }

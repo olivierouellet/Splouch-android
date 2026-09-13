@@ -144,8 +144,6 @@ data class MeetSettings(
     val labels: Map<String, String> = emptyMap(),
     /** `"short"` or `"long"` — where T-09's control starts; null when absent (the Pi's /config). */
     val labelStyle: String? = null,
-    /** `{ lang: { style: { key: word } } }` — this Pi's custom wording (api.md §5.4). */
-    val labelOverrides: Map<String, Map<String, Map<String, String>>> = emptyMap(),
 ) {
     companion object {
         const val DEFAULT_NUM_LANES = 8
@@ -173,12 +171,6 @@ data class MeetSettings(
                 labels = o?.get("labels").asObjectOrNull().stringMap(),
                 labelStyle = o?.get("label_style").asStringOrNull()?.trim()?.lowercase()
                     ?.takeIf { it == "short" || it == "long" },
-                labelOverrides = o?.get("label_overrides").asObjectOrNull()?.entries
-                    ?.mapNotNull { (lang, byStyle) ->
-                        byStyle.asObjectOrNull()?.entries
-                            ?.mapNotNull { (style, words) -> words.asObjectOrNull()?.let { style to it.stringMap() } }
-                            ?.toMap()?.let { lang to it }
-                    }?.toMap() ?: emptyMap(),
             )
         }
     }

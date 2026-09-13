@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The only compiled-in string: the launcher label. Everything the app shows on screen
-     comes from the server (app.md T-05) or the captured snapshot in core (T-10). -->
+<!-- app.md T-05: a word the web page also shows belongs to the server and arrives in
+     GET /i18n/{lang} → mobile (tabs, empty states, the filter sheet, the picker's chrome).
+     A word about the app or the device belongs here and is translated natively: the
+     server sheet, connection and address errors, and the standard buttons. -->
 <resources>
     <string name="app_name">Splouch</string>
+
+    <!-- Server sheet (app.md P-11..P-13) -->
+    <string name="server">Server</string>
+    <string name="add_server">Add a server</string>
+    <string name="server_placeholder">https://… or http://splouch.local:5000</string>
+    <string name="nearby">Nearby</string>
+    <string name="remove">Remove</string>
+    <string name="checking">Checking…</string>
+
+    <!-- Connection and address errors -->
+    <string name="server_unreachable">Cannot reach this server</string>
+    <string name="not_splouch">Not a Splouch server</string>
+    <string name="invalid_address">Enter a valid address</string>
+    <string name="cleartext_not_local">Plain http is only allowed for .local names</string>
+    <string name="meet_gone">This meet is no longer available</string>
+
+    <!-- Standard buttons -->
+    <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
+    <string name="ok">OK</string>
+    <string name="retry">Retry</string>
 </resources>
