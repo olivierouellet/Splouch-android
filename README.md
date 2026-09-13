@@ -54,6 +54,9 @@ Only `.local` names, `localhost`, `127.0.0.1` and `10.0.2.2` may be dialled over
 HTTP (release builds: `.local` only). See `app/src/main/res/xml/network_security_config.xml`
 and app.md `P-12`.
 
+[`emulator.md`](emulator.md) covers the rest of the AVD loop: booting one, driving it
+with `adb`, and what to check when the screen looks wrong.
+
 ## Strings
 
 app.md T-05 draws the line by what a word is *about*, not by which repo renders it.
