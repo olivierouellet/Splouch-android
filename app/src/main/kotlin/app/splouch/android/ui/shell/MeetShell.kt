@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -21,6 +23,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -71,8 +74,12 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState) {
                     selectedIconColor = Color.White, selectedTextColor = Color.White, indicatorColor = Color(0xFF2A2A2A),
                     unselectedIconColor = Color(0xFF666666), unselectedTextColor = Color(0xFF666666),
                 )
-                NavigationBarItem(selected = false, onClick = { model.closeMeet() }, colors = itemColors,
-                    icon = { Icon(painterResource(R.drawable.ic_back), t.mobile("back_to_meets")) })
+                // A-02: back to the picker. A plain IconButton, not a NavigationBarItem —
+                // an item would take a weighted quarter of the bar and read as a fourth tab.
+                IconButton(
+                    onClick = { model.closeMeet() },
+                    modifier = Modifier.width(64.dp).align(Alignment.CenterVertically),
+                ) { Icon(painterResource(R.drawable.ic_back), t.mobile("back_to_meets")) }
                 // Each label is a literal `mobile("…")` call so `SnapshotCoverageTests` can
                 // see it: a key reached through a variable would slip past that check.
                 listOf(
