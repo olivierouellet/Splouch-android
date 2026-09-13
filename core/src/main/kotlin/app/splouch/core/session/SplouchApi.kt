@@ -9,7 +9,6 @@ import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ServerEntry
 import app.splouch.core.wire.ServerInfo
 import app.splouch.core.wire.ServerKind
-import app.splouch.core.wire.Suggestion
 import app.splouch.core.wire.parseJsonOrNull
 import kotlinx.serialization.json.JsonElement
 
@@ -48,9 +47,6 @@ class SplouchApi(private val http: HttpClient, val server: ServerAddress) {
 
     suspend fun schedule(context: MeetContext): ApiResult<List<ScheduleHeat>> =
         getJson(context.scheduleUrl) { ScheduleHeat.listFromJson(it) }
-
-    suspend fun suggestions(context: MeetContext, query: String): ApiResult<List<Suggestion>> =
-        getJson(context.suggestionsUrl(query)) { Suggestion.listFromJson(it) }
 
     suspend fun locales(): ApiResult<List<LocaleEntry>> = getJson(server.httpUrl("/locales")) { LocaleEntry.listFromJson(it) }
 

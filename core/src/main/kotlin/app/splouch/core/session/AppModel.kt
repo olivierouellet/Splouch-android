@@ -1,5 +1,6 @@
 package app.splouch.core.session
 
+import app.splouch.core.schedule.SuggestionIndex
 import app.splouch.core.strings.BuiltInStrings
 import app.splouch.core.strings.BundleCache
 import app.splouch.core.strings.Labels
@@ -49,6 +50,8 @@ data class MeetState(
     val theme: Theme,
     /** Null until fetched; empty when the meet has no schedule yet (S-07). */
     val schedule: List<ScheduleHeat>? = null,
+    /** S-09: built from [schedule], rebuilt with it on every re-fetch (S-21). */
+    val suggestions: SuggestionIndex = SuggestionIndex.EMPTY,
     val scheduleError: Boolean = false,
     val refreshing: Boolean = false,
 )
@@ -337,13 +340,6 @@ class AppModel(
         }
     }
 
-    /** S-09: typeahead over swimmers and clubs for the open meet. Empty on any fault. */
-    suspend fun suggestions(query: String): List<app.splouch.core.wire.Suggestion> {
-        val meet = current.meet ?: return emptyList()
-        if (query.isBlank()) return emptyList()
-        return (api.suggestions(meet.context, query.trim()) as? ApiResult.Ok)?.value ?: emptyList()
-    }
-
     fun loadSchedule() {
         val meet = current.meet ?: return
         val gen = generation
@@ -353,7 +349,8 @@ class AppModel(
             _state.update { s ->
                 val m = s.meet ?: return@update s
                 when (r) {
-                    is ApiResult.Ok -> s.copy(meet = m.copy(schedule = r.value, scheduleError = false))
+                    is ApiResult.Ok -> s.copy(meet = m.copy(
+                        schedule = r.value, suggestions = SuggestionIndex.from(r.value), scheduleError = false))
                     else -> s.copy(meet = m.copy(scheduleError = true))
                 }
             }

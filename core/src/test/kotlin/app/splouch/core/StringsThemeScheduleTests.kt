@@ -4,6 +4,7 @@ import app.splouch.core.schedule.Filter
 import app.splouch.core.schedule.HeatRef
 import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
+import app.splouch.core.schedule.SuggestionType
 import app.splouch.core.strings.EventName
 import app.splouch.core.strings.Labels
 import app.splouch.core.strings.StringTable
@@ -12,7 +13,6 @@ import app.splouch.core.wire.EventNameParts
 import app.splouch.core.wire.I18nBundle
 import app.splouch.core.wire.MeetSettings
 import app.splouch.core.wire.ScheduleHeat
-import app.splouch.core.wire.SuggestionType
 import app.splouch.core.wire.parseJsonOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -44,13 +44,12 @@ import app.splouch.core.schedule.EmptyState
 import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.VisibleHeat
-import app.splouch.core.session.AppModel
 import app.splouch.core.session.MeetState
 import app.splouch.core.strings.EventName
 
 /** The start list, filterable (app.md §5). Filters live only for the session (S-20). */
 @Composable
-fun ScheduleTab(model: AppModel, meet: MeetState) {
+fun ScheduleTab(meet: MeetState) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val t = meet.strings
@@ -109,7 +108,7 @@ fun ScheduleTab(model: AppModel, meet: MeetState) {
             }
         }
     }
-    if (showFilter) FilterSheet(model, meet, filter, onChange = { filter = it }, onDismiss = { showFilter = false })
+    if (showFilter) FilterSheet(meet, filter, onChange = { filter = it }, onDismiss = { showFilter = false })
 }
 
 @Composable

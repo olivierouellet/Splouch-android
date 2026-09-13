@@ -8,7 +8,6 @@ import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ScoreboardFrame
 import app.splouch.core.wire.ServerInfo
 import app.splouch.core.wire.ServerKind
-import app.splouch.core.wire.Suggestion
 import app.splouch.core.wire.parseJsonOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -86,12 +85,10 @@ class PayloadTests {
         assertEquals("DSEG14Classic", p.settings.themeFonts["digits"])
     }
 
-    @Test fun `meet list, suggestions, i18n`() {
+    @Test fun `meet list, i18n`() {
         val m = MeetSummary.listFromJson(j("""{"meets":[{"id":"a1","name":"M","offline":true,"has_picker_image":false},{"name":"no id"}]}"""))
         assertEquals(1, m.size)
         assertTrue(m[0].offline)
-        val s = Suggestion.listFromJson(j("""[{"type":"swimmer","name":"Ann","club":"C"},{"type":"club","name":"C"},{"type":"x","name":"y"}]"""))
-        assertEquals(2, s.size)
         val b = I18nBundle.fromJson(j("""{"lang":"fr","mobile":{"scoreboard":"Tableau"},"display":{},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}"""))!!
         assertEquals("Tableau", b.mobile["scoreboard"])
         assertEquals("ÉPREUVE", b.labels["long"]!!["event"])

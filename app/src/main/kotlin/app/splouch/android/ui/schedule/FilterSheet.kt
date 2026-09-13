@@ -47,31 +47,24 @@ import app.splouch.android.ui.theme.LocalBoardFonts
 import app.splouch.android.R
 import app.splouch.core.schedule.Filter
 import app.splouch.core.schedule.ScheduleFilterState
-import app.splouch.core.session.AppModel
+import app.splouch.core.schedule.Suggestion
+import app.splouch.core.schedule.SuggestionType
 import app.splouch.core.session.MeetState
-import app.splouch.core.wire.Suggestion
-import app.splouch.core.wire.SuggestionType
-import kotlinx.coroutines.delay
 
 /** S-08..S-19: the full-screen filter sheet. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FilterSheet(model: AppModel, meet: MeetState, state: ScheduleFilterState, onChange: (ScheduleFilterState) -> Unit, onDismiss: () -> Unit) {
+fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (ScheduleFilterState) -> Unit, onDismiss: () -> Unit) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val t = meet.strings
     var query by remember { mutableStateOf("") }
-    var suggestions by remember { mutableStateOf<List<Suggestion>>(emptyList()) }
     var confirmReset by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
 
-    // S-09: debounced ~220ms.
-    LaunchedEffect(query) {
-        val q = query.trim()
-        if (q.isEmpty()) { suggestions = emptyList(); return@LaunchedEffect }
-        delay(220)
-        suggestions = model.suggestions(q)
-    }
+    // S-09: a local index over the start list, so every keystroke searches at once — no
+    // debounce, because there is no server to spare.
+    val suggestions: List<Suggestion> = remember(meet.suggestions, query) { meet.suggestions.search(query) }
     LaunchedEffect(Unit) { focus.requestFocus() }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -109,7 +102,7 @@ fun FilterSheet(model: AppModel, meet: MeetState, state: ScheduleFilterState, on
                     if (query.isNotBlank()) Text(t.mobile("no_search_results"), color = colors.scheduleClub, fontSize = 14.sp, fontFamily = fonts.family, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(24.dp))
                 } else {
                     LazyColumn(Modifier.fillMaxSize()) {
-                        items(suggestions, key = { it.type.wire + "|" + it.name + "|" + it.club }) { s ->
+                        items(suggestions, key = { it.type.name + "|" + it.name + "|" + it.club }) { s ->
                             val f = Filter(s.type, s.name)
                             val already = state.contains(f)
                             val (bg, fg) = chipColors(s.type)

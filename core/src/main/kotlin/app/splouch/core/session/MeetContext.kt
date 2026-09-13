@@ -14,8 +14,6 @@ data class MeetContext(val server: ServerAddress, val kind: ServerKind, val meet
 
     val configUrl: String get() = server.httpUrl(if (kind == ServerKind.PI) "/config" else "/meet/${enc(meetId)}/config")
     val scheduleUrl: String get() = server.httpUrl(if (kind == ServerKind.PI) "/schedule.json" else "/meet/${enc(meetId)}/schedule")
-    fun suggestionsUrl(query: String): String =
-        server.httpUrl("/search_suggestions?q=${enc(query)}" + if (kind == ServerKind.PI) "" else "&meet_id=${enc(meetId)}")
     fun i18nUrl(lang: String): String = server.httpUrl("/i18n/${enc(lang)}")
 
     fun wsUrl(path: String): String = server.wsUrl(path)

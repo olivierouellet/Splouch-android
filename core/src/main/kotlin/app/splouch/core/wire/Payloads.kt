@@ -418,28 +418,6 @@ data class ScheduleHeat(
     }
 }
 
-// ── GET /search_suggestions (api.md §4) ───────────────────────────────────────
-
-enum class SuggestionType(val wire: String) {
-    SWIMMER("swimmer"), CLUB("club");
-
-    companion object {
-        fun fromWire(s: String?) = entries.firstOrNull { it.wire == s?.trim()?.lowercase() }
-    }
-}
-
-data class Suggestion(val type: SuggestionType, val name: String, val club: String) {
-    companion object {
-        fun listFromJson(e: JsonElement?): List<Suggestion> =
-            e.asArrayOrNull()?.mapNotNull { item ->
-                val o = item.asObjectOrNull() ?: return@mapNotNull null
-                val type = SuggestionType.fromWire(o["type"].asStringOrNull()) ?: return@mapNotNull null
-                val name = o["name"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-                Suggestion(type, name, o["club"].asStringOrNull()?.trim().orEmpty())
-            } ?: emptyList()
-    }
-}
-
 // ── GET /locales, GET /i18n/{lang} (api.md §5.9) ─────────────────────────────
 
 data class LocaleEntry(val code: String, val name: String) {

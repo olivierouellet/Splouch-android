@@ -144,7 +144,7 @@ language controls reuse all of it.
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `S-08` | Full-screen filter sheet, opened from a button in the top bar | must | `done` | `FilterSheet`, full-screen dialog |
-| `S-09` | Typeahead search over swimmers and clubs, debounced ~220ms | must | `done` | 220ms debounce → `AppModel.suggestions` |
+| `S-09` | Typeahead search over swimmers and clubs, from a local index over the start list | must | `done` | `SuggestionIndex` off the `S-01` payload — no request, no debounce; `SearchFold` folds query and name alike |
 | `S-10` | Suggestions show type (swimmer/club), name, and club; already-added ones are marked and inert | should | `done` |  |
 | `S-11` | Active filters appear as chips; tapping a chip's × removes it | must | `done` |  |
 | `S-12` | A count badge on the filter button shows how many filters are active | should | `done` |  |
@@ -161,7 +161,7 @@ language controls reuse all of it.
 
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `S-21` | A new schedule from the Pi refreshes the list | must | `done` | `schedule_update` → re-fetch, filters retained where names still exist |
+| `S-21` | A new schedule from the Pi refreshes the list | must | `done` | `schedule_update` → re-fetch, the `S-09` index rebuilt with it, filters retained where names still exist |
 
 ## 6. Connection and session
 

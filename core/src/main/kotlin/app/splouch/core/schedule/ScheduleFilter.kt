@@ -2,7 +2,6 @@ package app.splouch.core.schedule
 
 import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ScheduleLane
-import app.splouch.core.wire.SuggestionType
 
 /** The event and heat the meet is on, as strings (app.md S-05). */
 data class HeatRef(val event: String, val heat: String)

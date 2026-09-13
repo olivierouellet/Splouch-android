@@ -70,12 +70,10 @@ class SessionTests {
         val cloud = MeetContext(s, ServerKind.CLOUD, "ab c")
         assertEquals("https://c.example/meet/ab%20c/config", cloud.configUrl)
         assertEquals("https://c.example/meet/ab%20c/schedule", cloud.scheduleUrl)
-        assertEquals("https://c.example/search_suggestions?q=an&meet_id=ab%20c", cloud.suggestionsUrl("an"))
         assertTrue(cloud.joinsMeet)
         val pi = MeetContext(ServerAddress.parseOrNull("http://pi.local:5000")!!, ServerKind.PI, null)
         assertEquals("http://pi.local:5000/config", pi.configUrl)
         assertEquals("http://pi.local:5000/schedule.json", pi.scheduleUrl)
-        assertEquals("http://pi.local:5000/search_suggestions?q=an", pi.suggestionsUrl("an"))
         assertFalse(pi.joinsMeet)
     }
 

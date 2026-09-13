@@ -103,7 +103,7 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState) {
                         when (page) {
                             0 -> ScoreboardTab(meet, landscape)
                             1 -> ResultsTab(meet, landscape)
-                            else -> ScheduleTab(model, meet)
+                            else -> ScheduleTab(meet)
                         }
                     }
                 }
