@@ -11,8 +11,8 @@ android {
         applicationId = "app.splouch.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "2026.09.0"
     }
 
     buildTypes {
