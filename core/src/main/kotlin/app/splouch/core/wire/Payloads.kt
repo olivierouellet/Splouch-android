@@ -142,7 +142,7 @@ data class MeetSettings(
     val locale: String? = null,
     /** Labels as the operator resolved them: the default before any user preference (T-04). */
     val labels: Map<String, String> = emptyMap(),
-    /** `"short"` or `"long"` — where T-09's control starts; null when absent (the Pi's /config). */
+    /** `"short"` or `"long"`, as the operator set it; null when absent (the Pi's /config). T-09's control starts from long either way. */
     val labelStyle: String? = null,
 ) {
     companion object {

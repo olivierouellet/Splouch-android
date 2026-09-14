@@ -131,7 +131,6 @@ fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
             locales.forEach { l -> ChoiceRow(l.name, state.prefs.lang == l.code) { model.setLang(l.code) } }
             Spacer(Modifier.height(12.dp))
             Text(t.mobile("prefs_labels"), fontSize = 13.sp, color = Color(0xFF888888))
-            ChoiceRow(t.mobile("prefs_auto"), state.prefs.labelStyle == null) { model.setLabelStyle(null) }
             ChoiceRow(t.mobile("prefs_short"), state.prefs.labelStyle == Labels.SHORT) { model.setLabelStyle(Labels.SHORT) }
             ChoiceRow(t.mobile("prefs_long"), state.prefs.labelStyle == Labels.LONG) { model.setLabelStyle(Labels.LONG) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {

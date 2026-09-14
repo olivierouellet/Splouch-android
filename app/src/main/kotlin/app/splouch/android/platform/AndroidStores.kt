@@ -6,6 +6,7 @@ import app.splouch.core.session.PreferencesStore
 import app.splouch.core.session.VidStore
 import app.splouch.core.strings.BundleCache
 import app.splouch.core.strings.CachedBundle
+import app.splouch.core.strings.Labels
 import app.splouch.core.wire.I18nBundle
 import java.io.File
 import java.security.MessageDigest
@@ -29,7 +30,8 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         server = prefs.getString("server", null),
         servers = prefs.getString("servers", "")!!.split('\n').filter { it.isNotBlank() },
         lang = prefs.getString("lang", null),
-        labelStyle = prefs.getString("label_style", null),
+        // A device that stored the old "meet default" (absent) reads as the new default.
+        labelStyle = if (prefs.getString("label_style", null) == Labels.SHORT) Labels.SHORT else Labels.DEFAULT,
         tab = if (prefs.contains("tab")) prefs.getInt("tab", 0) else null,
     )
 

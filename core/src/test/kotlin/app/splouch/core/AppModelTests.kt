@@ -65,7 +65,7 @@ class AppModelTests {
         assertNull(s.meet)
     }
 
-    @Test fun `opening a meet starts a session in the meet's language with the operator's labels`() = runTest {
+    @Test fun `opening a meet starts a session in the meet's language with long headers over the operator's labels`() = runTest {
         val r = Rig(this)
         r.http.cloudRoutes()
         r.model.start(); runCurrent()
@@ -75,7 +75,8 @@ class AppModelTests {
         assertEquals(6, m.config.settings.numLanes)
         assertEquals("en", m.lang)
         assertEquals("Scoreboard", m.strings.mobile("scoreboard"))
-        assertEquals(mapOf("event" to "EV", "heat" to "HT"), m.labels)
+        // The operator sent short words and label_style "short"; T-09 starts from long anyway.
+        assertEquals(mapOf("event" to "EVENT", "heat" to "HEAT"), m.labels)
         assertEquals(emptyList(), m.schedule)
         assertEquals(3, r.transport.connections.size)
         // a language choice re-derives strings and labels from the server's table
@@ -83,10 +84,10 @@ class AppModelTests {
         val m2 = r.model.current.meet!!
         assertEquals("fr", m2.lang)
         assertEquals("Tableau", m2.strings.mobile("scoreboard"))
-        assertEquals("ÉP", m2.labels["event"])
-        r.model.setLabelStyle("long"); runCurrent()
-        assertEquals("ÉPREUVE", r.model.current.meet!!.labels["event"])
-        assertEquals("long", r.prefsStore.load().labelStyle)
+        assertEquals("ÉPREUVE", m2.labels["event"])
+        r.model.setLabelStyle("short"); runCurrent()
+        assertEquals("ÉP", r.model.current.meet!!.labels["event"])
+        assertEquals("short", r.prefsStore.load().labelStyle)
         r.model.closeMeet()
         assertNull(r.model.current.meet)
         assertTrue(r.transport.connections.all { it.closed })

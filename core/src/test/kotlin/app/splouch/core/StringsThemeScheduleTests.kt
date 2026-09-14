@@ -39,18 +39,23 @@ class StringsThemeScheduleTests {
         assertEquals("Relay", t.eventVocab["relay"])   // English floor per key
     }
 
-    @Test fun `labels - the operator's as sent, or the chosen table with the narrow-column rule`() {
+    @Test fun `labels - the operator's as sent, with EVENT and HEAT following the device's style`() {
         val t = StringTable("fr", null, frBuiltIn, en)
         val settings = MeetSettings(numLanes = 8, locale = "fr", labels = mapOf("event" to "OP", "lane" to "OPLN"), labelStyle = "short")
-        // No user choice: exactly what the operator picked, nothing layered over it.
-        assertEquals(mapOf("event" to "OP", "lane" to "OPLN"), Labels.resolve(settings, null, null, t))
-        val long = Labels.resolve(settings, null, "long", t)
-        assertEquals("ÉPREUVE", long["event"])
-        assertEquals("SÉRIE", long["heat"])
-        assertEquals("CL", long["lane"])          // narrow columns keep their short word
-        val short = Labels.resolve(settings, "fr", null, t)
+        // Untouched: the operator's words stand, except the two headers the control owns —
+        // long, whatever the operator's own label_style says.
+        val default = Labels.resolve(settings, null, Labels.DEFAULT, t)
+        assertEquals("ÉPREUVE", default["event"])
+        assertEquals("SÉRIE", default["heat"])
+        assertEquals("OPLN", default["lane"])     // every other column is the operator's, as sent
+        val short = Labels.resolve(settings, null, "short", t)
         assertEquals("ÉP", short["event"])
-        assertEquals("CL", short["lane"])
+        assertEquals("OPLN", short["lane"])
+        // A language choice replaces the base too: that language's table, short columns.
+        val fr = Labels.resolve(settings, "fr", "short", t)
+        assertEquals("ÉP", fr["event"])
+        assertEquals("CL", fr["lane"])            // narrow columns keep their short word
+        assertEquals("ÉPREUVE", Labels.resolve(settings, "fr", "long", t)["event"])
     }
 
     @Test fun `event name composes from parts and falls back`() {

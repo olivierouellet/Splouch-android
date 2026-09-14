@@ -373,8 +373,9 @@ class AppModel(
         }
     }
 
-    fun setLabelStyle(style: String?) {
-        savePrefs(current.prefs.copy(labelStyle = style?.takeIf { it == Labels.SHORT || it == Labels.LONG }))
+    /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */
+    fun setLabelStyle(style: String) {
+        savePrefs(current.prefs.copy(labelStyle = if (style == Labels.SHORT) Labels.SHORT else Labels.LONG))
         _state.update { s -> s.copy(meet = s.meet?.let { m -> m.copy(labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.labelStyle, m.strings)) }) }
     }
 

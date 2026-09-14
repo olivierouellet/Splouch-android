@@ -14,7 +14,7 @@ scope for a native client; everything else starts `deferred`.
 `Level` is copied from `app.md` v1 for triage only. **`app.md` is authoritative** —
 if the two ever disagree, that document wins and this one is stale.
 
-**Verification status (2026-09-13):** `./gradlew test` passes (68 unit tests over the
+**Verification status (2026-09-13):** `./gradlew test` passes (74 unit tests over the
 socket loop, race clock, frame merge, results grid, strings, filters, the app model and
 the string-snapshot coverage check) and the two live checks in `LiveServerTests` pass against a local Pi server (handshake,
 config, schedule, connect burst, joined session). `./gradlew :app:assembleDebug` builds.
@@ -29,7 +29,11 @@ choice survived a relaunch. After the i18n rework (2026-09-13) the split was che
 the same AVD against splouch.ca: the picker's disclaimer and privacy note, the tab
 names, the filter sheet and the language and label-style controls all render the
 server's French, while the server sheet and the standard buttons follow the device
-locale (English by default, French under a per-app locale). Not yet exercised on a
+locale (English by default, French under a per-app locale). The `T-09` rework
+(2026-09-13) was checked on the same AVD against a local Pi: the label section offers
+two rows, a device carrying the old absent preference comes up on **Longues** and the
+board header reads `ÉPREUVE SÉRIE`, picking **Courtes** turns it into `ÉP SÉR`, and the
+choice survives leaving and reopening the sheet. Not yet exercised on a
 device: the lock flash and the pulse, a language change made from the preference
 sheet mid-meet, the mDNS browse, and A-09.
 
@@ -185,12 +189,12 @@ language controls reuse all of it.
 | `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`… | must | `done` | `BoardColors` |
 | `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | should | `done` |  |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | must | `done` | six faces bundled in `res/font`, unknown → system monospace |
-| `T-04` | Column headers and header labels are the server's words, never the app's | must | `done` | `settings.labels` as sent, or the `/i18n/{lang}` table once the user picks a language or style (`Labels.resolve`); nothing is layered over either — there is no per-meet override |
+| `T-04` | Column headers and header labels are the server's words, never the app's | must | `done` | `settings.labels` as sent, or the `/i18n/{lang}` table once the user picks a language (`Labels.resolve`); the EVENT and HEAT headers come from that table in the style `T-09` is set to. Both sources are the server's and nothing else is layered over them — there is no per-meet override |
 | `T-05` | The app's own chrome — tab names, empty states, filter UI — is fetched and cached, not translated in the app | must | `done` | Every word the web page also shows comes from `GET /i18n/{lang}` → `mobile` through `StringTable`, cached with its ETag; words about the app or the device — the server sheet, connection and address errors, the standard buttons — are native resources in `values`, `values-fr` and `values-es`. `SnapshotCoverageTests` fails the build if the app asks for a `mobile` key the captured snapshot lacks |
 | `T-06` | Language defaults to the meet's locale and the user may override it | must | `done` | `prefs.lang ?: settings.locale ?: device` |
 | `T-07` | Missing theme keys fall back to the documented defaults rather than rendering unstyled | must | `done` | `Theme.DEFAULT_COLORS` / `DEFAULT_FONTS` |
 | `T-08` | A language control, per device, applying to every meet opened afterwards | should | `done` | `PrefsSheet` on the picker, `GET /locales` |
-| `T-09` | A short/long control over the EVENT and HEAT headers only, starting from short | should | `done` | `PrefsSheet`; starts from `label_style`, `short` when absent |
+| `T-09` | A short/long control over the EVENT and HEAT headers only, starting from short | should | `done`, diverges | `PrefsSheet`, two options and no third: the device picks short or long and **starts from long**, so the operator's `label_style` no longer decides where it starts and the old "meet default" row is gone. Still the EVENT and HEAT headers only — every other column keeps the operator's word. Long is the default because these headers read as `EV`/`HT` otherwise, which an attendee has to decode; see open question 4 |
 | `T-10` | A built-in snapshot of the strings is the floor: compiled into the app, refreshed from the server, cached to disk | must | `done` | `core/src/main/resources/i18n/*.json` captured by `scripts/update-strings.sh`; `FileBundleCache` with ETag revalidation |
 | `T-11` | The event name follows the chosen language, composed from parts the server sends | should | `done` | `EventName.compose` (tests) |
 
@@ -222,8 +226,17 @@ Raised while building this app; each needs an answer in `app.md` or `api.md` (or
    should keep every key it has seen, or `L-13`'s baseline note should say a replay may
    lack the header. Server-side; the app renders what it receives.
 
-Also noted, not blocking: the Pi's `GET /config` carries no `label_style`, so `T-09`
-starts from `short` on a Pi session (as the row says anyway); `T-07`'s "documented
+4. **`T-09` starts from long here, and the operator's `label_style` is inert.**
+   `app.md` says the control starts from short and this app started it from
+   `settings.label_style`. On a phone the abbreviations are the wrong default: `EV`
+   and `HT` above a number are a puzzle where `EVENT` and `HEAT` are not, and the two
+   headers have the width for the long word. So the sheet offers short and long only —
+   no "meet default" — and starts from long, on the cloud and the Pi alike. If the
+   contract wants the operator's choice honoured, `T-09` needs to say whether the
+   device's preference overrides it or merely starts from it.
+
+Also noted, not blocking: the Pi's `GET /config` carries no `label_style`, which now
+costs nothing either way — `T-09` starts from long on every server; `T-07`'s "documented
 defaults" exist only in code (`cloud_server.py` `_DEFAULT_COLORS`), which this app
 mirrors in `core/.../theme/Theme.kt`; podium tints exist in `results.html` and the
 palette but not in the contract, so they are left out.
