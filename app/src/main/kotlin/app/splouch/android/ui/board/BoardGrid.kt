@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
@@ -284,23 +285,50 @@ private fun PlaceText(place: String, size: TextUnit, modifier: Modifier, arrange
 fun BoardHeader(eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
+    val cfg = LocalConfiguration.current
+    val height = (cfg.screenHeightDp * 0.085f).coerceIn(52f, 92f).dp
+    val t = headerType(height)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().heightIn(min = height).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        HeaderCell(eventLabel, event, 12.sp, 24.sp, fonts.family, fonts.digits)
-        HeaderCell(heatLabel, heat, 12.sp, 24.sp, fonts.family, fonts.digits)
+        HeaderCell(eventLabel, event, t.label, t.value, fonts.family, fonts.digits)
+        HeaderCell(heatLabel, heat, t.label, t.value, fonts.family, fonts.digits)
         // Centred in the slot between the header cells and the clock: pinned left between
         // two items sitting at the edges, it read as floating rather than placed.
         AutoSizeText(
             eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family,
-            maxSize = 17.sp, minSize = 9.sp, textAlign = TextAlign.Center, maxLines = 2,
+            maxSize = t.name, minSize = t.nameFloor, textAlign = TextAlign.Center, maxLines = 2,
         )
         if (clock != null) {
-            Text(clock, color = colors.headerValue, fontSize = 24.sp, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+            Text(clock, color = colors.headerValue, fontSize = t.value, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
         }
     }
+}
+
+/** The four sizes a board header needs, as fractions of the height it has. */
+private data class HeaderType(val label: TextUnit, val value: TextUnit, val name: TextUnit, val nameFloor: TextUnit)
+
+/**
+ * The header takes its type from the height it has, the way the lane rows take theirs from
+ * the height they share (`L-15`).
+ *
+ * Every size goes through `toSp()`, which divides out the device's font-size setting, so a
+ * reader who has turned text up moves the chrome around the board and not the board. They
+ * were fixed `sp` before: at 2x the EVENT and HEAT words grew until they had eaten the row
+ * and squeezed the event name down to an ellipsis, which is a board that stops reporting
+ * the heat in order to name it. The lane rows below still follow the setting — see
+ * `parity.md` §8, where whether they should is still open.
+ */
+@Composable
+private fun headerType(height: Dp): HeaderType = with(LocalDensity.current) {
+    HeaderType(
+        label = (height * 0.17f).toSp(),
+        value = (height * 0.35f).toSp(),
+        name = (height * 0.25f).toSp(),
+        nameFloor = (height * 0.13f).toSp(),
+    )
 }
 
 /**
@@ -315,25 +343,30 @@ fun BoardBarHeaderRow(
 ) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
+    // A top app bar is a fixed 64dp, so that is the height this row is sized from.
+    val t = headerType(BarHeight)
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        InlineCell(eventLabel, event, fonts.family, fonts.digits)
-        InlineCell(heatLabel, heat, fonts.family, fonts.digits)
+        InlineCell(eventLabel, event, t.label, t.value, fonts.family, fonts.digits)
+        InlineCell(heatLabel, heat, t.label, t.value, fonts.family, fonts.digits)
         AutoSizeText(
             eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family,
-            maxSize = 15.sp, minSize = 9.sp, textAlign = TextAlign.Center, maxLines = 2,
+            maxSize = t.name, minSize = t.nameFloor, textAlign = TextAlign.Center, maxLines = 2,
         )
         if (server != null) {
-            Text(server, color = colors.thText, fontSize = 11.sp, fontFamily = fonts.family, maxLines = 1, softWrap = false)
+            Text(server, color = colors.thText, fontSize = t.label, fontFamily = fonts.family, maxLines = 1, softWrap = false)
         }
         if (clock != null) {
-            Text(clock, color = colors.headerValue, fontSize = 18.sp, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+            Text(clock, color = colors.headerValue, fontSize = t.value, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
         }
     }
 }
+
+/** Material's top app bar height, which the landscape header row is measured against. */
+private val BarHeight = 64.dp
 
 /** The word and its number read as one thing, and say nothing at all before a number arrives. */
 @Composable
@@ -351,7 +384,7 @@ private fun HeaderCell(label: String, value: String, labelSize: TextUnit, valueS
 }
 
 @Composable
-private fun InlineCell(label: String, value: String, labelFont: FontFamily, valueFont: FontFamily) {
+private fun InlineCell(label: String, value: String, labelSize: TextUnit, valueSize: TextUnit, labelFont: FontFamily, valueFont: FontFamily) {
     val colors = LocalBoardColors.current
     val spokenValue = if (value.isBlank()) "" else "$label $value"
     Row(
@@ -359,7 +392,7 @@ private fun InlineCell(label: String, value: String, labelFont: FontFamily, valu
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         modifier = Modifier.clearAndSetSemantics { if (spokenValue.isNotEmpty()) contentDescription = spokenValue },
     ) {
-        Text(label, color = colors.headerLabel, fontSize = 11.sp, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
-        Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = 18.sp, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
+        Text(label, color = colors.headerLabel, fontSize = labelSize, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
+        Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = valueSize, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
     }
 }
