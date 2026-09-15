@@ -23,8 +23,20 @@ is built here and why not.
     the compiled snapshot in `src/main/resources/i18n/`
   - `theme/`, `schedule/`
 - `app/` — the Android application: OkHttp adapters, stores, mDNS browse, and the
-  Compose screens (picker and server sheet, meet shell, scoreboard, results, schedule
-  and filter sheet). Bundled fonts in `src/main/res/font/`, licences in `font-licenses/`.
+  Compose screens (picker and its server and language sheets, meet shell, scoreboard,
+  results, schedule and filter sheet). Bundled fonts in `src/main/res/font/`, licences
+  in `font-licenses/`.
+  - `ui/theme/` the two themes and the line between them: `SplouchTheme` is the device's
+    (dynamic colour, system light/dark) and dresses everything outside a meet;
+    `BoardTheme` is the meet's palette and faces (app.md `T-01`–`T-03`), and derives the
+    Material scheme that sheets and dialogs drawn over the board use
+  - `ui/common/` the shared empty state and the Remove-animations check
+  - `ui/Adaptive.kt` Material's width breakpoints — `Compact` gets the bottom navigation
+    bar, anything wider gets the rail (`parity.md` `A-07`)
+
+**Chrome is the platform's, the board is the meet's.** A meet themes its own board and
+nothing else; the picker has no meet and so no palette, and is Material throughout. See
+`parity.md` → *The native-UI pass* before reaching for a hex literal.
 
 `settings.gradle.kts` includes `:app` only when an Android SDK is found, so
 `./gradlew :core:test` runs anywhere a JDK 17 is.
