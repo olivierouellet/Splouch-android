@@ -22,9 +22,8 @@ the string-snapshot coverage check) and `./gradlew :app:assembleDebug` builds.
 
 The UI was rebuilt on the platform's own components this day — see **The native-UI pass**
 below. Seen working on a Medium Phone AVD (API 37) against a local Pi playing
-`200m_medley_2heats.cts` and a local cloud relaying it: the picker as a Material list in
-the device's light *and* dark theme, with dynamic colour, its branding and its disclaimer
-block; the language and server sheets; the scoreboard with names, clubs and the app bar's
+`200m_medley_2heats.cts` and a local cloud relaying it: the picker as a Material list with dynamic colour, its
+branding and its disclaimer block; the language and server sheets; the scoreboard with names, clubs and the app bar's
 back arrow; results with times, deltas and places; the schedule with the current heat
 marked and the filter button in the app bar; the filter sheet's field, keyboard and
 stand-down; landscape on both board tabs, where the header folds into the app bar and the
@@ -60,9 +59,17 @@ tap". So:
 
 | | Draws with | Follows |
 | --- | --- | --- |
-| Picker, server and language sheets, errors | Material 3 roles, dynamic colour where the device offers it | the **device's** light or dark |
+| Picker, server and language sheets, errors | Material 3 roles, dynamic colour where the device offers it | the **board** — dark, for now; see below |
 | Scoreboard, Results, Schedule cards | `T-01`/`T-02`'s palette and `T-03`'s faces, unchanged | the **meet** |
 | Sheets and dialogs *inside* a meet | Material components over a scheme derived from the meet's palette | the **meet's** light or dark, by its `bg` luminance |
+
+The picker is **dark whatever the device says**, and that is a `for now` rather than a
+retraction. Following the system was right in principle and wrong in practice: every
+meet theme an operator ships paints a dark board, so on a light phone a spectator got a
+white list and was then dropped onto black the moment they tapped a meet. The board's
+palette is the operator's (`T-01`), so a light board is their call to make; the day one
+exists, `SplouchTheme` can go back to `isSystemInDarkTheme()` and nothing else has to
+move. Dynamic colour still applies where the platform offers it, in its dark form.
 
 Nothing about `T-01`, `T-02`, `T-03` or `T-07` changed: the board renders exactly the
 thirteen colours and three faces it did before. What changed is that a Material component
@@ -129,7 +136,7 @@ Also in this pass, and listed here because no single ID owns them:
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `L-01` | EVENT number, HEAT number, each a small label above a large value | must | `done` | `BoardHeader` in portrait — the word over the number, with room between them and no background band of its own. In landscape the row moves into the app bar (`BoardBarHeader`), where a bar is one line high so the word sits *beside* its number; the bar was otherwise a back arrow in the corner and nothing next to it. The word and its number are one thing to the screen reader, and say nothing at all before a number arrives rather than stopping it on a blank |
-| `L-02` | Event name | must | `done` | `event_name`, composed from parts when a language is chosen (T-11); auto-shrinking between the header cells and the clock in both layouts |
+| `L-02` | Event name | must | `done` | `event_name`, composed from parts when a language is chosen (T-11). Centred in the slot between the header cells and the clock — pinned left between two items sitting at the edges, it read as floating rather than placed — and the one label on the board allowed two lines: it has a header to itself, so it uses the second before it starts shrinking, where a lane's name shares its row with five other cells and has to hold its line |
 | `L-03` | Wall clock, `HH:MM`, ticking every second | must | `done` | `wallClock()`, device time, ticks each second; trailing item of the header in both layouts, and of the app bar row in landscape |
 
 ## 3.2 Lane table
@@ -153,7 +160,7 @@ Also in this pass, and listed here because no single ID owns them:
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `L-15` | Portrait: two-line compact row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on… | must | `done` | `PortraitGrid`, and the row's type is now taken from the height the row actually got (26% of it, clamped 13–24sp) rather than from the screen's dimensions alone — a six-lane meet is read across a pool rather than set at the size a sixteen-lane one needs. The lanes have no divider between them: the `row_odd`/`row_even` stripe already separates them, and the hairline was the web table's |
-| `L-16` | Landscape: full table with a header row, row font scaled to lane count | should | `done` | `LandscapeGrid`, row font from lane count |
+| `L-16` | Landscape: full table with a header row, row font scaled to lane count | should | `done` | `LandscapeGrid`, row font from lane count. The place cell is centred here, under its own centred column header — it was the only cell not lining up with the word above it. Portrait keeps it hard right (`L-15`): no header there, and it is the last thing on the line |
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | must | `done` | `AutoSizeText`: `BasicText` with `TextAutoSize.StepBased`, ellipsis only below 8sp. The platform measures, so there is no per-frame re-fit to gate (app.md L-17's note) |
 
 ## 3.4 Not on this tab
@@ -263,7 +270,7 @@ under TalkBack yet** (see the verification note at the top).
 | Decorative glyphs | done | The meet row's chevron is hidden: it sat beside text already saying the same thing. Tab icons pass `null` as their description because the label beside them is the name |
 | Headings | done | Heat headings, the picker's branding title and every `EmptyState` title carry `heading()`, so the rotor can jump heat to heat on the screen whose whole purpose is finding one swimmer among several hundred |
 | Selection | done | The server and language rows are `selectable` with `Role.RadioButton`, so the current choice is announced. The radio button was the only thing marking it, and a glyph says nothing out loud |
-| Font scale | done | Every size on the picker, the sheets and the schedule is `sp` off the Material type scale, so it follows the device's font-size setting. The board deliberately does not: `L-15` and `L-16` compute row type from the height the lanes share, so scaling would fight the layout rather than serve it |
+| Font scale | partial | Every size on the picker, the sheets and the schedule is `sp` off the Material type scale, so it follows the device's font-size setting. The board's rows deliberately do not: `L-15` and `L-16` compute row type from the height the lanes share, so scaling would fight the layout rather than serve it. **The board header is the gap.** Its EVENT/HEAT words and the clock are fixed `sp`, so they grow with the setting while the row they sit in does not — at 1.4× the event name wraps to its second line, which is fine, but by 2.0× the labels have eaten the row and the name is squeezed to an ellipsis. The fix is probably to treat the header like the rows and size it from its own height; not done |
 | Remove animations | partial | The picker's live dot honours it (`ui/common/Motion.kt`). The board's `L-11` lock flash and `L-12` pulse do not, on purpose — those two are information rather than decoration: the flash is how a final time announces itself and the pulse is how a lane says its clock has gone quiet |
 | Contrast | n/a | The board's palette is the operator's (`T-01`), so its contrast is theirs to get right; the app renders what it is sent. The chrome is the platform's and inherits the platform's |
 
