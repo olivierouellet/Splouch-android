@@ -17,4 +17,6 @@
     <string name="done">Terminé</string>
     <string name="ok">OK</string>
     <string name="retry">Réessayer</string>
+    <string name="clear">Effacer</string>
+    <string name="close">Fermer</string>
 </resources>

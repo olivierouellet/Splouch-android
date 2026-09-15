@@ -1,6 +1,9 @@
 package app.splouch.android.ui.picker
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +13,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,6 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -110,7 +118,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                     when {
                         busy -> CircularProgressIndicator(Modifier.padding(12.dp))
                         text.isNotBlank() -> IconButton(onClick = { add() }) {
-                            Icon(painterResource(R.drawable.ic_check), stringResource(R.string.ok))
+                            Icon(painterResource(R.drawable.ic_check), stringResource(R.string.add_server))
                         }
                         else -> Unit
                     }
@@ -133,19 +141,46 @@ private fun SectionHeader(text: String) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, onSelect: () -> Unit, onRemove: (() -> Unit)?) {
-    ListItem(
-        // `selectable` is what carries the selected state to the screen reader: the radio
-        // button is a glyph, and a glyph says nothing out loud.
-        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { RadioButton(selected = selected, onClick = null) },
-        headlineContent = { Text(s.name, maxLines = 1) },
-        supportingContent = { Text(s.address.display + (s.kind?.let { "  ·  ${it.wire}" } ?: ""), maxLines = 1) },
-        trailingContent = if (onRemove == null) null else ({
-            TextButton(onClick = onRemove) { Text(removeLabel) }
-        }),
+    val row = @Composable {
+        ListItem(
+            // `selectable` is what carries the selected state to the screen reader: the radio
+            // button is a glyph, and a glyph says nothing out loud.
+            modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
+            colors = ListItemDefaults.colors(containerColor = BottomSheetDefaults.ContainerColor),
+            leadingContent = { RadioButton(selected = selected, onClick = null) },
+            headlineContent = { Text(s.name, maxLines = 1) },
+            supportingContent = { Text(s.address.display + (s.kind?.let { "  ·  ${it.wire}" } ?: ""), maxLines = 1) },
+        )
+    }
+    if (onRemove == null) {
+        row()
+        return
+    }
+    val dismiss = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) { onRemove(); true } else false
+        },
+    )
+    SwipeToDismissBox(
+        state = dismiss,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                Modifier.fillMaxSize()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_delete), removeLabel,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        },
+        content = { row() },
     )
 }
 
@@ -167,9 +202,6 @@ fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
             SectionHeader(t.mobile("language"))
             ChoiceRow(t.mobile("language_auto"), state.prefs.lang == null) { model.setLang(null) }
             locales.forEach { l -> ChoiceRow(l.name, state.prefs.lang == l.code) { model.setLang(l.code) } }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
-            }
         }
     }
 }

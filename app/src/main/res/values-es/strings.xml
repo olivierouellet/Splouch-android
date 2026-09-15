@@ -17,4 +17,6 @@
     <string name="done">Listo</string>
     <string name="ok">OK</string>
     <string name="retry">Reintentar</string>
+    <string name="clear">Borrar</string>
+    <string name="close">Cerrar</string>
 </resources>

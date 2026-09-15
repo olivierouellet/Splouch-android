@@ -85,6 +85,11 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
             modifier = Modifier.fillMaxSize().imePadding(),
             topBar = {
                 TopAppBar(
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close))
+                        }
+                    },
                     title = { Text(t.mobile("filter"), style = MaterialTheme.typography.titleLarge, maxLines = 1) },
                     actions = {
                         IconButton(onClick = onDismiss) {
@@ -103,7 +108,7 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
                     leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                     trailingIcon = if (query.isEmpty()) null else ({
                         IconButton(onClick = { query = "" }) {
-                            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.cancel))
+                            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear))
                         }
                     }),
                     // A name is matched folded, so the keyboard has no business capitalising it.
