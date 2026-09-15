@@ -25,6 +25,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 
+/** What [AppModel.removeServer] took away, so [AppModel.restoreServer] can put it back exactly. */
+data class RemovedServer(val origin: String, val index: Int, val wasSelected: Boolean)
+
 /** A server the picker's menu can offer (app.md P-11..P-13). */
 data class KnownServer(val address: ServerAddress, val name: String, val kind: ServerKind?, val source: Source) {
     enum class Source { DEFAULT, SAVED, DIRECTORY, DISCOVERED }
@@ -154,10 +157,35 @@ class AppModel(
         return AddServerResult.Ok(known)
     }
 
-    fun removeServer(address: ServerAddress) {
-        savePrefs(current.prefs.copy(servers = current.prefs.servers - address.origin))
+    /**
+     * P-13. Returns what it took away, or null if there was nothing to take: removing a
+     * hand-added server is a one-finger gesture in the UI, so it has to be undoable, and
+     * an undo that cannot put the row back where it was is not one.
+     */
+    fun removeServer(address: ServerAddress): RemovedServer? {
+        val origin = address.origin
+        val index = current.prefs.servers.indexOf(origin)
+        if (index < 0) return null
+        val wasSelected = address == current.server
+        savePrefs(current.prefs.copy(servers = current.prefs.servers - origin))
         rebuildServers()
-        if (address == current.server) selectServer(defaultServer)
+        if (wasSelected) selectServer(defaultServer)
+        return RemovedServer(origin, index, wasSelected)
+    }
+
+    /**
+     * The inverse of [removeServer]: the row goes back at its own index, and back in use
+     * if it was in use. No `GET /server` — it answered once when it was added (P-13) and
+     * undoing a slip is not the moment to ask again, least of all on a pool deck where
+     * the reason it is saved is that the network is unreliable.
+     */
+    fun restoreServer(removed: RemovedServer) {
+        if (removed.origin in current.prefs.servers) return
+        val servers = current.prefs.servers.toMutableList()
+        servers.add(removed.index.coerceIn(0, servers.size), removed.origin)
+        savePrefs(current.prefs.copy(servers = servers))
+        rebuildServers()
+        if (removed.wasSelected) ServerAddress.parseOrNull(removed.origin)?.let { selectServer(it) }
     }
 
     /** P-12: what the platform's mDNS browse found. */

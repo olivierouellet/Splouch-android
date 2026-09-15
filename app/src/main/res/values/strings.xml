@@ -28,4 +28,6 @@
     <string name="retry">Retry</string>
     <string name="clear">Clear</string>
     <string name="close">Close</string>
+    <string name="undo">Undo</string>
+    <string name="server_removed">Server removed</string>
 </resources>

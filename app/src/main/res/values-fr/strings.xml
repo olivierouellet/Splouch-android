@@ -19,4 +19,6 @@
     <string name="retry">Réessayer</string>
     <string name="clear">Effacer</string>
     <string name="close">Fermer</string>
+    <string name="undo">Annuler</string>
+    <string name="server_removed">Serveur retiré</string>
 </resources>

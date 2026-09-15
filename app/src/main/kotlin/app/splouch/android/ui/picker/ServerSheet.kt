@@ -24,6 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -37,6 +40,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,6 +53,8 @@ import app.splouch.android.R
 import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.KnownServer
+import app.splouch.core.session.RemovedServer
+import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.UiState
 import app.splouch.core.strings.BuiltInStrings
 import kotlinx.coroutines.launch
@@ -69,6 +76,20 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
     val notSplouch = stringResource(R.string.not_splouch)
     val unreachable = stringResource(R.string.server_unreachable)
     val removeLabel = stringResource(R.string.remove)
+    val sheetSnackbar = remember { SnackbarHostState() }
+    val removedMessage = stringResource(R.string.server_removed)
+    val undoLabel = stringResource(R.string.undo)
+
+    // P-13: a swipe is one finger and a saved server is a typed address, so taking one
+    // away has to be undoable. The snackbar carries the only way back; `restoreServer`
+    // puts the row at its own index and re-selects it if it was in use.
+    fun removeWithUndo(address: ServerAddress) {
+        val removed: RemovedServer = model.removeServer(address) ?: return
+        scope.launch {
+            val r = sheetSnackbar.showSnackbar(removedMessage, undoLabel, withDismissAction = false)
+            if (r == SnackbarResult.ActionPerformed) model.restoreServer(removed)
+        }
+    }
 
     fun add() {
         if (busy || text.isBlank()) return
@@ -85,6 +106,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
+      Box {
         Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             SectionHeader(stringResource(R.string.server))
             val nearby = state.servers.filter { it.source == KnownServer.Source.DISCOVERED }
@@ -92,7 +114,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
             others.forEach {
                 ServerRow(it, it.address == state.server, removeLabel,
                     onSelect = { model.selectServer(it.address); onDismiss() },
-                    onRemove = if (it.source == KnownServer.Source.SAVED) ({ model.removeServer(it.address) }) else null)
+                    onRemove = if (it.source == KnownServer.Source.SAVED) ({ removeWithUndo(it.address) }) else null)
             }
             if (nearby.isNotEmpty()) {
                 SectionHeader(stringResource(R.string.nearby))
@@ -128,6 +150,8 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
         }
+        SnackbarHost(sheetSnackbar, Modifier.align(Alignment.BottomCenter).padding(8.dp))
+      }
     }
 }
 
@@ -159,9 +183,16 @@ private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, on
         row()
         return
     }
+    val haptics = LocalHapticFeedback.current
     val dismiss = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) { onRemove(); true } else false
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onRemove()
+                true
+            } else {
+                false
+            }
         },
     )
     SwipeToDismissBox(

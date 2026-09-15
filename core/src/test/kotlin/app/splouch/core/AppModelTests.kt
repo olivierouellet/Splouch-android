@@ -157,9 +157,27 @@ class AppModelTests {
         assertEquals(pi, r.prefsStore.load().server)
         assertEquals(ServerKind.PI, r.model.current.kind)
         assertNotNull(r.model.current.meet)
-        r.model.removeServer(ServerAddress.parseOrNull(pi)!!); runCurrent()
+        // P-13: removing is a one-finger swipe in the UI, so it hands back what it took.
+        val removed = r.model.removeServer(ServerAddress.parseOrNull(pi)!!); runCurrent()
+        assertNotNull(removed)
+        assertEquals(0, removed.index)
+        assertTrue(removed.wasSelected)
         assertTrue(r.model.current.isDefaultServer)
         assertNull(r.prefsStore.load().server)
+        assertEquals(emptyList(), r.prefsStore.load().servers)
+
+        // ...and undo puts it back where it was, and back in use, without asking the
+        // network again — the handshake already happened when it was added.
+        r.model.restoreServer(removed); runCurrent()
+        assertEquals(listOf(pi), r.prefsStore.load().servers)
+        assertEquals(pi, r.prefsStore.load().server)
+        assertEquals(ServerKind.PI, r.model.current.kind)
+        // Restoring twice is the same as restoring once: a snackbar can be actioned late.
+        r.model.restoreServer(removed); runCurrent()
+        assertEquals(listOf(pi), r.prefsStore.load().servers)
+
+        // Removing one that is not there hands back nothing to undo.
+        assertNull(r.model.removeServer(ServerAddress.parseOrNull("https://gone.example")!!))
     }
 
     @Test fun `an unreachable server is an error, not a crash, and the tab choice persists`() = runTest {

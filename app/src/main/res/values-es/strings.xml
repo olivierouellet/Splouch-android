@@ -19,4 +19,6 @@
     <string name="retry">Reintentar</string>
     <string name="clear">Borrar</string>
     <string name="close">Cerrar</string>
+    <string name="undo">Deshacer</string>
+    <string name="server_removed">Servidor eliminado</string>
 </resources>
