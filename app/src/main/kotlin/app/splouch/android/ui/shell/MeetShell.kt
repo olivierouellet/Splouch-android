@@ -1,7 +1,7 @@
 package app.splouch.android.ui.shell
 
 import android.content.res.Configuration
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +21,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -31,12 +33,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.coroutines.cancellation.CancellationException
 import app.splouch.android.R
 import app.splouch.android.ui.board.BoardBarHeader
 import app.splouch.android.ui.results.ResultsTab
@@ -70,7 +78,7 @@ private const val SCHEDULE = 2
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MeetShell(model: AppModel, state: UiState, meet: MeetState) {
+fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: SnackbarHostState) {
     val t = meet.strings
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val rail = useNavigationRail()
@@ -86,7 +94,25 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState) {
     val heats = meet.schedule
     LaunchedEffect(heats) { if (heats != null) filter = ScheduleFilter.retain(filter, heats) }
 
-    BackHandler { model.closeMeet() }
+    // A-02, by the system's own gesture. `PredictiveBackHandler` rather than a plain
+    // `BackHandler` so the drag is answered while it happens: the board eases back and
+    // fades as the finger pulls, settles if the gesture is completed, and springs back if
+    // it is abandoned. Without it (and without the manifest's
+    // `enableOnBackInvokedCallback`) Android 13+ gets no preview at all and the meet just
+    // vanishes on release.
+    val backProgress = remember { mutableFloatStateOf(0f) }
+    val close by rememberUpdatedState { model.closeMeet() }
+    PredictiveBackHandler { progress ->
+        try {
+            progress.collect { backProgress.floatValue = it.progress }
+            close()
+        } catch (cancelled: CancellationException) {
+            backProgress.floatValue = 0f
+            throw cancelled
+        } finally {
+            backProgress.floatValue = 0f
+        }
+    }
 
     // L-14 / R-10: the on-appear callbacks the web had to fake with `resize` and `on_tab_shown`.
     LaunchedEffect(pager.settledPage) {
@@ -104,9 +130,19 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState) {
     )
     fun go(index: Int) = scope.launch { pager.animateScrollToPage(index) }
 
+    // Pinned, not collapsing: in landscape this bar *is* the board header (L-01..L-03),
+    // and a board that hides the heat number to win back a row is not a board.
+    val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier
+            .scale(1f - 0.08f * backProgress.floatValue)
+            .alpha(1f - 0.25f * backProgress.floatValue)
+            .nestedScroll(barScroll.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
+                scrollBehavior = barScroll,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),

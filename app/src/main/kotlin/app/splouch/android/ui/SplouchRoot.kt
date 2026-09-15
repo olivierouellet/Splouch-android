@@ -1,9 +1,14 @@
 package app.splouch.android.ui
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -11,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -58,13 +62,33 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
 
     theme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(Modifier.fillMaxSize()) {
-                if (meet != null) MeetShell(model, state, meet) else PickerScreen(model, state, images)
-                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+            // Opening a meet is a move forward and closing it a move back, so the two slide
+            // along the shared axis rather than cutting. The picker used to be replaced by
+            // the board between one frame and the next, which reads as a redraw rather than
+            // as having gone somewhere. A meet is only ever reached from the picker, so
+            // "in a meet or not" is the whole of the navigation state.
+            AnimatedContent(
+                targetState = meet != null,
+                transitionSpec = {
+                    val forward = targetState
+                    val enter = { full: Int -> if (forward) full / 4 else -full / 4 }
+                    val exit = { full: Int -> if (forward) -full / 4 else full / 4 }
+                    (slideInHorizontally(tween(DurationMs), enter) + fadeIn(tween(DurationMs)))
+                        .togetherWith(slideOutHorizontally(tween(DurationMs), exit) + fadeOut(tween(DurationMs)))
+                },
+                label = "meet",
+            ) { inMeet ->
+                // Read the meet off `state` rather than closing over it, so the outgoing
+                // page keeps rendering the one it was showing for the length of the slide.
+                val shown = state.meet
+                if (inMeet && shown != null) MeetShell(model, state, shown, snackbar)
+                else PickerScreen(model, state, images, snackbar)
             }
         }
     }
 }
+
+private const val DurationMs = 280
 
 /** The meet's background decides, the same way `BoardColors.isDark` does. */
 private fun isDarkBoard(theme: Theme): Boolean {

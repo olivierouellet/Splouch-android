@@ -33,6 +33,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -78,22 +81,31 @@ import app.splouch.core.wire.ServerKind
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PickerScreen(model: AppModel, state: UiState, images: ImageCache) {
+fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: SnackbarHostState) {
     val t = state.pickerStrings
     var showServers by remember { mutableStateOf(false) }
     var showPrefs by remember { mutableStateOf(false) }
     val cfg = state.picker.config
     val title = (cfg?.title ?: state.serverInfo?.name ?: "").trim()
 
+    // The bar gets out of the way as the list scrolls, which is what a Material app bar
+    // does over a long list, and comes back the moment the finger goes the other way.
+    val barScroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
+                scrollBehavior = barScroll,
                 colors = TopAppBarDefaults.topAppBarColors(),
                 title = {
-                    // P-11: the server stays visible in the header when it is not the default.
-                    if (!state.isDefaultServer) {
-                        Text(state.server.display, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    }
+                    // P-11 asks for the server in the header when it is not the default. It
+                    // is here whatever it is: a bar holding two actions and no title reads
+                    // as unfinished, and the operator's own title is already the branding
+                    // block below (P-05), so repeating it there would be the one thing
+                    // worse than an empty bar.
+                    Text(state.server.display, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 },
                 actions = {
                     IconButton(onClick = { showPrefs = true }) {
@@ -275,14 +287,6 @@ private fun MeetCard(
             supportingContent = if (meta.isEmpty()) null else ({
                 Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
             }),
-            // The glyph repeats what tapping the row already says, so it is not spoken.
-            trailingContent = {
-                Icon(
-                    painterResource(R.drawable.ic_chevron), null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp).clearAndSetSemantics { },
-                )
-            },
         )
     }
 }
