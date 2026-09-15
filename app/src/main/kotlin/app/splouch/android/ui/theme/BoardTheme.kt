@@ -150,6 +150,10 @@ private fun meetScheme(c: BoardColors): ColorScheme {
 /**
  * L-17 / R-08: a long name shrinks to fit its cell, from [maxSize] down to [minSize];
  * only past that floor does it ellipsise. The platform measures, so no per-frame re-fit.
+ *
+ * [maxLines] is 1 for a lane's name, which shares a row with five other cells and has to
+ * hold its line. The event name is the exception: it has a header to itself, so it is
+ * given two and shrinks only once it has used both.
  */
 @Composable
 fun AutoSizeText(
@@ -161,12 +165,13 @@ fun AutoSizeText(
     minSize: TextUnit = 8.sp,
     textAlign: TextAlign = TextAlign.Start,
     fontWeight: FontWeight? = null,
+    maxLines: Int = 1,
 ) {
     BasicText(
         text = text,
         modifier = modifier,
         style = TextStyle(color = color, fontFamily = fontFamily, fontSize = maxSize, textAlign = textAlign, fontWeight = fontWeight),
-        maxLines = 1,
+        maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
         autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = maxSize, stepSize = 0.5.sp),
     )

@@ -185,7 +185,7 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
                             textAlign = TextAlign.Center, modifier = Modifier.weight(0.6f).padding(horizontal = 6.dp))
                         TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.72f, Modifier.width(TimeW), TextAlign.Center)
                         if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) { DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.58f) }
-                        if (settings.showPosition) PlaceText(r.place, size * 0.7f, Modifier.width(PlaceW))
+                        if (settings.showPosition) PlaceText(r.place, size * 0.7f, Modifier.width(PlaceW), Arrangement.Center)
                     }
                 }
             }
@@ -252,11 +252,17 @@ private fun DeltaText(seconds: Double?, better: Boolean?, size: TextUnit) {
     Text(DeltaFormat.text(seconds), color = color, fontSize = size, fontFamily = LocalBoardFonts.current.timing, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
 }
 
-/** A place is prefixed `#`; no place means an empty cell, no dash and no `#` (L-15, R-07). */
+/**
+ * A place is prefixed `#`; no place means an empty cell, no dash and no `#` (L-15, R-07).
+ *
+ * It sits under its own centred column header in the landscape table, so it is centred
+ * there too; in the portrait row there is no header and it is the last thing on the line,
+ * so it stays hard right.
+ */
 @Composable
-private fun PlaceText(place: String, size: TextUnit, modifier: Modifier) {
+private fun PlaceText(place: String, size: TextUnit, modifier: Modifier, arrangement: Arrangement.Horizontal = Arrangement.End) {
     val colors = LocalBoardColors.current
-    Row(modifier, horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier, horizontalArrangement = arrangement, verticalAlignment = Alignment.CenterVertically) {
         if (place.isNotEmpty()) {
             Text("#", color = colors.headerLabel.copy(alpha = 0.5f), fontSize = size, fontFamily = LocalBoardFonts.current.digits, maxLines = 1)
             Text(place, color = colors.headerLabel, fontSize = size, fontWeight = FontWeight.Bold, fontFamily = LocalBoardFonts.current.digits, maxLines = 1)
@@ -285,7 +291,12 @@ fun BoardHeader(eventLabel: String, event: String, heatLabel: String, heat: Stri
     ) {
         HeaderCell(eventLabel, event, 12.sp, 24.sp, fonts.family, fonts.digits)
         HeaderCell(heatLabel, heat, 12.sp, 24.sp, fonts.family, fonts.digits)
-        AutoSizeText(eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family, maxSize = 17.sp, minSize = 9.sp)
+        // Centred in the slot between the header cells and the clock: pinned left between
+        // two items sitting at the edges, it read as floating rather than placed.
+        AutoSizeText(
+            eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family,
+            maxSize = 17.sp, minSize = 9.sp, textAlign = TextAlign.Center, maxLines = 2,
+        )
         if (clock != null) {
             Text(clock, color = colors.headerValue, fontSize = 24.sp, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
         }
@@ -311,7 +322,10 @@ fun BoardBarHeaderRow(
     ) {
         InlineCell(eventLabel, event, fonts.family, fonts.digits)
         InlineCell(heatLabel, heat, fonts.family, fonts.digits)
-        AutoSizeText(eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family, maxSize = 15.sp, minSize = 9.sp)
+        AutoSizeText(
+            eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family,
+            maxSize = 15.sp, minSize = 9.sp, textAlign = TextAlign.Center, maxLines = 2,
+        )
         if (server != null) {
             Text(server, color = colors.thText, fontSize = 11.sp, fontFamily = fonts.family, maxLines = 1, softWrap = false)
         }
