@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The window behind Compose. It follows the device's light or dark (DayNight) rather
-     than forcing black: app.md T-01 starts at a meet's `settings`, and there is no meet
-     behind the picker, so the chrome there is the platform's. A meet's own background is
-     painted by `BoardTheme`, over this one. -->
+<!-- The window behind Compose. Dark, and not the device's choice: every meet theme an
+     operator ships paints a dark board (app.md T-01), so the picker follows the board
+     rather than the system until there is a light board to match. See `SplouchTheme`. -->
 <resources>
-    <style name="Theme.Splouch" parent="@android:style/Theme.DeviceDefault.DayNight">
-        <item name="android:windowActionBar">false</item>
-        <item name="android:windowNoTitle">true</item>
+    <style name="Theme.Splouch" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>

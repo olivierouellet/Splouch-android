@@ -1,6 +1,5 @@
 package app.splouch.android.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -50,8 +49,9 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
     }
 
     val meet = state.meet
-    // The status and navigation bars sit over whichever of the two is on screen.
-    SystemBarAppearance(dark = if (meet != null) isDarkBoard(meet.theme) else isSystemInDarkTheme())
+    // The status and navigation bars sit over whichever of the two is on screen. Outside
+    // a meet that is always dark — see `SplouchTheme`.
+    SystemBarAppearance(dark = meet == null || isDarkBoard(meet.theme))
 
     val theme: @Composable (@Composable () -> Unit) -> Unit =
         if (meet != null) ({ content -> BoardTheme(meet.theme) { content() } }) else ({ content -> SplouchTheme { content() } })

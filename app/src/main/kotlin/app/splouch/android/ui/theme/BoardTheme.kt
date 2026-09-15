@@ -1,14 +1,12 @@
 package app.splouch.android.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -88,21 +86,23 @@ val LocalBoardFonts = staticCompositionLocalOf { BoardFonts(Theme.DEFAULT) }
 /**
  * The chrome outside a meet: the picker, the server and language sheets, the errors.
  *
- * There is no meet here and so no palette to render (T-01 starts at `settings`), which is
- * why this is the device's theme — dynamic colour where the platform offers it, the
- * baseline scheme below that, and the system's light or dark either way. What the web
- * picker paints in `#0d0d0d` greys is chrome, and chrome is the platform's (§0.4).
+ * There is no meet here and so no palette to render (T-01 starts at `settings`), so the
+ * components are Material's and the colours are roles rather than the `#0d0d0d` greys the
+ * web picker paints — that is stylesheet, and chrome is the platform's (§0.4).
+ *
+ * **Dark, though, and not the device's choice.** Every theme an operator ships paints a
+ * dark board, so a light picker would hand a spectator a white list and then drop them
+ * onto black the moment they tapped a meet. Until there is a light board to match — the
+ * palette is the operator's (`T-01`), so that is their call and not ours — this follows
+ * the board rather than the system. Dynamic colour still applies where the platform
+ * offers it: it is the user's wallpaper tint, in its dark form.
  */
 @Composable
 fun SplouchTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
     val context = LocalContext.current
-    val scheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
+    val scheme =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) dynamicDarkColorScheme(context)
+        else darkColorScheme()
     MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
 }
 
