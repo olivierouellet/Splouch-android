@@ -7,6 +7,7 @@ import app.splouch.core.session.InMemoryVidStore
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.strings.InMemoryBundleCache
+import app.splouch.core.strings.Labels
 import app.splouch.core.support.FakeTransport
 import app.splouch.core.support.StubHttp
 import app.splouch.core.wire.ServerKind
@@ -85,9 +86,12 @@ class AppModelTests {
         assertEquals("fr", m2.lang)
         assertEquals("Tableau", m2.strings.mobile("scoreboard"))
         assertEquals("ÉPREUVE", m2.labels["event"])
+        // T-09 is withdrawn, not deleted: the choice is still stored, and still read
+        // over by `effectiveLabelStyle`, so the header stays long while the control is away.
         r.model.setLabelStyle("short"); runCurrent()
-        assertEquals("ÉP", r.model.current.meet!!.labels["event"])
         assertEquals("short", r.prefsStore.load().labelStyle)
+        assertEquals(Labels.LONG, r.prefsStore.load().effectiveLabelStyle)
+        assertEquals("ÉPREUVE", r.model.current.meet!!.labels["event"])
         r.model.closeMeet()
         assertNull(r.model.current.meet)
         assertTrue(r.transport.connections.all { it.closed })

@@ -280,7 +280,7 @@ class AppModel(
         val strings = table(context.server, lang)
         val session = MeetSession(context, transport, vidStore, scope, config.settings.numLanes, timing, timeSource)
         _state.update {
-            it.copy(meet = MeetState(context, config, session, lang, strings, Labels.resolve(config.settings, prefs.lang, prefs.labelStyle, strings), Theme.from(config.settings)))
+            it.copy(meet = MeetState(context, config, session, lang, strings, Labels.resolve(config.settings, prefs.lang, prefs.effectiveLabelStyle, strings), Theme.from(config.settings)))
         }
         session.start()
         if (inForeground) session.startTicker()
@@ -327,7 +327,7 @@ class AppModel(
                     val lang = prefs.lang ?: r.value.settings.locale ?: deviceLang
                     val strings = if (lang == m.lang) m.strings else table(m.context.server, lang)
                     s.copy(meet = m.copy(config = r.value, lang = lang, strings = strings,
-                        labels = Labels.resolve(r.value.settings, prefs.lang, prefs.labelStyle, strings),
+                        labels = Labels.resolve(r.value.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
                         theme = Theme.from(r.value.settings), refreshing = false))
                 }
                 ApiResult.NotFound -> if (meet.context.kind == ServerKind.CLOUD) {
@@ -368,7 +368,7 @@ class AppModel(
             val newLang = current.prefs.lang ?: m.config.settings.locale ?: deviceLang
             val strings = table(m.context.server, newLang)
             _state.update { s -> s.copy(meet = s.meet?.copy(lang = newLang, strings = strings,
-                labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.labelStyle, strings))) }
+                labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, strings))) }
             refreshStrings(m.context.server, newLang, forPicker = false)
         }
     }
@@ -376,7 +376,7 @@ class AppModel(
     /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */
     fun setLabelStyle(style: String) {
         savePrefs(current.prefs.copy(labelStyle = if (style == Labels.SHORT) Labels.SHORT else Labels.LONG))
-        _state.update { s -> s.copy(meet = s.meet?.let { m -> m.copy(labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.labelStyle, m.strings)) }) }
+        _state.update { s -> s.copy(meet = s.meet?.let { m -> m.copy(labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, m.strings)) }) }
     }
 
     /** A-04: the selected tab survives a relaunch. */
@@ -404,7 +404,7 @@ class AppModel(
                 val m = out.meet
                 if (m != null && m.lang == lang && m.context.server == server) {
                     val strings = table(server, lang)
-                    out = out.copy(meet = m.copy(strings = strings, labels = Labels.resolve(m.config.settings, out.prefs.lang, out.prefs.labelStyle, strings)))
+                    out = out.copy(meet = m.copy(strings = strings, labels = Labels.resolve(m.config.settings, out.prefs.lang, out.prefs.effectiveLabelStyle, strings)))
                 }
                 out
             }

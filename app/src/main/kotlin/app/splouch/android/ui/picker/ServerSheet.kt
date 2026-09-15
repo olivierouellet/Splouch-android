@@ -1,19 +1,22 @@
 package app.splouch.android.ui.picker
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -25,21 +28,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.splouch.android.R
 import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.KnownServer
 import app.splouch.core.session.UiState
 import app.splouch.core.strings.BuiltInStrings
-import app.splouch.core.strings.Labels
 import kotlinx.coroutines.launch
 
 /**
@@ -75,49 +77,85 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            Text(stringResource(R.string.server), fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
+            SectionHeader(stringResource(R.string.server))
             val nearby = state.servers.filter { it.source == KnownServer.Source.DISCOVERED }
             val others = state.servers.filter { it.source != KnownServer.Source.DISCOVERED }
-            others.forEach { ServerRow(it, it.address == state.server, removeLabel, onSelect = { model.selectServer(it.address); onDismiss() }, onRemove = if (it.source == KnownServer.Source.SAVED) ({ model.removeServer(it.address) }) else null) }
-            if (nearby.isNotEmpty()) {
-                Text(stringResource(R.string.nearby), fontSize = 13.sp, color = Color(0xFF888888), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-                nearby.forEach { ServerRow(it, it.address == state.server, removeLabel, onSelect = { model.selectServer(it.address); onDismiss() }, onRemove = null) }
+            others.forEach {
+                ServerRow(it, it.address == state.server, removeLabel,
+                    onSelect = { model.selectServer(it.address); onDismiss() },
+                    onRemove = if (it.source == KnownServer.Source.SAVED) ({ model.removeServer(it.address) }) else null)
             }
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.add_server), fontSize = 13.sp, color = Color(0xFF888888))
+            if (nearby.isNotEmpty()) {
+                SectionHeader(stringResource(R.string.nearby))
+                nearby.forEach {
+                    ServerRow(it, it.address == state.server, removeLabel,
+                        onSelect = { model.selectServer(it.address); onDismiss() }, onRemove = null)
+                }
+            }
+            SectionHeader(stringResource(R.string.add_server))
+            // P-13: one row, not three. The section header above already said what this is,
+            // so the field submits itself — the return key, or the arrow that appears once
+            // there is something to send — and the footer under it carries progress and error.
             OutlinedTextField(
                 value = text, onValueChange = { text = it; error = null },
-                placeholder = { Text(stringResource(R.string.server_placeholder), fontSize = 13.sp) },
+                placeholder = { Text(stringResource(R.string.server_placeholder), maxLines = 1) },
                 singleLine = true, isError = error != null, enabled = !busy,
+                supportingText = when {
+                    error != null -> ({ Text(error!!) })
+                    busy -> ({ Text(stringResource(R.string.checking)) })
+                    else -> null
+                },
+                trailingIcon = {
+                    when {
+                        busy -> CircularProgressIndicator(Modifier.padding(12.dp))
+                        text.isNotBlank() -> IconButton(onClick = { add() }) {
+                            Icon(painterResource(R.drawable.ic_check), stringResource(R.string.ok))
+                        }
+                        else -> Unit
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { add() }),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
-            error?.let { Text(it, color = Color(0xFFE57373), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp)) }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-                Button(onClick = { add() }, enabled = !busy && text.isNotBlank()) { Text(stringResource(if (busy) R.string.checking else R.string.ok)) }
-            }
         }
     }
 }
 
 @Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
 private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, onSelect: () -> Unit, onRemove: (() -> Unit)?) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onSelect).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Column(Modifier.weight(1f)) {
-            Text(s.name, fontSize = 15.sp)
-            Text(s.address.display + (s.kind?.let { "  ·  ${it.wire}" } ?: ""), fontSize = 12.sp, color = Color(0xFF888888))
-        }
-        if (onRemove != null) TextButton(onClick = onRemove) { Text(removeLabel, fontSize = 12.sp) }
-    }
+    ListItem(
+        // `selectable` is what carries the selected state to the screen reader: the radio
+        // button is a glyph, and a glyph says nothing out loud.
+        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { RadioButton(selected = selected, onClick = null) },
+        headlineContent = { Text(s.name, maxLines = 1) },
+        supportingContent = { Text(s.address.display + (s.kind?.let { "  ·  ${it.wire}" } ?: ""), maxLines = 1) },
+        trailingContent = if (onRemove == null) null else ({
+            TextButton(onClick = onRemove) { Text(removeLabel) }
+        }),
+    )
 }
 
 /**
- * T-08, T-09: one language and one label style per device, set where every meet is in
- * view. The web picker shows these same controls, so their words are the server's.
+ * T-08: one language per device, set where every meet is in view. The web picker shows
+ * this same control, so its words are the server's.
+ *
+ * T-09's short/long control is **withdrawn** — see [app.splouch.core.session.Preferences.effectiveLabelStyle].
+ * The stored choice is untouched, and returning the control is a matter of putting the
+ * two rows back here and returning `labelStyle` from that property.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,15 +163,11 @@ fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
     val t = state.pickerStrings
     val locales = state.locales.ifEmpty { BuiltInStrings.locales() }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            Text(t.mobile("language"), fontSize = 13.sp, color = Color(0xFF888888))
+        Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
+            SectionHeader(t.mobile("language"))
             ChoiceRow(t.mobile("language_auto"), state.prefs.lang == null) { model.setLang(null) }
             locales.forEach { l -> ChoiceRow(l.name, state.prefs.lang == l.code) { model.setLang(l.code) } }
-            Spacer(Modifier.height(12.dp))
-            Text(t.mobile("prefs_labels"), fontSize = 13.sp, color = Color(0xFF888888))
-            ChoiceRow(t.mobile("prefs_short"), state.prefs.labelStyle == Labels.SHORT) { model.setLabelStyle(Labels.SHORT) }
-            ChoiceRow(t.mobile("prefs_long"), state.prefs.labelStyle == Labels.LONG) { model.setLabelStyle(Labels.LONG) }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
             }
         }
@@ -142,8 +176,10 @@ fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
 
 @Composable
 private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(label, fontSize = 15.sp)
-    }
+    ListItem(
+        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { RadioButton(selected = selected, onClick = null) },
+        headlineContent = { Text(label) },
+    )
 }
