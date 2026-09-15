@@ -4,15 +4,16 @@ import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import app.splouch.android.ui.SplouchRoot
 import app.splouch.core.session.ServerAddress
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // The board is dark whatever the meet's theme says about rows: light icons in both bars.
-        enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        // Transparent bars, with the icon polarity left to the system here and then set
+        // per screen by `SystemBarAppearance`: the picker follows the device, a meet
+        // follows its own palette, and those two disagree often enough to matter.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val app = application as SplouchApp
         // Debug builds only: `adb shell am start -n app.splouch.android/.MainActivity --es server http://10.0.2.2:5055`

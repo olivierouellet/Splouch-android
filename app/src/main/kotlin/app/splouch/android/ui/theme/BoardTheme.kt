@@ -1,15 +1,23 @@
 package app.splouch.android.ui.theme
 
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -45,6 +53,14 @@ class BoardColors(private val theme: Theme) {
 
     /** The web's `.time-running` grey. */
     val timeRunning = Color(0xFFA0A0A0)
+
+    /**
+     * Whether this meet paints a dark board. The operator sets thirteen colours and no
+     * light/dark flag, so the background is the one that decides: everything Material
+     * draws over the meet — its sheets, dialogs and menus — follows the meet rather than
+     * the device, or a light meet ends up with dark chrome around a white board.
+     */
+    val isDark: Boolean = bg.luminance() < 0.5f
 }
 
 /** The three font roles (T-03), from the six bundled faces; an unknown name falls back to the system monospace. */
@@ -69,23 +85,66 @@ class BoardFonts(theme: Theme) {
 val LocalBoardColors = staticCompositionLocalOf { BoardColors(Theme.DEFAULT) }
 val LocalBoardFonts = staticCompositionLocalOf { BoardFonts(Theme.DEFAULT) }
 
+/**
+ * The chrome outside a meet: the picker, the server and language sheets, the errors.
+ *
+ * There is no meet here and so no palette to render (T-01 starts at `settings`), which is
+ * why this is the device's theme — dynamic colour where the platform offers it, the
+ * baseline scheme below that, and the system's light or dark either way. What the web
+ * picker paints in `#0d0d0d` greys is chrome, and chrome is the platform's (§0.4).
+ */
+@Composable
+fun SplouchTheme(content: @Composable () -> Unit) {
+    val dark = isSystemInDarkTheme()
+    val context = LocalContext.current
+    val scheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        dark -> darkColorScheme()
+        else -> lightColorScheme()
+    }
+    MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
+}
+
+/**
+ * Inside a meet: the board's own paint (T-01..T-03) on the composition locals, and a
+ * Material scheme derived from the same palette so every platform surface drawn over the
+ * board — the filter sheet, its dialogs, the navigation bar — belongs to the same screen.
+ */
 @Composable
 fun BoardTheme(theme: Theme, content: @Composable () -> Unit) {
     val colors = remember(theme) { BoardColors(theme) }
     val fonts = remember(theme) { BoardFonts(theme) }
+    val scheme = remember(colors) { meetScheme(colors) }
     CompositionLocalProvider(LocalBoardColors provides colors, LocalBoardFonts provides fonts) {
-        MaterialTheme(
-            colorScheme = darkColorScheme(
-                background = colors.bg, onBackground = colors.rowText,
-                surface = colors.headerBg, onSurface = colors.rowText,
-                surfaceVariant = colors.thBg, onSurfaceVariant = colors.thText,
-                primary = colors.time, onPrimary = Color.Black,
-                secondary = colors.scheduleEvent, outline = colors.headerBorder,
-                surfaceContainer = colors.headerBg, surfaceContainerHigh = colors.rowEven, surfaceContainerLow = colors.rowOdd,
-            ),
-            content = content,
-        )
+        MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
     }
+}
+
+/**
+ * The meet's thirteen colours mapped onto the Material roles that matter. Only the roles
+ * the operator actually supplies are overridden; the rest come from the baseline scheme
+ * for the light or dark the background implies, so a component we have not thought about
+ * still draws legibly.
+ */
+private fun meetScheme(c: BoardColors): ColorScheme {
+    val base = if (c.isDark) darkColorScheme() else lightColorScheme()
+    val onAccent = if (c.time.luminance() < 0.5f) Color.White else Color.Black
+    return base.copy(
+        background = c.bg, onBackground = c.rowText,
+        surface = c.bg, onSurface = c.rowText,
+        surfaceVariant = c.thBg, onSurfaceVariant = c.thText,
+        surfaceContainerLowest = c.bg, surfaceContainerLow = c.rowOdd,
+        surfaceContainer = c.headerBg, surfaceContainerHigh = c.rowEven, surfaceContainerHighest = c.headerBg,
+        primary = c.time, onPrimary = onAccent,
+        primaryContainer = c.headerBg, onPrimaryContainer = c.headerValue,
+        // The navigation bar's selected pill and the chips draw on this pair, so it has
+        // to read as a selection against `surfaceContainer` — `th_bg` is usually the same
+        // colour as the bar itself, which left the selected tab with no indicator at all.
+        secondary = c.scheduleEvent, onSecondary = onAccent,
+        secondaryContainer = c.headerBorder, onSecondaryContainer = c.time,
+        outline = c.headerBorder, outlineVariant = c.headerBorder,
+    )
 }
 
 /**
