@@ -1,23 +1,21 @@
 package app.splouch.android.ui.schedule
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,40 +25,44 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.R
+import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
-import app.splouch.core.schedule.EmptyState
+import app.splouch.core.schedule.EmptyState as ScheduleEmptyState
 import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.VisibleHeat
 import app.splouch.core.session.MeetState
 import app.splouch.core.strings.EventName
 
-/** The start list, filterable (app.md §5). Filters live only for the session (S-20). */
+/**
+ * The start list, filterable (app.md §5). Filters live only for the session (S-20) and
+ * belong to the meet, so they are held by the shell — the button that opens the sheet is
+ * in the app bar (S-08), which is above this tab.
+ *
+ * Type sizes are the platform's body scale rather than the web stylesheet's: a swimmer's
+ * name is the thing a spectator reads hardest on this screen, and at the web's 14px it
+ * was four points under every other app's body text.
+ */
 @Composable
-fun ScheduleTab(meet: MeetState) {
-    val colors = LocalBoardColors.current
-    val fonts = LocalBoardFonts.current
+fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: () -> Unit) {
     val t = meet.strings
     val current by meet.session.currentHeat.collectAsStateWithLifecycle()
-    var filter by remember(meet.session) { mutableStateOf(ScheduleFilterState()) }
-    var showFilter by remember { mutableStateOf(false) }
     val heats = meet.schedule
-    // S-21: a refreshed list keeps the filters whose names still exist.
-    LaunchedEffect(heats) { if (heats != null) filter = ScheduleFilter.retain(filter, heats) }
     val visible = remember(heats, filter, current) { if (heats == null) emptyList() else ScheduleFilter.visible(heats, filter, current) }
-    val empty = remember(heats, visible, filter) { if (heats == null) EmptyState.NONE else ScheduleFilter.emptyState(heats, visible, filter) }
+    val empty = remember(heats, visible, filter) { if (heats == null) ScheduleEmptyState.NONE else ScheduleFilter.emptyState(heats, visible, filter) }
     val labels = t.labels("short") + meet.labels
 
     // S-06: scroll to the current heat once per appearance, re-armed on returning to the foreground.
@@ -73,42 +75,27 @@ fun ScheduleTab(meet: MeetState) {
         if (idx >= 0) { listState.animateScrollToItem(idx); needsScroll = false }
     }
 
-    Column(Modifier.fillMaxSize().background(colors.bg)) {
-        Row(
-            Modifier.fillMaxWidth().height(56.dp).background(colors.headerBg).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(meet.config.title.uppercase(), color = colors.headerLabel, fontSize = 13.sp, letterSpacing = 1.sp, fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            OutlinedButton(onClick = { showFilter = true }, shape = RoundedCornerShape(6.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                Icon(painterResource(R.drawable.ic_filter), null, tint = colors.headerValue)
-                Text(t.mobile("filter"), color = colors.headerValue, fontSize = 13.sp, fontFamily = fonts.family, modifier = Modifier.padding(start = 6.dp))
-                // S-12: how many filters are active.
-                if (filter.filters.isNotEmpty()) {
-                    Text(filter.filters.size.toString(), color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(start = 6.dp).background(colors.scheduleEvent, RoundedCornerShape(10.dp)).widthIn(min = 18.dp).padding(horizontal = 5.dp, vertical = 1.dp))
-                }
-            }
-        }
-        HorizontalDivider(color = colors.headerBorder)
+    Box(Modifier.fillMaxSize().background(LocalBoardColors.current.bg)) {
         when {
-            heats == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(if (meet.scheduleError) stringResource(R.string.retry) else "", color = colors.thText)
-            }
-            empty == EmptyState.NO_SCHEDULE -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                // S-07: loaded, no schedule yet.
-                Text(t.mobile("no_schedule"), color = colors.thText, fontSize = 20.sp, fontFamily = fonts.family, textAlign = TextAlign.Center, modifier = Modifier.padding(24.dp))
-            }
-            empty == EmptyState.NO_MATCHES -> Box(Modifier.fillMaxWidth().padding(48.dp, 48.dp), contentAlignment = Alignment.Center) {
-                Text(t.mobile("no_matches"), color = colors.scheduleClub, fontSize = 15.sp, fontFamily = fonts.family, textAlign = TextAlign.Center)
-            }
+            // A start list that would not load is a network fault, not an empty meet;
+            // A-05's pull-to-refresh is the way back, and it works on an empty tab.
+            heats == null && meet.scheduleError -> EmptyState(title = stringResource(R.string.server_unreachable))
+            heats == null -> Unit
+            // S-07: loaded, no schedule yet.
+            empty == ScheduleEmptyState.NO_SCHEDULE -> EmptyState(title = t.mobile("no_schedule"))
+            // S-19: distinct from the filter sheet's "no search results".
+            empty == ScheduleEmptyState.NO_MATCHES -> EmptyState(
+                title = t.mobile("no_matches"),
+                actionLabel = t.mobile("reset_filters"),
+                onAction = onResetFilters,
+            )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(visible, key = { _, v -> v.heat.event + "/" + v.heat.heat }) { _, v ->
+                items(visible, key = { it.heat.event + "/" + it.heat.heat }) { v ->
                     HeatCard(v, labels, t.eventVocab)
                 }
             }
         }
     }
-    if (showFilter) FilterSheet(meet, filter, onChange = { filter = it }, onDismiss = { showFilter = false })
 }
 
 @Composable
@@ -118,29 +105,64 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<Str
     val h = v.heat
     // S-04: the stripe is computed over visible cards.
     val bg = if (v.index % 2 == 0) colors.rowEven else colors.rowOdd
-    Column(
-        Modifier.fillMaxWidth().background(bg)
-            .then(if (v.isCurrent) Modifier.border(2.dp, colors.time) else Modifier),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().background(if (v.isCurrent) colors.headerBorder else Color.Transparent).padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (h.time.isNotEmpty()) Text(h.time, color = colors.scheduleTime, fontSize = 15.sp, fontFamily = fonts.timing)
-            Text("${labels["event"].orEmpty()} ${h.event} — ${labels["heat"].orEmpty()} ${h.heat}".uppercase(), color = colors.scheduleEvent, fontSize = 12.sp, letterSpacing = 0.8.sp, fontFamily = fonts.family, maxLines = 1)
-            val name = EventName.display(h.eventName, h.eventNameParts, vocab)
-            if (name.isNotEmpty()) Text(name, color = colors.headerValue, fontSize = 14.sp, fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        }
-        HorizontalDivider(color = colors.headerBorder)
-        v.lanes.forEachIndexed { i, lane ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(lane.lane?.toString() ?: "", color = colors.thText, fontSize = 12.sp, fontFamily = fonts.family, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 22.dp))
-                Text(ScheduleFilter.displayName(lane), color = colors.scheduleName, fontSize = 14.sp, fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                if (lane.club.isNotEmpty()) Text(lane.club, color = colors.scheduleClub, fontSize = 12.sp, fontFamily = fonts.family, maxLines = 1)
-                if (lane.seedTime.isNotEmpty()) Text(lane.seedTime, color = colors.scheduleTime, fontSize = 12.sp, fontFamily = fonts.timing, maxLines = 1)
+    // IntrinsicSize.Min so the accent bar below has a height to fill: inside a lazy list
+    // the row's height constraint is unbounded, and `fillMaxHeight` against that is zero.
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).background(bg)) {
+        // S-05: the heat the meet is on, marked by a bar down its leading edge rather than
+        // a box drawn around it — the list scrolls to this card, so it has to read at a
+        // glance without redrawing the card's own edges.
+        Box(
+            Modifier.width(4.dp).fillMaxHeight()
+                .background(if (v.isCurrent) colors.time else Color.Transparent),
+        )
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(
+                Modifier.fillMaxWidth().semantics { heading() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (h.time.isNotEmpty()) {
+                    Text(h.time, color = colors.scheduleTime, style = MaterialTheme.typography.titleSmall, fontFamily = fonts.timing)
+                }
+                Text(
+                    "${labels["event"].orEmpty()} ${h.event} — ${labels["heat"].orEmpty()} ${h.heat}",
+                    color = colors.scheduleEvent,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontFamily = fonts.family, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                )
+                val name = EventName.display(h.eventName, h.eventNameParts, vocab)
+                if (name.isNotEmpty()) {
+                    Text(
+                        name, color = colors.rowText, style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
-            if (i < v.lanes.lastIndex) HorizontalDivider(color = colors.headerBorder)
+            v.lanes.forEach { lane ->
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        lane.lane?.toString() ?: "", color = colors.thText,
+                        style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.family,
+                        textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 24.dp),
+                    )
+                    Text(
+                        ScheduleFilter.displayName(lane), color = colors.scheduleName,
+                        style = MaterialTheme.typography.bodyLarge, fontFamily = fonts.family,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                    )
+                    if (lane.club.isNotEmpty()) {
+                        Text(lane.club, color = colors.scheduleClub, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.family, maxLines = 1)
+                    }
+                    if (lane.seedTime.isNotEmpty()) {
+                        Text(lane.seedTime, color = colors.scheduleTime, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.timing, maxLines = 1, softWrap = false)
+                    }
+                }
+            }
         }
-        HorizontalDivider(color = colors.headerBorder)
     }
 }

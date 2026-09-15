@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,17 +16,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,7 +45,6 @@ import app.splouch.core.board.ScoreboardState.TimeStyle
 import app.splouch.core.wire.MeetSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
-import androidx.compose.runtime.snapshotFlow
 
 /** One row of the lane grid, for either tab. */
 data class GridRow(
@@ -69,48 +69,74 @@ fun BoardGrid(
     labels: Map<String, String>,
     landscape: Boolean,
     modifier: Modifier = Modifier,
-    footer: (@Composable () -> Unit)? = null,
 ) {
-    if (landscape) LandscapeGrid(rows, settings, labels, modifier) else PortraitGrid(rows, settings, modifier, footer)
+    if (landscape) LandscapeGrid(rows, settings, labels, modifier) else PortraitGrid(rows, settings, labels, modifier)
+}
+
+/**
+ * A lane is one thing, not six unrelated fragments — so the row is a single accessibility
+ * element reading the whole lane, composed from the server's own column words (`T-04`) so
+ * it is spoken in the meet's language rather than the app's. An empty lane says only its
+ * number, which is what `L-09`'s blank row means.
+ */
+private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, String>): String {
+    fun word(key: String) = labels[key].orEmpty()
+    val parts = mutableListOf("${word("lane")} ${r.lane}".trim())
+    if (settings.showName && r.name.isNotBlank()) parts += r.name
+    if (settings.showName && r.alt.isNotBlank()) parts += r.alt
+    if (settings.showClub && r.club.isNotBlank()) parts += "${word("club")} ${r.club}".trim()
+    if (r.time.isNotBlank()) parts += "${word("time")} ${r.time}".trim()
+    if (settings.showDelta && r.deltaSeconds != null) parts += "${word("delta")} ${DeltaFormat.text(r.deltaSeconds)}".trim()
+    if (settings.showPosition && r.place.isNotBlank()) parts += "${word("place")} ${r.place}".trim()
+    return parts.joinToString(", ")
 }
 
 // ── portrait: the two-line compact row (L-15) ────────────────────────────────
 
 @Composable
-private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, modifier: Modifier, footer: (@Composable () -> Unit)?) {
+private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, modifier: Modifier) {
     val colors = LocalBoardColors.current
     val cfg = LocalConfiguration.current
-    val base = minOf(cfg.screenHeightDp * 0.042f, cfg.screenWidthDp * 0.045f).coerceIn(13f, 24f)
-    val minHeight = (base * 2.8f).dp
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        rows.forEachIndexed { i, r ->
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = minHeight)
-                    .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LaneNumber(r.lane, r.pulsing, base.sp, Modifier.width((cfg.screenWidthDp * 0.09f).dp))
-                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base.sp) else Box(Modifier.weight(1f))
-                        if (settings.showClub) Text(r.club, color = colors.thText, fontSize = (base * 0.75f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp))
-                    }
-                    if (settings.showName && r.alt.isNotEmpty()) {
-                        // L-06: relay members, dimmed, under the name.
-                        Text(r.alt, color = colors.thText, fontSize = (base * 0.62f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = LocalBoardFonts.current.family)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TimeText(r.time, r.timeStyle, r.lockEdge, (base * 0.92f).sp, Modifier.weight(1f), TextAlign.Start)
-                        if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, (base * 0.78f).sp)
-                        if (settings.showPosition) PlaceText(r.place, (base * 0.78f).sp, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // The lanes share the board the way the landscape table already did: a six-lane
+        // meet fills the screen instead of drawing 300dp of stripes above bare background.
+        // The floor is what a two-line row needs; past it the board scrolls.
+        val shared = if (rows.isEmpty()) RowFloor else maxHeight / rows.size
+        val rowHeight = if (shared > RowFloor) shared else RowFloor
+        // And the type follows the height the rows actually got, so a six-lane meet is
+        // read across the pool rather than set at the size a sixteen-lane one needs.
+        val base = (rowHeight.value * 0.26f).coerceIn(13f, 24f)
+        val scroll = rememberScrollState()
+        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
+            rows.forEachIndexed { i, r ->
+                val description = spoken(r, settings, labels)
+                Row(
+                    Modifier.fillMaxWidth().height(rowHeight)
+                        .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                        .padding(vertical = 2.dp)
+                        .clearAndSetSemantics { contentDescription = description },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LaneNumber(r.lane, r.pulsing, base.sp, Modifier.width((cfg.screenWidthDp * 0.09f).dp))
+                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base.sp) else Box(Modifier.weight(1f))
+                            if (settings.showClub) Text(r.club, color = colors.thText, fontSize = (base * 0.75f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp))
+                        }
+                        if (settings.showName && r.alt.isNotEmpty()) {
+                            // L-06: relay members, dimmed, under the name.
+                            Text(r.alt, color = colors.thText, fontSize = (base * 0.62f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = LocalBoardFonts.current.family)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TimeText(r.time, r.timeStyle, r.lockEdge, (base * 0.92f).sp, Modifier.weight(1f), TextAlign.Start)
+                            if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, (base * 0.78f).sp)
+                            if (settings.showPosition) PlaceText(r.place, (base * 0.78f).sp, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
+                        }
                     }
                 }
             }
-            HorizontalDivider(color = colors.headerBorder, thickness = 1.dp)
         }
-        footer?.invoke()
     }
 }
 
@@ -141,8 +167,11 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
             val size = (rowHeight.value * 0.48f).coerceIn(10f, 32f).sp
             Column(Modifier.fillMaxSize()) {
                 rows.forEachIndexed { i, r ->
+                    val description = spoken(r, settings, labels)
                     Row(
-                        Modifier.fillMaxWidth().height(rowHeight).background(if (i % 2 == 0) colors.rowOdd else colors.rowEven),
+                        Modifier.fillMaxWidth().height(rowHeight)
+                            .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                            .clearAndSetSemantics { contentDescription = description },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         LaneNumber(r.lane, r.pulsing, size, Modifier.width(LaneW))
@@ -163,6 +192,9 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
         }
     }
 }
+
+/** What a two-line compact row needs before it has to scroll instead of share. */
+private val RowFloor = 44.dp
 
 private val LaneW = 52.dp
 private val TimeW = 130.dp
@@ -232,31 +264,88 @@ private fun PlaceText(place: String, size: TextUnit, modifier: Modifier) {
     }
 }
 
-/** The header bar both tabs share: EVENT and HEAT as small label over large value (L-01), the event name (L-02), the wall clock (L-03). */
+// ── header ───────────────────────────────────────────────────────────────────
+
+/**
+ * Portrait's board header: EVENT and HEAT as a small label over a large value (`L-01`),
+ * the event name (`L-02`) and the wall clock (`L-03`).
+ *
+ * It draws no background and no hairline of its own. That band was `mobile.html`'s
+ * `border-bottom`, separating two documents that had to line up as one screen (§0.4);
+ * under a real app bar it is simply a second strip of chrome for one board.
+ */
 @Composable
-fun BoardHeader(eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, landscape: Boolean, clock: String?) {
+fun BoardHeader(eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
-    val labelSize = if (landscape) 10.sp else 12.sp
-    val valueSize = if (landscape) 20.sp else 24.sp
     Row(
-        Modifier.fillMaxWidth().background(colors.headerBg).padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        HeaderCell(eventLabel, event, labelSize, valueSize, fonts.family, fonts.digits)
-        HeaderCell(heatLabel, heat, labelSize, valueSize, fonts.family, fonts.digits)
-        AutoSizeText(eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family, maxSize = if (landscape) 15.sp else 17.sp, minSize = 9.sp)
-        if (clock != null) Text(clock, color = colors.headerValue, fontSize = valueSize, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+        HeaderCell(eventLabel, event, 12.sp, 24.sp, fonts.family, fonts.digits)
+        HeaderCell(heatLabel, heat, 12.sp, 24.sp, fonts.family, fonts.digits)
+        AutoSizeText(eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family, maxSize = 17.sp, minSize = 9.sp)
+        if (clock != null) {
+            Text(clock, color = colors.headerValue, fontSize = 24.sp, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+        }
     }
-    HorizontalDivider(color = colors.headerBorder, thickness = 1.dp)
 }
 
+/**
+ * The same three rows, folded onto the single line a top app bar gives you. `L-01`'s
+ * label-over-value cannot survive a bar one row high, so the word sits beside its number.
+ */
+@Composable
+fun BoardBarHeaderRow(
+    eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?,
+    /** P-11's server name, where the app bar's subtitle slot is taken by this row. */
+    server: String? = null,
+) {
+    val colors = LocalBoardColors.current
+    val fonts = LocalBoardFonts.current
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        InlineCell(eventLabel, event, fonts.family, fonts.digits)
+        InlineCell(heatLabel, heat, fonts.family, fonts.digits)
+        AutoSizeText(eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family, maxSize = 15.sp, minSize = 9.sp)
+        if (server != null) {
+            Text(server, color = colors.thText, fontSize = 11.sp, fontFamily = fonts.family, maxLines = 1, softWrap = false)
+        }
+        if (clock != null) {
+            Text(clock, color = colors.headerValue, fontSize = 18.sp, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+        }
+    }
+}
+
+/** The word and its number read as one thing, and say nothing at all before a number arrives. */
 @Composable
 private fun HeaderCell(label: String, value: String, labelSize: TextUnit, valueSize: TextUnit, labelFont: FontFamily, valueFont: FontFamily) {
     val colors = LocalBoardColors.current
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val spokenValue = if (value.isBlank()) "" else "$label $value"
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clearAndSetSemantics { if (spokenValue.isNotEmpty()) contentDescription = spokenValue },
+    ) {
         Text(label, color = colors.headerLabel, fontSize = labelSize, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
         // The web colours these with `header_label` and sets the seven-segment face; give the tall glyphs their line.
         Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = valueSize, lineHeight = valueSize * 1.25f, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
+    }
+}
+
+@Composable
+private fun InlineCell(label: String, value: String, labelFont: FontFamily, valueFont: FontFamily) {
+    val colors = LocalBoardColors.current
+    val spokenValue = if (value.isBlank()) "" else "$label $value"
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        modifier = Modifier.clearAndSetSemantics { if (spokenValue.isNotEmpty()) contentDescription = spokenValue },
+    ) {
+        Text(label, color = colors.headerLabel, fontSize = 11.sp, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
+        Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = 18.sp, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
     }
 }
