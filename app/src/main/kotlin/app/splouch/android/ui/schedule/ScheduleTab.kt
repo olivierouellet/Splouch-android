@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -79,12 +80,15 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
         when {
             // A start list that would not load is a network fault, not an empty meet;
             // A-05's pull-to-refresh is the way back, and it works on an empty tab.
-            heats == null && meet.scheduleError -> EmptyState(title = stringResource(R.string.server_unreachable))
+            heats == null && meet.scheduleError ->
+                EmptyState(icon = painterResource(R.drawable.ic_cloud_off), title = stringResource(R.string.server_unreachable))
             heats == null -> Unit
             // S-07: loaded, no schedule yet.
-            empty == ScheduleEmptyState.NO_SCHEDULE -> EmptyState(title = t.mobile("no_schedule"))
+            empty == ScheduleEmptyState.NO_SCHEDULE ->
+                EmptyState(icon = painterResource(R.drawable.ic_no_events), title = t.mobile("no_schedule"))
             // S-19: distinct from the filter sheet's "no search results".
             empty == ScheduleEmptyState.NO_MATCHES -> EmptyState(
+                icon = painterResource(R.drawable.ic_search_off),
                 title = t.mobile("no_matches"),
                 actionLabel = t.mobile("reset_filters"),
                 onAction = onResetFilters,

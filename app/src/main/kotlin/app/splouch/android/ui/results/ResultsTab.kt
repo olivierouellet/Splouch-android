@@ -6,7 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.splouch.android.R
 import app.splouch.android.ui.board.BoardGrid
 import app.splouch.android.ui.board.BoardHeader
 import app.splouch.android.ui.board.GridRow
@@ -39,7 +41,7 @@ fun ResultsTab(meet: MeetState, landscape: Boolean) {
             // mean something on the Scoreboard, where a heat is live and they fill in
             // (L-09); before the first snapshot they are a table the web drew to occupy the
             // page, and a spectator reads nothing from it the line does not already say.
-            EmptyState(title = meet.strings.mobile("waiting_results"))
+            EmptyState(icon = painterResource(R.drawable.ic_waiting), title = meet.strings.mobile("waiting_results"))
         } else {
             BoardGrid(rows, meet.config.settings, labels, landscape)
         }

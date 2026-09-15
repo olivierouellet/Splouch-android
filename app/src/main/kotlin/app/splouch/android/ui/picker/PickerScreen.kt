@@ -132,6 +132,7 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                 when {
                     state.serverError != null -> item {
                         EmptyState(
+                            icon = painterResource(R.drawable.ic_cloud_off),
                             title = stringResource(if (state.serverError == "not a Splouch server") R.string.not_splouch else R.string.server_unreachable),
                             supporting = state.server.display,
                             actionLabel = stringResource(R.string.retry),
@@ -139,7 +140,8 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                         )
                     }
                     state.serverInfo == null -> item {
-                        EmptyState(title = stringResource(R.string.checking))
+                        // Waiting on the handshake, not reporting an absence.
+                        EmptyState(title = stringResource(R.string.checking), loading = true)
                     }
                     state.kind == ServerKind.PI -> item {
                         // §0.2: a Pi has one meet and no picker — the board opens directly; this is
@@ -153,7 +155,12 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                     else -> {
                         val meets = state.picker.meets
                         if (meets.isEmpty() && state.picker.loaded) {
-                            item { EmptyState(title = cfg?.strings?.get("no_meets") ?: t.mobile("no_meets")) }
+                            item {
+                                EmptyState(
+                                    icon = painterResource(R.drawable.ic_no_events),
+                                    title = cfg?.strings?.get("no_meets") ?: t.mobile("no_meets"),
+                                )
+                            }
                         }
                         // P-02: reserve the image slot across the list when any meet has one, so
                         // the names line up instead of stepping in and out by 56dp.
