@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launcher icon's background layer (splouch-icon-s-cutout.svg).
+
+  An adaptive icon is 108dp of which the launcher only ever shows the middle 72dp, so a
+  design drawn to fill its own square has to be mapped onto that window rather than onto
+  the whole canvas. The plate itself bleeds to all four edges — that is what the outer
+  ring is for, and what lets a launcher parallax or round it however it likes — but the
+  gradient's own stops are placed across 171..853, the 72dp window, so the dark top and
+  the bright bottom land where they do in the source instead of being cropped away.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="1024" android:viewportHeight="1024">
+
+    <path android:pathData="M0,0 L1024,0 L1024,1024 L0,1024 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear"
+                android:startX="0" android:startY="171" android:endX="0" android:endY="853">
+                <item android:offset="0" android:color="#FF093B86" />
+                <item android:offset="0.5" android:color="#FF1379CE" />
+                <item android:offset="1" android:color="#FF2AC3EA" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- The light coming from the upper left, at the same 32%/28% of the window and the
+         same three-quarter radius as the source. -->
+    <path android:pathData="M0,0 L1024,0 L1024,1024 L0,1024 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial"
+                android:centerX="389" android:centerY="362" android:gradientRadius="512">
+                <item android:offset="0" android:color="#33FFFFFF" />
+                <item android:offset="1" android:color="#00FFFFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
