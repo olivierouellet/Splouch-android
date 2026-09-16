@@ -20,10 +20,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -129,7 +132,15 @@ private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Ma
                     Column(Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(verticalAlignment = Alignment.Bottom) {
                             if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base) else Box(Modifier.weight(1f))
-                            if (settings.showClub) Text(r.club, color = colors.thText, fontSize = base * 0.75f, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            // Club, delta and place read at the name's size rather than a
+                            // quarter under it. They were sized as annotations on a row whose
+                            // only real content was the name and the time, but on a results
+                            // board the club and the place are half of what a spectator is
+                            // there for, and a delta nobody can read from a seat is a column
+                            // of wasted width. Colour still carries the hierarchy — the club
+                            // stays `th_text` against the name's `row_text` — so matching the
+                            // sizes does not make them compete.
+                            if (settings.showClub) Text(r.club, color = colors.thText, fontSize = base, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp))
                         }
                         if (settings.showName && r.alt.isNotEmpty()) {
@@ -138,8 +149,8 @@ private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Ma
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TimeText(r.time, r.timeStyle, r.lockEdge, base * 0.92f, Modifier.weight(1f), TextAlign.Start)
-                            if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, base * 0.78f)
-                            if (settings.showPosition) PlaceText(r.place, base * 0.78f, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
+                            if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, base)
+                            if (settings.showPosition) PlaceText(r.place, base, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
                         }
                     }
                 }
@@ -154,53 +165,72 @@ private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Ma
 private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, modifier: Modifier) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
+    val density = LocalDensity.current
     val anyHeader = settings.showLaneHeader || (settings.showName && settings.showNameHeader) || (settings.showClub && settings.showClubHeader) ||
         settings.showTimeHeader || (settings.showDelta && settings.showDeltaHeader) || (settings.showPosition && settings.showPositionHeader)
-    Column(modifier.fillMaxSize()) {
-        if (anyHeader) {
-            Row(Modifier.fillMaxWidth().background(colors.thBg).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Fixed at 13dp rather than 13sp: the titles sit above a board that sizes
-                // itself from the height it has, and a header that grew with the font-size
-                // setting would take that height from the lanes underneath it.
-                val thSize = with(LocalDensity.current) { 13.dp.toSp() }
-                val th: @Composable (String, Boolean, Modifier, TextAlign) -> Unit = { text, show, m, align ->
-                    Text(if (show) text else "", color = colors.thText, fontSize = thSize, fontFamily = fonts.family, maxLines = 1, textAlign = align, modifier = m.padding(horizontal = 6.dp))
-                }
-                th(labels["lane"].orEmpty(), settings.showLaneHeader, Modifier.width(LaneW), TextAlign.Center)
-                if (settings.showName) th(labels["name"].orEmpty(), settings.showNameHeader, Modifier.weight(1f), TextAlign.Start)
-                if (settings.showClub) th(labels["club"].orEmpty(), settings.showClubHeader, Modifier.weight(0.6f), TextAlign.Center)
-                th(labels["time"].orEmpty(), settings.showTimeHeader, Modifier.width(TimeW), TextAlign.Center)
-                if (settings.showDelta) th(labels["delta"].orEmpty(), settings.showDeltaHeader, Modifier.width(DeltaW), TextAlign.Center)
-                if (settings.showPosition) th(labels["place"].orEmpty(), settings.showPositionHeader, Modifier.width(PlaceW), TextAlign.Center)
-            }
-        }
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val rowHeight: Dp = maxHeight / rows.size.coerceAtLeast(1)
-            // `toSp()` for the same reason the portrait rows use it: the share is a height,
-            // and the font-size setting must not multiply it a second time. See `parity.md` §8.
-            val size = with(LocalDensity.current) { (rowHeight * 0.48f).coerceIn(10.dp, 32.dp).toSp() }
-            Column(Modifier.fillMaxSize()) {
-                rows.forEachIndexed { i, r ->
-                    val description = spoken(r, settings, labels)
-                    Row(
-                        Modifier.fillMaxWidth().height(rowHeight)
-                            .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
-                            .clearAndSetSemantics { contentDescription = description },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LaneNumber(r.lane, r.pulsing, size, Modifier.width(LaneW))
-                        if (settings.showName) {
-                            Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
-                                AutoSizeText(r.name, Modifier.fillMaxWidth(), maxSize = size * 0.85f)
-                                if (r.alt.isNotEmpty()) Text(r.alt, color = colors.thText, fontSize = size * 0.5f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
-                            }
-                        }
-                        if (settings.showClub) Text(r.club, color = colors.rowText, fontSize = size * 0.68f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family,
-                            textAlign = TextAlign.Center, modifier = Modifier.weight(0.6f).padding(horizontal = 6.dp))
-                        TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.72f, Modifier.width(TimeW), TextAlign.Center)
-                        if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) { DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.58f) }
-                        if (settings.showPosition) PlaceText(r.place, size * 0.7f, Modifier.width(PlaceW), Arrangement.Center)
+    // What the column titles cost, measured while they are being drawn and kept after they
+    // go — which is exactly the number needed to decide whether to bring them back. Measured
+    // rather than declared: it is a line of text on this device at this setting, and a
+    // constant tuned on one phone is wrong on the rest.
+    var headerBand by remember { mutableStateOf(0.dp) }
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val count = rows.size.coerceAtLeast(1)
+        fun font(available: Dp): Dp = (available * TypeShare / count).coerceIn(10.dp, 32.dp)
+        // Sized once with the header's band withheld; if that comes out cramped the titles go
+        // and the rows are sized again over the whole height. It cannot oscillate: the
+        // predicate reads the *cached* band and never the height the answer changes, and
+        // dropping the header only ever makes the type bigger.
+        val withHeader = font(maxHeight - headerBand)
+        val showsHeader = anyHeader && (headerBand <= 0.dp || withHeader >= HeaderFloor)
+        val size = with(density) { (if (showsHeader) withHeader else font(maxHeight)).toSp() }
+        val rowHeight: Dp = (maxHeight - (if (showsHeader) headerBand else 0.dp)) / count
+        Column(Modifier.fillMaxSize()) {
+            if (showsHeader) {
+                Row(
+                    Modifier.fillMaxWidth().background(colors.thBg).padding(vertical = 3.dp)
+                        .onSizeChanged { with(density) { headerBand = it.height.toDp() } },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Fixed at 13dp rather than 13sp: the titles sit above a board that sizes
+                    // itself from the height it has, and a header that grew with the font-size
+                    // setting would take that height from the lanes underneath it.
+                    val thSize = with(density) { 13.dp.toSp() }
+                    val th: @Composable (String, Boolean, Modifier, TextAlign) -> Unit = { text, show, m, align ->
+                        Text(if (show) text else "", color = colors.thText, fontSize = thSize, fontFamily = fonts.family, maxLines = 1, textAlign = align, modifier = m.padding(horizontal = 6.dp))
                     }
+                    th(labels["lane"].orEmpty(), settings.showLaneHeader, Modifier.width(LaneW), TextAlign.Center)
+                    if (settings.showName) th(labels["name"].orEmpty(), settings.showNameHeader, Modifier.weight(1f), TextAlign.Start)
+                    if (settings.showClub) th(labels["club"].orEmpty(), settings.showClubHeader, Modifier.weight(0.6f), TextAlign.Center)
+                    th(labels["time"].orEmpty(), settings.showTimeHeader, Modifier.width(TimeW), TextAlign.Center)
+                    if (settings.showDelta) th(labels["delta"].orEmpty(), settings.showDeltaHeader, Modifier.width(DeltaW), TextAlign.Center)
+                    if (settings.showPosition) th(labels["place"].orEmpty(), settings.showPositionHeader, Modifier.width(PlaceW), TextAlign.Center)
+                }
+            }
+            rows.forEachIndexed { i, r ->
+                val description = spoken(r, settings, labels)
+                Row(
+                    Modifier.fillMaxWidth().height(rowHeight)
+                        .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                        .clearAndSetSemantics { contentDescription = description },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LaneNumber(r.lane, r.pulsing, size, Modifier.width(LaneW))
+                    if (settings.showName) {
+                        Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                            AutoSizeText(r.name, Modifier.fillMaxWidth(), maxSize = size * 0.85f)
+                            if (r.alt.isNotEmpty()) Text(r.alt, color = colors.thText, fontSize = size * 0.5f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
+                        }
+                    }
+                    if (settings.showClub) Text(r.club, color = colors.rowText, fontSize = size * 0.85f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family,
+                        textAlign = TextAlign.Center, modifier = Modifier.weight(0.6f).padding(horizontal = 6.dp))
+                    TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.85f, Modifier.width(TimeW), TextAlign.Center)
+                    // Shrink rather than wrap: the column is fixed and the delta is now set
+                    // at the name's size, so a four-lane board at the row-font cap can ask
+                    // for more width than it has. A delta on two lines is not a delta.
+                    if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) { DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.85f, size * 0.6f) }
+                    // The place takes the row font whole: it is one character, it is the
+                    // answer, and it has a column to itself.
+                    if (settings.showPosition) PlaceText(r.place, size, Modifier.width(PlaceW), Arrangement.Center)
                 }
             }
         }
@@ -210,9 +240,27 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
 /** What a two-line compact row needs before it has to scroll instead of share. */
 private val RowFloor = 44.dp
 
+/**
+ * How tall a landscape row's type may be, as a fraction of the height that row is given.
+ *
+ * It was 0.48, which left over half of every row as leading: on a six-lane board the rows
+ * are 55dp tall and the numbers a spectator came to read were set at 26. A landscape row
+ * has **no vertical padding at all**, so this — not padding — is the whole of what holds
+ * the type down. 0.55 still leaves room for a name with an alt line under it (0.85 + 0.5
+ * of the row font, so 74% of the row).
+ */
+private const val TypeShare = 0.55f
+
+/**
+ * Below this the column titles cost more height than their words are worth, so the table
+ * drops them and gives the band back to the lanes.
+ */
+private val HeaderFloor = 14.dp
+
 private val LaneW = 52.dp
 private val TimeW = 130.dp
-private val DeltaW = 96.dp
+// Widened with the delta's own size: it is set from the row font now, not two thirds of it.
+private val DeltaW = 110.dp
 private val PlaceW = 56.dp
 
 // ── cells ────────────────────────────────────────────────────────────────────
@@ -264,11 +312,18 @@ private fun TimeText(text: String, style: TimeStyle, lockEdge: Int, size: TextUn
     Text(text, color = color.value, fontSize = size, fontFamily = LocalBoardFonts.current.timing, textAlign = align, maxLines = 1, softWrap = false, modifier = modifier)
 }
 
+/** [minSize] under [size] lets a fixed column shrink the delta rather than wrap it. */
 @Composable
-private fun DeltaText(seconds: Double?, better: Boolean?, size: TextUnit) {
+private fun DeltaText(seconds: Double?, better: Boolean?, size: TextUnit, minSize: TextUnit = size) {
     val colors = LocalBoardColors.current
     val color = when (better) { true -> colors.deltaBetter; false -> colors.deltaWorse; null -> colors.rowText }
-    Text(DeltaFormat.text(seconds), color = color, fontSize = size, fontFamily = LocalBoardFonts.current.timing, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
+    val text = DeltaFormat.text(seconds)
+    val font = LocalBoardFonts.current.timing
+    if (minSize < size) {
+        AutoSizeText(text, color = color, fontFamily = font, maxSize = size, minSize = minSize, textAlign = TextAlign.End)
+    } else {
+        Text(text, color = color, fontSize = size, fontFamily = font, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
+    }
 }
 
 /**
