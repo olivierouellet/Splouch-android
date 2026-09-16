@@ -106,7 +106,15 @@ private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Ma
         val rowHeight = if (shared > RowFloor) shared else RowFloor
         // And the type follows the height the rows actually got, so a six-lane meet is
         // read across the pool rather than set at the size a sixteen-lane one needs.
-        val base = (rowHeight.value * 0.26f).coerceIn(13f, 24f)
+        //
+        // Through `toSp()`, the way the header already does it: the size is a fraction of
+        // a height in `dp`, and declaring that fraction in `sp` let the device's font-size
+        // setting multiply it a second time inside a row that had not grown at all. The
+        // name cell hid it — `L-17` shrinks to fit — but the club, time, delta and place
+        // have no such give, and by 2× they were running out of the row. Scaling happens
+        // once and it is the caller's: the board sizes itself from the height it has
+        // (`L-15`, `L-16`), the schedule and the chrome follow the setting. See `parity.md` §8.
+        val base = with(LocalDensity.current) { (rowHeight * 0.26f).coerceIn(13.dp, 24.dp).toSp() }
         val scroll = rememberScrollState()
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             rows.forEachIndexed { i, r ->
@@ -118,21 +126,21 @@ private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Ma
                         .clearAndSetSemantics { contentDescription = description },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LaneNumber(r.lane, r.pulsing, base.sp, Modifier.width((cfg.screenWidthDp * 0.09f).dp))
+                    LaneNumber(r.lane, r.pulsing, base, Modifier.width((cfg.screenWidthDp * 0.09f).dp))
                     Column(Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(verticalAlignment = Alignment.Bottom) {
-                            if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base.sp) else Box(Modifier.weight(1f))
-                            if (settings.showClub) Text(r.club, color = colors.thText, fontSize = (base * 0.75f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base) else Box(Modifier.weight(1f))
+                            if (settings.showClub) Text(r.club, color = colors.thText, fontSize = base * 0.75f, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp))
                         }
                         if (settings.showName && r.alt.isNotEmpty()) {
                             // L-06: relay members, dimmed, under the name.
-                            Text(r.alt, color = colors.thText, fontSize = (base * 0.62f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = LocalBoardFonts.current.family)
+                            Text(r.alt, color = colors.thText, fontSize = base * 0.62f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = LocalBoardFonts.current.family)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TimeText(r.time, r.timeStyle, r.lockEdge, (base * 0.92f).sp, Modifier.weight(1f), TextAlign.Start)
-                            if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, (base * 0.78f).sp)
-                            if (settings.showPosition) PlaceText(r.place, (base * 0.78f).sp, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
+                            TimeText(r.time, r.timeStyle, r.lockEdge, base * 0.92f, Modifier.weight(1f), TextAlign.Start)
+                            if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, base * 0.78f)
+                            if (settings.showPosition) PlaceText(r.place, base * 0.78f, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
                         }
                     }
                 }
@@ -152,8 +160,12 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
     Column(modifier.fillMaxSize()) {
         if (anyHeader) {
             Row(Modifier.fillMaxWidth().background(colors.thBg).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Fixed at 13dp rather than 13sp: the titles sit above a board that sizes
+                // itself from the height it has, and a header that grew with the font-size
+                // setting would take that height from the lanes underneath it.
+                val thSize = with(LocalDensity.current) { 13.dp.toSp() }
                 val th: @Composable (String, Boolean, Modifier, TextAlign) -> Unit = { text, show, m, align ->
-                    Text(if (show) text else "", color = colors.thText, fontSize = 13.sp, fontFamily = fonts.family, maxLines = 1, textAlign = align, modifier = m.padding(horizontal = 6.dp))
+                    Text(if (show) text else "", color = colors.thText, fontSize = thSize, fontFamily = fonts.family, maxLines = 1, textAlign = align, modifier = m.padding(horizontal = 6.dp))
                 }
                 th(labels["lane"].orEmpty(), settings.showLaneHeader, Modifier.width(LaneW), TextAlign.Center)
                 if (settings.showName) th(labels["name"].orEmpty(), settings.showNameHeader, Modifier.weight(1f), TextAlign.Start)
@@ -165,7 +177,9 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val rowHeight: Dp = maxHeight / rows.size.coerceAtLeast(1)
-            val size = (rowHeight.value * 0.48f).coerceIn(10f, 32f).sp
+            // `toSp()` for the same reason the portrait rows use it: the share is a height,
+            // and the font-size setting must not multiply it a second time. See `parity.md` §8.
+            val size = with(LocalDensity.current) { (rowHeight * 0.48f).coerceIn(10.dp, 32.dp).toSp() }
             Column(Modifier.fillMaxSize()) {
                 rows.forEachIndexed { i, r ->
                     val description = spoken(r, settings, labels)
