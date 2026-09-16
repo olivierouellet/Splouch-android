@@ -25,12 +25,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,7 +68,12 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
     val heats = meet.schedule
     val visible = remember(heats, filter, current) { if (heats == null) emptyList() else ScheduleFilter.visible(heats, filter, current) }
     val empty = remember(heats, visible, filter) { if (heats == null) ScheduleEmptyState.NONE else ScheduleFilter.emptyState(heats, visible, filter) }
-    val labels = t.labels("short") + meet.labels
+    // The short pair (`EV`/`HT`), not the board's long words: it repeats once per card and
+    // the long form costs the event name its width. The board's own column headers keep
+    // the long forms (`T-04`).
+    val labels = t.labels("short") + meet.shortLabels
+    // One seed column for the whole screen, not one per card — see `timingColumn`.
+    val seedTemplate = remember(visible) { ScheduleFilter.widestSeedTime(visible) }
 
     // S-06: scroll to the current heat once per appearance, re-armed on returning to the foreground.
     val listState = rememberLazyListState()
@@ -95,7 +104,7 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(visible, key = { it.heat.event + "/" + it.heat.heat }) { v ->
-                    HeatCard(v, labels, t.eventVocab)
+                    HeatCard(v, labels, t.eventVocab, seedTemplate)
                 }
             }
         }
@@ -103,10 +112,14 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
 }
 
 @Composable
-private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<String, String>) {
+private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<String, String>, seedTemplate: String) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val h = v.heat
+    // Past this the row reflows instead of shrinking: the heading takes the full width so
+    // it breaks at a space rather than down a narrow gutter, and the scheduled time drops
+    // to a line of its own — still trailing, still in the timing column.
+    val roomy = LocalConfiguration.current.fontScale < 1.8f
     // S-04: the stripe is computed over visible cards.
     val bg = if (v.index % 2 == 0) colors.rowEven else colors.rowOdd
     // IntrinsicSize.Min so the accent bar below has a height to fill: inside a lazy list
@@ -120,27 +133,53 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<Str
                 .background(if (v.isCurrent) colors.time else Color.Transparent),
         )
         Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(
-                Modifier.fillMaxWidth().semantics { heading() },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (h.time.isNotEmpty()) {
-                    Text(h.time, color = colors.scheduleTime, style = MaterialTheme.typography.titleSmall, fontFamily = fonts.timing)
-                }
+            // Two spaces where an em dash was. The dash was punctuation between two things
+            // that are not a range or a pair — it cost four characters of the event name
+            // beside it and said nothing the gap does not. Twice the within-pair gap is
+            // what groups "EV 12" against "HT 3" in a monospaced face, so the reading is
+            // the same and the line is shorter.
+            val eventHeat = "${labels["event"].orEmpty()} ${h.event}  ${labels["heat"].orEmpty()} ${h.heat}"
+            val name = EventName.display(h.eventName, h.eventNameParts, vocab)
+            val heading: @Composable (Int) -> Unit = { lines ->
                 Text(
-                    "${labels["event"].orEmpty()} ${h.event} — ${labels["heat"].orEmpty()} ${h.heat}",
-                    color = colors.scheduleEvent,
+                    eventHeat, color = colors.scheduleEvent,
                     style = MaterialTheme.typography.titleMedium,
-                    fontFamily = fonts.family, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                    fontFamily = fonts.family, fontWeight = FontWeight.SemiBold, maxLines = lines,
                 )
-                val name = EventName.display(h.eventName, h.eventNameParts, vocab)
+            }
+            val eventName: @Composable (Modifier, Int) -> Unit = { m, lines ->
                 if (name.isNotEmpty()) {
                     Text(
                         name, color = colors.rowText, style = MaterialTheme.typography.bodyLarge,
-                        fontFamily = fonts.family, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+                        fontFamily = fonts.family, maxLines = lines, overflow = TextOverflow.Ellipsis,
+                        modifier = m,
                     )
+                }
+            }
+            Column(Modifier.fillMaxWidth().semantics { heading() }) {
+                if (roomy) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        heading(1)
+                        eventName(Modifier.weight(1f), 1)
+                        // The scheduled time moved from the front of this row to the
+                        // trailing column the seed times sit in, so a card reads as two
+                        // columns rather than three loose runs of text: what the heat is on
+                        // the left, when it swims on the right, level with every time below.
+                        TimingCell(h.time, MaterialTheme.typography.titleSmall, seedTemplate)
+                    }
+                } else {
+                    // Every line gets the full width. The scheduled time used to sit beside
+                    // the heat identifier here too, and at these sizes it took a third of
+                    // the card and left "EV 12" / "HT 3" to wrap down a narrow gutter.
+                    heading(Int.MAX_VALUE)
+                    eventName(Modifier.fillMaxWidth(), Int.MAX_VALUE)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TimingCell(h.time, MaterialTheme.typography.titleSmall, seedTemplate)
+                    }
                 }
             }
             v.lanes.forEach { lane ->
@@ -162,11 +201,53 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<Str
                     if (lane.club.isNotEmpty()) {
                         Text(lane.club, color = colors.scheduleClub, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.family, maxLines = 1)
                     }
-                    if (lane.seedTime.isNotEmpty()) {
-                        Text(lane.seedTime, color = colors.scheduleTime, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.timing, maxLines = 1, softWrap = false)
-                    }
+                    TimingCell(lane.seedTime, MaterialTheme.typography.bodyMedium, seedTemplate)
                 }
             }
+        }
+    }
+}
+
+/**
+ * The timing column: as wide as the widest seed time on screen, with its value at the
+ * trailing edge. Both a lane's seed time and a heading's scheduled time sit in it, so
+ * every time on a card shares one right edge.
+ *
+ * The club and the time used to be packed against the right edge at their natural widths,
+ * so the club's position followed the width of the time beside it and the codes zig-zagged
+ * down the card. A lane with no time reads "NT", six characters narrower than "1:04.219",
+ * which threw its club that much further out; but "57.40" against "1:04.219" was already
+ * enough to break the column on any ordinary heat.
+ *
+ * Sized from a hidden copy of the longest string rather than a constant, so a meet whose
+ * every seed time is "NT" reserves two characters and not eight. The ruler is always at
+ * the lane's own size, so a heading's `titleSmall` and a lane's `bodyMedium` still share
+ * one column. It is drawn transparent rather than skipped — it has to measure — and taken
+ * out of the accessibility tree, because TalkBack reading every row's column width before
+ * its time would be worse than the misalignment it fixes.
+ *
+ * Never wrapped: a seed time broken across two lines reads as two times.
+ */
+@Composable
+private fun TimingCell(value: String, style: TextStyle, seedTemplate: String) {
+    // Nothing on screen carries a time, so there is no column to keep.
+    if (value.isEmpty() && seedTemplate.isEmpty()) return
+    val colors = LocalBoardColors.current
+    val fonts = LocalBoardFonts.current
+    val text = @Composable {
+        Text(value, color = colors.scheduleTime, style = style, fontFamily = fonts.timing, maxLines = 1, softWrap = false)
+    }
+    if (seedTemplate.isEmpty()) {
+        // A heading's time is then the only one here, and can sit at its own width.
+        text()
+    } else {
+        Box(contentAlignment = Alignment.CenterEnd) {
+            Text(
+                seedTemplate, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.timing,
+                maxLines = 1, softWrap = false,
+                modifier = Modifier.alpha(0f).clearAndSetSemantics { },
+            )
+            text()
         }
     }
 }

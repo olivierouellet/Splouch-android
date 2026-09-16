@@ -50,6 +50,15 @@ data class MeetState(
     val lang: String,
     val strings: StringTable,
     val labels: Map<String, String>,
+    /**
+     * The same table in its short forms — `EV`/`HT`, `ÉP`/`SÉR`, `PR`/`SER`.
+     *
+     * The board's column headers want the long words (`T-04`), and they have a header row
+     * with room for them. The Schedule tab repeats the pair once per card, where the short
+     * form says the same thing and leaves the width to the event name beside it; so does
+     * the app bar when it takes the board's header row, which is phone-width.
+     */
+    val shortLabels: Map<String, String>,
     val theme: Theme,
     /** Null until fetched; empty when the meet has no schedule yet (S-07). */
     val schedule: List<ScheduleHeat>? = null,
@@ -308,7 +317,10 @@ class AppModel(
         val strings = table(context.server, lang)
         val session = MeetSession(context, transport, vidStore, scope, config.settings.numLanes, timing, timeSource)
         _state.update {
-            it.copy(meet = MeetState(context, config, session, lang, strings, Labels.resolve(config.settings, prefs.lang, prefs.effectiveLabelStyle, strings), Theme.from(config.settings)))
+            it.copy(meet = MeetState(context, config, session, lang, strings,
+                Labels.resolve(config.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
+                Labels.resolve(config.settings, prefs.lang, Labels.SHORT, strings),
+                Theme.from(config.settings)))
         }
         session.start()
         if (inForeground) session.startTicker()
@@ -356,6 +368,7 @@ class AppModel(
                     val strings = if (lang == m.lang) m.strings else table(m.context.server, lang)
                     s.copy(meet = m.copy(config = r.value, lang = lang, strings = strings,
                         labels = Labels.resolve(r.value.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
+                        shortLabels = Labels.resolve(r.value.settings, prefs.lang, Labels.SHORT, strings),
                         theme = Theme.from(r.value.settings), refreshing = false))
                 }
                 ApiResult.NotFound -> if (meet.context.kind == ServerKind.CLOUD) {
@@ -396,7 +409,8 @@ class AppModel(
             val newLang = current.prefs.lang ?: m.config.settings.locale ?: deviceLang
             val strings = table(m.context.server, newLang)
             _state.update { s -> s.copy(meet = s.meet?.copy(lang = newLang, strings = strings,
-                labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, strings))) }
+                labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, strings),
+                shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, strings))) }
             refreshStrings(m.context.server, newLang, forPicker = false)
         }
     }
@@ -404,7 +418,9 @@ class AppModel(
     /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */
     fun setLabelStyle(style: String) {
         savePrefs(current.prefs.copy(labelStyle = if (style == Labels.SHORT) Labels.SHORT else Labels.LONG))
-        _state.update { s -> s.copy(meet = s.meet?.let { m -> m.copy(labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, m.strings)) }) }
+        _state.update { s -> s.copy(meet = s.meet?.let { m -> m.copy(
+            labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, m.strings),
+            shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, m.strings)) }) }
     }
 
     /** A-04: the selected tab survives a relaunch. */
@@ -432,7 +448,9 @@ class AppModel(
                 val m = out.meet
                 if (m != null && m.lang == lang && m.context.server == server) {
                     val strings = table(server, lang)
-                    out = out.copy(meet = m.copy(strings = strings, labels = Labels.resolve(m.config.settings, out.prefs.lang, out.prefs.effectiveLabelStyle, strings)))
+                    out = out.copy(meet = m.copy(strings = strings,
+                        labels = Labels.resolve(m.config.settings, out.prefs.lang, out.prefs.effectiveLabelStyle, strings),
+                        shortLabels = Labels.resolve(m.config.settings, out.prefs.lang, Labels.SHORT, strings)))
                 }
                 out
             }

@@ -70,6 +70,22 @@ object ScheduleFilter {
         return out
     }
 
+    /**
+     * The widest seed time among the cards on screen, as the string to size the seed
+     * column from. Empty when no lane on screen carries one, which is the signal to draw
+     * no column at all.
+     *
+     * Longest by character count rather than by measured width: every face the timing slot
+     * can take is monospaced (`Theme.BUNDLED_FONTS`, and the fallback is
+     * `FontFamily.Monospace`), so the longest string is the widest one.
+     *
+     * Over the whole visible list rather than per card: a spectator scrolling past a
+     * hundred heats reads the times as one column, and a width that changed card to card
+     * would undo that.
+     */
+    fun widestSeedTime(visible: List<VisibleHeat>): String =
+        visible.asSequence().flatMap { it.lanes.asSequence() }.maxByOrNull { it.seedTime.length }?.seedTime.orEmpty()
+
     fun emptyState(heats: List<ScheduleHeat>, visible: List<VisibleHeat>, state: ScheduleFilterState): EmptyState = when {
         heats.isEmpty() -> EmptyState.NO_SCHEDULE
         visible.isEmpty() && state.hasFilters -> EmptyState.NO_MATCHES

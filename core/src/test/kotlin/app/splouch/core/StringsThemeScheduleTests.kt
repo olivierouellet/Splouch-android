@@ -117,4 +117,29 @@ class StringsThemeScheduleTests {
         val kept = ScheduleFilter.retain(none.add(Filter(SuggestionType.SWIMMER, "Di Fu")), heats)
         assertEquals(listOf(Filter(SuggestionType.SWIMMER, "Di Fu")), kept.filters)
     }
+
+    /**
+     * The seed column is sized from the widest time on screen, so the club beside it lands
+     * in the same place on every row.
+     */
+    @Test fun `the widest seed time sizes the column, across cards and not within one`() {
+        fun heats(vararg times: List<String>) = times.mapIndexed { i, ts ->
+            val lanes = ts.joinToString(",") { """{"lane":1,"name":"x","club":"c","seed_time":"$it","swimmers":[]}""" }
+            """{"event":${i + 1},"heat":1,"event_name":"e","time":"","lanes":[$lanes]}"""
+        }.joinToString(",")
+        fun widest(vararg times: List<String>): String {
+            val list = ScheduleHeat.listFromJson(parseJsonOrNull("""{"heats":[${heats(*times)}]}"""))!!
+            return ScheduleFilter.widestSeedTime(ScheduleFilter.visible(list, ScheduleFilterState(), null))
+        }
+        // Across cards, not within one: the column spans the whole screen.
+        assertEquals("1:04.219", widest(listOf("NT", "57.40"), listOf("1:04.219")))
+        // "NT" is the widest thing there is when nothing else has a time, so a meet with no
+        // seed times reserves two characters rather than eight.
+        assertEquals("NT", widest(listOf("NT", "NT")))
+        // Nothing on screen carries one: no column at all.
+        assertEquals("", widest(listOf("", "")))
+        assertEquals("", ScheduleFilter.widestSeedTime(emptyList()))
+        // A lane with no time still sits in the column the others set.
+        assertEquals("1:02.41", widest(listOf("", "1:02.41")))
+    }
 }
