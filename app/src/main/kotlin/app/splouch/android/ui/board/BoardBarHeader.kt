@@ -17,18 +17,25 @@ import java.time.format.DateTimeFormatter
  * two flows the tabs do and shows whichever belongs to the page in view.
  */
 @Composable
-fun BoardBarHeader(meet: MeetState, results: Boolean, server: String? = null) {
-    val labels = boardLabels(meet)
+fun BoardBarHeader(meet: MeetState, results: Boolean, landscape: Boolean, server: String? = null) {
+    // Short labels in portrait: the bar is phone-width, not landscape-width, and "EVENT 12
+    // HEAT 3" buys nothing over "EV 12  HT 3" while the width it costs is the event name's,
+    // which is the one thing here that can run long. Landscape has the room for the words.
+    val labels = if (landscape) boardLabels(meet) else meet.strings.labels("short") + meet.shortLabels
     fun label(key: String) = labels[key].orEmpty()
     val vocab = meet.strings.eventVocab
+    // Landscape keeps the wall clock; portrait does not. The row is only up here in portrait
+    // because the board ran out of height, and the clock is the one thing on it that is not
+    // about this heat — the status bar is showing the time a few points above it (`L-03`).
+    val clock = if (landscape) wallClock() else null
     if (results) {
         val view by meet.session.resultsView.collectAsStateWithLifecycle()
         val name = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
-        BoardBarHeaderRow(label("event"), view.event, label("heat"), view.heat, name, wallClock(), server)
+        BoardBarHeaderRow(label("event"), view.event, label("heat"), view.heat, name, clock, server)
     } else {
         val view by meet.session.scoreboard.collectAsStateWithLifecycle()
         val name = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
-        BoardBarHeaderRow(label("event"), view.currentEvent, label("heat"), view.currentHeat, name, wallClock(), server)
+        BoardBarHeaderRow(label("event"), view.currentEvent, label("heat"), view.currentHeat, name, clock, server)
     }
 }
 

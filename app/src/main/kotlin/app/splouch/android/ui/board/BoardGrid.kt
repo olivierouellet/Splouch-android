@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -71,9 +73,13 @@ fun BoardGrid(
     settings: MeetSettings,
     labels: Map<String, String>,
     landscape: Boolean,
+    metrics: BoardMetrics,
+    /** Whether the app bar is already carrying the `EVENT`/`HEAT` row (`L-15`, `L-16`). */
+    headerInBar: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (landscape) LandscapeGrid(rows, settings, labels, modifier) else PortraitGrid(rows, settings, labels, modifier)
+    if (landscape) LandscapeGrid(rows, settings, labels, modifier)
+    else PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
 }
 
 /**
@@ -97,63 +103,136 @@ private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, Strin
 // ── portrait: the two-line compact row (L-15) ────────────────────────────────
 
 @Composable
-private fun PortraitGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, modifier: Modifier) {
+private fun PortraitGrid(
+    rows: List<GridRow>,
+    settings: MeetSettings,
+    labels: Map<String, String>,
+    metrics: BoardMetrics,
+    headerInBar: Boolean,
+    modifier: Modifier,
+) {
     val colors = LocalBoardColors.current
-    val cfg = LocalConfiguration.current
+    val density = LocalDensity.current
     BoxWithConstraints(modifier.fillMaxSize()) {
-        // The lanes share the board the way the landscape table already did: a six-lane
-        // meet fills the screen instead of drawing 300dp of stripes above bare background.
-        // The floor is what a two-line row needs; past it the board scrolls.
-        val shared = if (rows.isEmpty()) RowFloor else maxHeight / rows.size
-        val rowHeight = if (shared > RowFloor) shared else RowFloor
-        // And the type follows the height the rows actually got, so a six-lane meet is
-        // read across the pool rather than set at the size a sixteen-lane one needs.
-        //
-        // Through `toSp()`, the way the header already does it: the size is a fraction of
-        // a height in `dp`, and declaring that fraction in `sp` let the device's font-size
-        // setting multiply it a second time inside a row that had not grown at all. The
-        // name cell hid it — `L-17` shrinks to fit — but the club, time, delta and place
-        // have no such give, and by 2× they were running out of the row. Scaling happens
-        // once and it is the caller's: the board sizes itself from the height it has
-        // (`L-15`, `L-16`), the schedule and the chrome follow the setting. See `parity.md` §8.
-        val base = with(LocalDensity.current) { (rowHeight * 0.26f).coerceIn(13.dp, 24.dp).toSp() }
-        val scroll = rememberScrollState()
-        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
-            rows.forEachIndexed { i, r ->
-                val description = spoken(r, settings, labels)
-                Row(
-                    Modifier.fillMaxWidth().height(rowHeight)
-                        .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
-                        .padding(vertical = 2.dp)
-                        .clearAndSetSemantics { contentDescription = description },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LaneNumber(r.lane, r.pulsing, base, Modifier.width((cfg.screenWidthDp * 0.09f).dp))
-                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = base) else Box(Modifier.weight(1f))
-                            // Club, delta and place read at the name's size rather than a
-                            // quarter under it. They were sized as annotations on a row whose
-                            // only real content was the name and the time, but on a results
-                            // board the club and the place are half of what a spectator is
-                            // there for, and a delta nobody can read from a seat is a column
-                            // of wasted width. Colour still carries the hierarchy — the club
-                            // stays `th_text` against the name's `row_text` — so matching the
-                            // sizes does not make them compete.
-                            if (settings.showClub) Text(r.club, color = colors.thText, fontSize = base, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp))
-                        }
-                        if (settings.showName && r.alt.isNotEmpty()) {
-                            // L-06: relay members, dimmed, under the name.
-                            Text(r.alt, color = colors.thText, fontSize = base * 0.62f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = LocalBoardFonts.current.family)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TimeText(r.time, r.timeStyle, r.lockEdge, base * 0.92f, Modifier.weight(1f), TextAlign.Start)
-                            if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, base)
-                            if (settings.showPosition) PlaceText(r.place, base, Modifier.width((cfg.screenWidthDp * 0.12f).dp))
-                        }
+        val count = rows.size.coerceAtLeast(1)
+        // The lanes share the whole height, equally, and there is no floor under a row: the
+        // share each row gets *is* the floor, and the type shrinks to meet it. The 44dp floor
+        // that used to be here was what stopped twelve lanes fitting — twelve of them wanted
+        // 528dp against the ~510 a phone has, and the miss was the floor, not the type.
+        // The last lane is not special-cased: `Scaffold` has already taken the system bars
+        // off this height, so it clears the navigation bar on its own.
+        val share = maxHeight / count
+        // The type follows the height the rows actually got, so a six-lane meet is read
+        // across the pool rather than set at the size a sixteen-lane one needs. Through
+        // `toSp()` — see `parity.md` §8.
+        val base = with(density) { (share * 0.26f).coerceIn(13.dp, 24.dp).toSp() }
+
+        // Degrade in the order a spectator loses least by, and each only on need. The relay
+        // name goes before any type shrinks: it is the one line on the row that is not a
+        // swimmer, a time or a place, and a team name set at 9dp to keep it helps nobody.
+        val anyAlt = settings.showName && rows.any { it.alt.isNotEmpty() }
+        val wantPlain = if (metrics.laneIdeal > 0.dp) metrics.laneIdeal else share
+        val wantAlt = if (metrics.laneIdealWithAlt > 0.dp) metrics.laneIdealWithAlt else wantPlain
+        val showsAlt = anyAlt && share >= wantAlt
+        val want = if (showsAlt) wantAlt else wantPlain
+        // Then the type scales to the share, floored — past which the board scrolls rather
+        // than fit twelve lanes of relay at a size nobody can read.
+        val scale = (if (want > 0.dp) share / want else 1f).coerceIn(PortraitTypeFloor, 1f)
+        val rowHeight = maxOf(share, want * scale)
+
+        // And above both of those, the app bar taking the EVENT / HEAT row. Reported rather
+        // than decided here: `MeetShell` is the only place that knows what the bar is
+        // carrying. `SideEffect` because this is a write for the *next* composition.
+        val wantsBar = metrics.wantsBar(maxHeight, headerInBar, settings.numLanes)
+        SideEffect { metrics.needsBar = wantsBar }
+
+        Box(Modifier.fillMaxSize()) {
+            // The rulers: one lane at full size, and the same lane carrying a relay name,
+            // laid out with the table's width and never drawn. They can measure without
+            // moving what they measure because this `Box` is already pinned to the height
+            // `BoxWithConstraints` handed it — the feedback an `onGloballyPositioned` among
+            // the real rows would have made. `alpha(0f)` rather than skipping them, because
+            // they have to be laid out to have a height at all, and out of the accessibility
+            // tree because they are a ruler and not a lane.
+            if (rows.isNotEmpty()) {
+                Column(Modifier.alpha(0f).clearAndSetSemantics { }) {
+                    PortraitRow(
+                        rows.first(), settings, base, scale = 1f, showsAlt = false,
+                        modifier = Modifier.onSizeChanged { with(density) { metrics.laneIdeal = it.height.toDp() } },
+                    )
+                    // Real content, not a stand-in: the height of a relay row is the height
+                    // of the words actually in it.
+                    rows.firstOrNull { it.alt.isNotEmpty() }?.let { relay ->
+                        PortraitRow(
+                            relay, settings, base, scale = 1f, showsAlt = true,
+                            modifier = Modifier.onSizeChanged { with(density) { metrics.laneIdealWithAlt = it.height.toDp() } },
+                        )
                     }
                 }
+            }
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                rows.forEachIndexed { i, r ->
+                    val description = spoken(r, settings, labels)
+                    PortraitRow(
+                        r, settings, base, scale, showsAlt,
+                        modifier = Modifier.height(rowHeight)
+                            .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                            .clearAndSetSemantics { contentDescription = description },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * L-15's two-line compact row: lane number spanning the left, name on line one with the club
+ * right-aligned, time and delta and place on line two.
+ *
+ * [scale] is 1 when the heat fits at the sizes below and less when the lanes have to share
+ * the screen more tightly. **Everything** scales together — the type, the spacing, the lane
+ * number's column and the vertical padding — so the hierarchy holds at any lane count.
+ * [showsAlt] is false once the lanes are too tight to spend a line on the relay's name.
+ */
+@Composable
+private fun PortraitRow(
+    r: GridRow,
+    settings: MeetSettings,
+    base: TextUnit,
+    scale: Float,
+    showsAlt: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalBoardColors.current
+    val fonts = LocalBoardFonts.current
+    val size = base * scale
+    Row(
+        modifier.fillMaxWidth().padding(vertical = 2.dp * scale),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LaneNumber(r.lane, r.pulsing, size, Modifier.width(34.dp * scale))
+        Column(Modifier.weight(1f).padding(end = 8.dp * scale)) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = size) else Box(Modifier.weight(1f))
+                // Club, delta and place read at the name's size rather than a quarter under
+                // it. They were sized as annotations on a row whose only real content was the
+                // name and the time, but on a results board the club and the place are half of
+                // what a spectator is there for, and a delta nobody can read from a seat is a
+                // column of wasted width. Colour still carries the hierarchy — the club stays
+                // `th_text` against the name's `row_text` — so matching the sizes does not
+                // make them compete.
+                if (settings.showClub) Text(r.club, color = colors.thText, fontSize = size, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    fontFamily = fonts.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp * scale))
+            }
+            // L-06: relay members, dimmed, under the name — the first thing given up when the
+            // lanes get tight.
+            if (settings.showName && showsAlt && r.alt.isNotEmpty()) {
+                Text(r.alt, color = colors.thText, fontSize = size * 0.62f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.92f, Modifier.weight(1f), TextAlign.Start)
+                if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, size, size * 0.7f)
+                if (settings.showPosition) PlaceText(r.place, size, Modifier.width(56.dp * scale))
             }
         }
     }
@@ -236,9 +315,6 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
         }
     }
 }
-
-/** What a two-line compact row needs before it has to scroll instead of share. */
-private val RowFloor = 44.dp
 
 /**
  * How tall a landscape row's type may be, as a fraction of the height that row is given.
@@ -355,14 +431,20 @@ private fun PlaceText(place: String, size: TextUnit, modifier: Modifier, arrange
  * under a real app bar it is simply a second strip of chrome for one board.
  */
 @Composable
-fun BoardHeader(eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?) {
+fun BoardHeader(
+    eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?,
+    /** What this band costs is measured here and kept once it moves into the app bar. */
+    metrics: BoardMetrics,
+) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val cfg = LocalConfiguration.current
+    val density = LocalDensity.current
     val height = (cfg.screenHeightDp * 0.085f).coerceIn(52f, 92f).dp
     val t = headerType(height)
     Row(
-        Modifier.fillMaxWidth().heightIn(min = height).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = height).padding(horizontal = 12.dp, vertical = 8.dp)
+            .onSizeChanged { with(density) { metrics.headerBand = it.height.toDp() } },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

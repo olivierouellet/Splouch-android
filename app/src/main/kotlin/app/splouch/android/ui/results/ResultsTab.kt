@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.R
 import app.splouch.android.ui.board.BoardGrid
 import app.splouch.android.ui.board.BoardHeader
+import app.splouch.android.ui.board.BoardMetrics
 import app.splouch.android.ui.board.GridRow
 import app.splouch.android.ui.board.boardLabels
 import app.splouch.android.ui.board.wallClock
@@ -21,7 +22,7 @@ import app.splouch.core.strings.EventName
 
 /** The last confirmed heat, held still (app.md §4). */
 @Composable
-fun ResultsTab(meet: MeetState, landscape: Boolean) {
+fun ResultsTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
     val view by meet.session.resultsView.collectAsStateWithLifecycle()
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
@@ -33,8 +34,10 @@ fun ResultsTab(meet: MeetState, landscape: Boolean) {
         }
     }
     Column(Modifier.fillMaxSize()) {
-        if (!landscape) {
-            BoardHeader(label("event"), view.event, label("heat"), view.heat, eventName, wallClock())
+        // The app bar hands this back when it is drawing the row itself — always in
+        // landscape, and in portrait only when the lanes need the height (`L-15`).
+        if (!headerInBar) {
+            BoardHeader(label("event"), view.event, label("heat"), view.heat, eventName, wallClock(), metrics)
         }
         if (view.waiting) {
             // R-01: the line is the screen, and the table appears with the data. Blank rows
@@ -43,7 +46,7 @@ fun ResultsTab(meet: MeetState, landscape: Boolean) {
             // page, and a spectator reads nothing from it the line does not already say.
             EmptyState(icon = painterResource(R.drawable.ic_waiting), title = meet.strings.mobile("waiting_results"))
         } else {
-            BoardGrid(rows, meet.config.settings, labels, landscape)
+            BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar)
         }
     }
 }

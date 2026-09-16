@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.ui.board.BoardGrid
 import app.splouch.android.ui.board.BoardHeader
+import app.splouch.android.ui.board.BoardMetrics
 import app.splouch.android.ui.board.GridRow
 import app.splouch.android.ui.board.boardLabels
 import app.splouch.android.ui.board.wallClock
@@ -23,7 +24,7 @@ import app.splouch.core.strings.EventName
  * whole page rather than sharing it with a second band of chrome.
  */
 @Composable
-fun ScoreboardTab(meet: MeetState, landscape: Boolean) {
+fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
     val view by meet.session.scoreboard.collectAsStateWithLifecycle()
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
@@ -35,9 +36,11 @@ fun ScoreboardTab(meet: MeetState, landscape: Boolean) {
         }
     }
     Column(Modifier.fillMaxSize()) {
-        if (!landscape) {
-            BoardHeader(label("event"), view.currentEvent, label("heat"), view.currentHeat, eventName, wallClock())
+        // The app bar hands this back when it is drawing the row itself — always in
+        // landscape, and in portrait only when the lanes need the height (`L-15`).
+        if (!headerInBar) {
+            BoardHeader(label("event"), view.currentEvent, label("heat"), view.currentHeat, eventName, wallClock(), metrics)
         }
-        BoardGrid(rows, meet.config.settings, labels, landscape)
+        BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar)
     }
 }

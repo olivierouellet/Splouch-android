@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.coroutines.cancellation.CancellationException
 import app.splouch.android.R
 import app.splouch.android.ui.board.BoardBarHeader
+import app.splouch.android.ui.board.BoardMetrics
 import app.splouch.android.ui.results.ResultsTab
 import app.splouch.android.ui.schedule.FilterSheet
 import app.splouch.android.ui.schedule.ScheduleTab
@@ -84,6 +85,10 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     val rail = useNavigationRail()
     val pager = rememberPagerState(initialPage = (state.prefs.tab ?: 0).coerceIn(0, 2)) { 3 }
     val scope = rememberCoroutineScope()
+
+    // L-15: what the board has measured about itself, held here because this is the only
+    // view that knows both what the lanes want and what the app bar is currently carrying.
+    val metrics = remember(meet.session) { BoardMetrics() }
 
     // S-08/S-20: the filter belongs to the meet, not to the tab — the button that opens it
     // is in the app bar, so the state it drives has to be at least as high up.
@@ -130,9 +135,23 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     )
     fun go(index: Int) = scope.launch { pager.animateScrollToPage(index) }
 
-    // Pinned, not collapsing: in landscape this bar *is* the board header (L-01..L-03),
-    // and a board that hides the heat number to win back a row is not a board.
+    // Pinned, not collapsing: where this bar *is* the board header (L-01..L-03), a board
+    // that hides the heat number to win back a row is not a board.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
+
+    /**
+     * L-15, the top rung of the ladder: the board's own EVENT / HEAT row moves into the app
+     * bar, which is worth a whole header band. Landscape always does it — two strips of
+     * chrome for one screen is what the web shell had to do with an `<iframe>`, and the lane
+     * table wants the height. **Portrait does it only on need**: the bar there is carrying
+     * the meet's title and P-11's server name, so the trade is a real one and not worth
+     * making for a board that fits without it. Ten lanes and under keep them.
+     *
+     * The need is `BoardMetrics.wantsBar`, which is normalised so that moving the row cannot
+     * hand back the space that caused the move — see there.
+     */
+    val onBoard = pager.currentPage != SCHEDULE
+    val headerInBar = onBoard && (landscape || metrics.needsBar)
 
     Scaffold(
         modifier = Modifier
@@ -152,12 +171,14 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     }
                 },
                 title = {
-                    val onBoard = pager.currentPage != SCHEDULE
-                    if (landscape && onBoard) {
+                    if (headerInBar) {
                         BoardBarHeader(
                             meet,
                             results = pager.currentPage == RESULTS,
-                            server = state.server.display.takeIf { !state.isDefaultServer },
+                            landscape = landscape,
+                            // In portrait the bar has given up the meet's title to make room,
+                            // so P-11's server name has nowhere else to go either.
+                            server = state.server.display.takeIf { !state.isDefaultServer && landscape },
                         )
                     } else {
                         Column {
@@ -230,8 +251,11 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 2) { page ->
                         Box(Modifier.fillMaxSize()) {
                             when (page) {
-                                SCOREBOARD -> ScoreboardTab(meet, landscape)
-                                RESULTS -> ResultsTab(meet, landscape)
+                                // Both board tabs answer the same question, the way they
+                                // already did in landscape: the bar carries whichever one is
+                                // in view, so neither draws its own band.
+                                SCOREBOARD -> ScoreboardTab(meet, landscape, metrics, headerInBar)
+                                RESULTS -> ResultsTab(meet, landscape, metrics, headerInBar)
                                 else -> ScheduleTab(meet, filter, onResetFilters = { filter = filter.reset() })
                             }
                         }
