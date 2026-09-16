@@ -16,12 +16,38 @@ scope for a native client; everything else starts `deferred`.
 `Level` is copied from `app.md` v1 for triage only. **`app.md` is authoritative** —
 if the two ever disagree, that document wins and this one is stale.
 
-**Verification status (2026-09-15).** `./gradlew :core:test` passes (74 unit tests over
-the socket loop, race clock, frame merge, results grid, strings, filters, the app model and
-the string-snapshot coverage check) and `./gradlew :app:assembleDebug` builds.
+**Verification status (2026-09-16).** `./gradlew :core:test` passes (77 unit tests over
+the socket loop, race clock, frame merge, results grid, strings, filters, the app model,
+the seed column, the two palettes and the string-snapshot coverage check) and
+`./gradlew :app:assembleDebug` builds.
 
-The UI was rebuilt on the platform's own components this day — see **The native-UI pass**
-below. Seen working on a Medium Phone AVD (API 37) against a local Pi playing
+**The iOS UI pass was ported this day** — the schedule's seed column and short heat
+labels, `P-15`'s Appearance preference in place of the meet's palette, the lane-row sizes,
+and twelve lanes in portrait. Seen working on a Medium Phone AVD (API 37, a 411×914dp
+Pixel-8 viewport) against a local Pi playing `200m_medley_2heats.cts` and a purpose-built
+stub for the two cases no recording covers:
+
+- 6, 8 and 12 lanes, portrait and landscape. Twelve fit one screen with rows equal, the
+  table filling to the bottom and the last lane clear of the navigation bar — on the
+  Pixel-8 viewport and again at 360×780dp, where the row type lands on its 13dp floor.
+- Landscape drops the column titles at twelve lanes and brings them back at six, so the
+  decision is not sticking.
+- Dark, Light and Automatic, Automatic following `cmd uimode night`. Light **holds inside a
+  meet**, which is the whole point of `P-15`; the running time and the `L-11` flash are
+  legible on it where the old fixed grey and white were not.
+- Default and 2.0× text. The board holds its layout and the chrome grows, and at 2.0× the
+  lanes take the app bar's header row (`L-15` rung a) with short labels and no wall clock.
+- A heat of relays with alt names and one without: the alt line drops before any type
+  shrinks, and comes back when there is room.
+- A start list whose every seed time is `NT`: the column reserves two characters.
+- A meet sending `theme_colors` (`bg #123456`): ignored, per the `T-01` departure.
+
+Two bugs only a device could show, both fixed and recorded in §8 **Font scale**: Material's
+inherited `24.sp` `lineHeight` overflowing rows that had been measured at a pinned type
+size, and `AutoSizeText`'s `8.sp` floor inverting under a `dp`-derived ceiling.
+
+The UI was rebuilt on the platform's own components on 2026-09-15 — see **The native-UI
+pass** below. Seen working on a Medium Phone AVD (API 37) against a local Pi playing
 `200m_medley_2heats.cts` and a local cloud relaying it: the picker as a Material list with dynamic colour, its
 branding and its disclaimer block; the language and server sheets; the scoreboard with names, clubs and the app bar's
 back arrow; results with times, deltas and places; the schedule with the current heat
@@ -30,9 +56,9 @@ stand-down; landscape on both board tabs, where the header folds into the app ba
 tabs move to a navigation rail; `R-01`'s waiting line replacing the grid, reached by
 turning airplane mode on under a live meet; the tab choice surviving a relaunch.
 
-Not yet exercised on a device: the lock flash and the pulse, a language change made from
-the preference sheet mid-meet, the mDNS browse, `A-09`, and a **tablet or foldable** — the
-navigation rail was seen only at phone-landscape width, never at `Medium`. (A light board
+Not yet exercised on a device: the `L-12` pulse, a language change made from the preference
+sheet mid-meet, the mDNS browse, `A-09`, and a **tablet or foldable** — the navigation rail
+was seen only at phone-landscape width, never at `Medium`. (A light board
 used to be on this list because no operator ships one; `P-15` made it the reader's choice,
 so it is reachable from the picker's menu on any meet.) **Not yet heard:** none of the accessibility work in
 §8 has been run under TalkBack. The labels and merge points are in place and compile;
