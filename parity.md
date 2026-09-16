@@ -39,6 +39,10 @@ stub for the two cases no recording covers:
   lanes take the app bar's header row (`L-15` rung a) with short labels and no wall clock.
 - A heat of relays with alt names and one without: the alt line drops before any type
   shrinks, and comes back when there is room.
+- A full twelve-lane heat run start to finish, lanes locking one at a time. One frame
+  caught lane 8 mid-`L-11` flash — its time drawn in `row_text` on its way to the timing
+  colour — while lanes 9-12 were still mid-`L-12` pulse and lanes 1-7 had settled, which
+  is the three states of a lane in one screenshot.
 - A start list whose every seed time is `NT`: the column reserves two characters.
 - A meet sending `theme_colors` (`bg #123456`): ignored, per the `T-01` departure.
 
@@ -56,7 +60,7 @@ stand-down; landscape on both board tabs, where the header folds into the app ba
 tabs move to a navigation rail; `R-01`'s waiting line replacing the grid, reached by
 turning airplane mode on under a live meet; the tab choice surviving a relaunch.
 
-Not yet exercised on a device: the `L-12` pulse, a language change made from the preference
+Not yet exercised on a device: a language change made from the preference
 sheet mid-meet, the mDNS browse, `A-09`, and a **tablet or foldable** — the navigation rail
 was seen only at phone-landscape width, never at `Medium`. (A light board
 used to be on this list because no operator ships one; `P-15` made it the reader's choice,
