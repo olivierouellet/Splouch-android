@@ -353,8 +353,16 @@ private fun StatusDot(live: Boolean) {
 private val LiveGreen = Color(0xFF4CAF50)
 
 /**
- * P-15, one of the three. `Role.RadioButton` and `selected` rather than a bare check glyph:
- * a tick says nothing out loud, and this is a choice, not a command.
+ * P-15, one of the three.
+ *
+ * `Role.RadioButton` and `selected` rather than a bare check glyph: a tick is a glyph and a
+ * glyph says nothing out loud, so without this a listener hears "Dark, Light, Automatic" and
+ * cannot tell which one they are already on. Same fix the server and language rows got.
+ *
+ * **`mergeDescendants = true` is the whole of why it works.** Unmerged, the role and the
+ * selected flag sit on a wrapper the reader never lands on, and the node it *does* land on
+ * is the bare label — which is what the accessibility tree showed before this: `class=TextView`,
+ * `checkable=false`, `selected=false`, on every one of the three.
  */
 @Composable
 private fun AppearanceChoice(
@@ -366,7 +374,7 @@ private fun AppearanceChoice(
 ) {
     val selected = state.prefs.appearance == value
     DropdownMenuItem(
-        modifier = Modifier.semantics { role = Role.RadioButton; this.selected = selected },
+        modifier = Modifier.semantics(mergeDescendants = true) { role = Role.RadioButton; this.selected = selected },
         text = { Text(stringResource(label)) },
         trailingIcon = { if (selected) Icon(painterResource(R.drawable.ic_check), null) },
         onClick = { model.setAppearance(value); onPicked() },

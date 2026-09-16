@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -50,6 +51,7 @@ import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.VisibleHeat
 import app.splouch.core.session.MeetState
+import app.splouch.core.wire.ScheduleLane
 import app.splouch.core.strings.EventName
 
 /**
@@ -72,6 +74,10 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
     // the long form costs the event name its width. The board's own column headers keep
     // the long forms (`T-04`).
     val labels = t.labels("short") + meet.shortLabels
+    // What the card *says out loud* keeps the long words. `EV`/`HT` are a width decision
+    // about a phone screen; read aloud they are two letters a listener has to decode, and a
+    // screen reader has no width problem to solve. Same table, long style (`T-04`).
+    val spoken = t.labels("short") + meet.labels
     // One seed column for the whole screen, not one per card — see `timingColumn`.
     val seedTemplate = remember(visible) { ScheduleFilter.widestSeedTime(visible) }
 
@@ -104,7 +110,7 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(visible, key = { it.heat.event + "/" + it.heat.heat }) { v ->
-                    HeatCard(v, labels, t.eventVocab, seedTemplate)
+                    HeatCard(v, labels, spoken, t.eventVocab, seedTemplate)
                 }
             }
         }
@@ -112,7 +118,7 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
 }
 
 @Composable
-private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<String, String>, seedTemplate: String) {
+private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<String, String>, vocab: Map<String, String>, seedTemplate: String) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val h = v.heat
@@ -156,7 +162,15 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<Str
                     )
                 }
             }
-            Column(Modifier.fillMaxWidth().semantics { heading() }) {
+            // One heading, spoken once and in full, rather than three or four fragments a
+            // listener has to reassemble — and in the long words (see `spoken`).
+            val headingSpoken = listOf(
+                "${spoken["event"].orEmpty()} ${h.event}".trim(),
+                "${spoken["heat"].orEmpty()} ${h.heat}".trim(),
+                name,
+                h.time,
+            ).filter { it.isNotEmpty() }.joinToString(", ")
+            Column(Modifier.fillMaxWidth().clearAndSetSemantics { heading(); contentDescription = headingSpoken }) {
                 if (roomy) {
                     Row(
                         Modifier.fillMaxWidth(),
@@ -183,8 +197,10 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, vocab: Map<Str
                 }
             }
             v.lanes.forEach { lane ->
+                val laneSpoken = spokenLane(lane, spoken)
                 Row(
-                    Modifier.fillMaxWidth().padding(top = 6.dp),
+                    Modifier.fillMaxWidth().padding(top = 6.dp)
+                        .clearAndSetSemantics { contentDescription = laneSpoken },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -250,4 +266,22 @@ private fun TimingCell(value: String, style: TextStyle, seedTemplate: String) {
             text()
         }
     }
+}
+
+/**
+ * A lane on a start-list card is one thing, not four unrelated fragments (`S-02`).
+ *
+ * It read as "1", "Roy · Gagnon", "CAMO", "NT" — four stops with nothing saying which was a
+ * club and which a seed time, and "NT" alone tells a listener nothing at all. Composed from
+ * the server's own column words the way `BoardGrid.spoken` is (`T-04`), so it is spoken in
+ * the meet's language rather than the app's.
+ */
+private fun spokenLane(lane: ScheduleLane, labels: Map<String, String>): String {
+    fun word(key: String) = labels[key].orEmpty()
+    val parts = mutableListOf<String>()
+    lane.lane?.let { parts += "${word("lane")} $it".trim() }
+    parts += ScheduleFilter.displayName(lane)
+    if (lane.club.isNotEmpty()) parts += "${word("club")} ${lane.club}".trim()
+    if (lane.seedTime.isNotEmpty()) parts += "${word("time")} ${lane.seedTime}".trim()
+    return parts.joinToString(", ")
 }
