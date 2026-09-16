@@ -1,6 +1,7 @@
 package app.splouch.android.platform
 
 import android.content.Context
+import app.splouch.core.session.Appearance
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.PreferencesStore
 import app.splouch.core.session.VidStore
@@ -32,6 +33,9 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         lang = prefs.getString("lang", null),
         // A device that stored the old "meet default" (absent) reads as the new default.
         labelStyle = if (prefs.getString("label_style", null) == Labels.SHORT) Labels.SHORT else Labels.DEFAULT,
+        // P-15. A device that stored its preferences before this key existed was seeing a
+        // pinned-dark app, so that is what it keeps.
+        appearance = Appearance.parse(prefs.getString("appearance", null)),
         tab = if (prefs.contains("tab")) prefs.getInt("tab", 0) else null,
     )
 
@@ -41,6 +45,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
             .putString("servers", prefs.servers.joinToString("\n"))
             .putString("lang", prefs.lang)
             .putString("label_style", prefs.labelStyle)
+            .putString("appearance", prefs.appearance.name)
             .apply {
                 val tab = prefs.tab
                 if (tab == null) remove("tab") else putInt("tab", tab)

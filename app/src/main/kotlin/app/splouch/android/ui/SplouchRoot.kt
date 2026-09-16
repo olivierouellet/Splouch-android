@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -27,15 +28,17 @@ import app.splouch.android.ui.picker.PickerScreen
 import app.splouch.android.ui.shell.MeetShell
 import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.android.ui.theme.SplouchTheme
+import app.splouch.core.session.Appearance
 import app.splouch.core.session.AppModel
-import app.splouch.core.theme.Theme
 
 /**
  * The two halves of the app, and the line between them (`parity.md` T-01).
  *
- * Outside a meet there is no palette to render, so the picker and its sheets are the
- * device's theme. Inside one, the meet paints the board and everything Material draws
- * over it follows the same light or dark.
+ * Outside a meet the components are Material's; inside one the board draws itself in the
+ * meet's faces (`T-03`). **Which of the two palettes either half uses is decided here and
+ * nowhere else** (`P-15`): the reader picks Dark, Light or Automatic, and the board reads
+ * that back rather than voting with its own `bg`. It used to vote, and a spectator who
+ * chose light got it until they opened a meet — which is where they were going.
  */
 @Composable
 fun SplouchRoot(model: AppModel, images: ImageCache) {
@@ -53,12 +56,19 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
     }
 
     val meet = state.meet
-    // The status and navigation bars sit over whichever of the two is on screen. Outside
-    // a meet that is always dark — see `SplouchTheme`.
-    SystemBarAppearance(dark = meet == null || isDarkBoard(meet.theme))
+    // P-15, and the one place the scheme is decided. `AUTO` hands the question to the OS,
+    // which is what lets it move with the time of day.
+    val dark = when (state.prefs.appearance) {
+        Appearance.DARK -> true
+        Appearance.LIGHT -> false
+        Appearance.AUTO -> isSystemInDarkTheme()
+    }
+    // The status and navigation bars sit over whichever of the two is on screen, and both
+    // of them now answer the same question.
+    SystemBarAppearance(dark = dark)
 
     val theme: @Composable (@Composable () -> Unit) -> Unit =
-        if (meet != null) ({ content -> BoardTheme(meet.theme) { content() } }) else ({ content -> SplouchTheme { content() } })
+        if (meet != null) ({ content -> BoardTheme(dark, meet.theme) { content() } }) else ({ content -> SplouchTheme(dark) { content() } })
 
     theme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -89,15 +99,6 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
 }
 
 private const val DurationMs = 280
-
-/** The meet's background decides, the same way `BoardColors.isDark` does. */
-private fun isDarkBoard(theme: Theme): Boolean {
-    val argb = Theme.parseArgb(theme.color("bg")) ?: return true
-    val r = ((argb shr 16) and 0xFF) / 255.0
-    val g = ((argb shr 8) and 0xFF) / 255.0
-    val b = (argb and 0xFF) / 255.0
-    return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
-}
 
 /** Light glyphs over a dark screen and dark glyphs over a light one, in both system bars. */
 @Composable

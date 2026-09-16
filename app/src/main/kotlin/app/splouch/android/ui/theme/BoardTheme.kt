@@ -7,6 +7,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -27,9 +28,15 @@ import androidx.compose.ui.unit.sp
 import app.splouch.android.R
 import app.splouch.core.theme.Theme
 
-/** The meet's palette (app.md T-01, T-02), every key resolved through the documented defaults (T-07). */
-class BoardColors(private val theme: Theme) {
-    private fun c(key: String): Color = Color(Theme.parseArgb(theme.color(key)) ?: Theme.parseArgb(Theme.DEFAULT_COLORS.getValue(key))!!)
+/**
+ * The board's palette, in the one of two the reader chose (`P-15`).
+ *
+ * **Not the meet's** — see `Theme` and `parity.md` T-01 for the departure and what it
+ * costs. Both tables are the server's own, so a board still looks like Splouch either way.
+ */
+class BoardColors(val isDark: Boolean) {
+    private val table = Theme.palette(isDark)
+    private fun c(key: String): Color = Color(Theme.parseArgb(table.getValue(key))!!)
 
     val bg = c("bg")
     val headerBg = c("header_bg")
@@ -49,16 +56,14 @@ class BoardColors(private val theme: Theme) {
     val scheduleName = c("schedule_name")
     val scheduleClub = c("schedule_club")
 
-    /** The web's `.time-running` grey. */
-    val timeRunning = Color(0xFFA0A0A0)
-
     /**
-     * Whether this meet paints a dark board. The operator sets thirteen colours and no
-     * light/dark flag, so the background is the one that decides: everything Material
-     * draws over the meet — its sheets, dialogs and menus — follows the meet rather than
-     * the device, or a light meet ends up with dark chrome around a white board.
+     * A running time (`L-11`), dimmed against the row it sits on rather than against an
+     * assumed black. It was a fixed `#A0A0A0` — the web's `.time-running` grey, from a
+     * board that was only ever dark — which on a light board is pale grey on near-white.
+     * At 70% of `row_text` it lands within a couple of percent of the old grey on the dark
+     * board and stays readable on the light one.
      */
-    val isDark: Boolean = bg.luminance() < 0.5f
+    val timeRunning = rowText.copy(alpha = 0.7f)
 }
 
 /** The three font roles (T-03), from the six bundled faces; an unknown name falls back to the system monospace. */
@@ -80,7 +85,7 @@ class BoardFonts(theme: Theme) {
     }
 }
 
-val LocalBoardColors = staticCompositionLocalOf { BoardColors(Theme.DEFAULT) }
+val LocalBoardColors = staticCompositionLocalOf { BoardColors(isDark = true) }
 val LocalBoardFonts = staticCompositionLocalOf { BoardFonts(Theme.DEFAULT) }
 
 /**
@@ -90,30 +95,36 @@ val LocalBoardFonts = staticCompositionLocalOf { BoardFonts(Theme.DEFAULT) }
  * components are Material's and the colours are roles rather than the `#0d0d0d` greys the
  * web picker paints — that is stylesheet, and chrome is the platform's (§0.4).
  *
- * **Dark, though, and not the device's choice.** Every theme an operator ships paints a
- * dark board, so a light picker would hand a spectator a white list and then drop them
- * onto black the moment they tapped a meet. Until there is a light board to match — the
- * palette is the operator's (`T-01`), so that is their call and not ours — this follows
- * the board rather than the system. Dynamic colour still applies where the platform
- * offers it: it is the user's wallpaper tint, in its dark form.
+ * **[dark] is the reader's choice, resolved once in `SplouchRoot` (`P-15`).** This used to
+ * be pinned dark on the grounds that every theme an operator ships paints a dark board, so
+ * a light picker would drop a spectator onto black the moment they tapped a meet. There is
+ * a light board now and the reader picks it, so the pin is gone and both halves of the app
+ * answer the same question. Dynamic colour still applies where the platform offers it: it
+ * is the user's wallpaper tint, in whichever form was asked for.
  */
 @Composable
-fun SplouchTheme(content: @Composable () -> Unit) {
+fun SplouchTheme(dark: Boolean, content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val scheme =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) dynamicDarkColorScheme(context)
-        else darkColorScheme()
+    val scheme = when {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> if (dark) darkColorScheme() else lightColorScheme()
+        dark -> dynamicDarkColorScheme(context)
+        else -> dynamicLightColorScheme(context)
+    }
     MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
 }
 
 /**
- * Inside a meet: the board's own paint (T-01..T-03) on the composition locals, and a
- * Material scheme derived from the same palette so every platform surface drawn over the
- * board — the filter sheet, its dialogs, the navigation bar — belongs to the same screen.
+ * Inside a meet: the board's paint on the composition locals, and a Material scheme derived
+ * from the same palette so every platform surface drawn over the board — the filter sheet,
+ * its dialogs, the navigation bar — belongs to the same screen.
+ *
+ * [dark] is the reader's (`P-15`), read back from where `SplouchRoot` resolved it rather
+ * than decided here. [theme] is still the **meet's**, and still supplies the three faces
+ * (`T-03`); only its colours go unread.
  */
 @Composable
-fun BoardTheme(theme: Theme, content: @Composable () -> Unit) {
-    val colors = remember(theme) { BoardColors(theme) }
+fun BoardTheme(dark: Boolean, theme: Theme, content: @Composable () -> Unit) {
+    val colors = remember(dark) { BoardColors(dark) }
     val fonts = remember(theme) { BoardFonts(theme) }
     val scheme = remember(colors) { meetScheme(colors) }
     CompositionLocalProvider(LocalBoardColors provides colors, LocalBoardFonts provides fonts) {
@@ -122,10 +133,9 @@ fun BoardTheme(theme: Theme, content: @Composable () -> Unit) {
 }
 
 /**
- * The meet's thirteen colours mapped onto the Material roles that matter. Only the roles
- * the operator actually supplies are overridden; the rest come from the baseline scheme
- * for the light or dark the background implies, so a component we have not thought about
- * still draws legibly.
+ * The board's colours mapped onto the Material roles that matter. Only the roles the
+ * palette actually speaks to are overridden; the rest come from the baseline scheme for
+ * the light or dark in effect, so a component we have not thought about still draws legibly.
  */
 private fun meetScheme(c: BoardColors): ColorScheme {
     val base = if (c.isDark) darkColorScheme() else lightColorScheme()

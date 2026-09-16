@@ -27,6 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -59,6 +62,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -66,6 +71,8 @@ import app.splouch.android.ImageCache
 import app.splouch.android.R
 import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
+import androidx.compose.ui.semantics.Role
+import app.splouch.core.session.Appearance
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.UiState
 import app.splouch.core.wire.ServerKind
@@ -83,6 +90,7 @@ import app.splouch.core.wire.ServerKind
 @Composable
 fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: SnackbarHostState) {
     val t = state.pickerStrings
+    var showMenu by remember { mutableStateOf(false) }
     var showServers by remember { mutableStateOf(false) }
     var showPrefs by remember { mutableStateOf(false) }
     val cfg = state.picker.config
@@ -108,11 +116,31 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                     Text(state.server.display, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 },
                 actions = {
-                    IconButton(onClick = { showPrefs = true }) {
-                        Icon(painterResource(R.drawable.ic_language), t.mobile("language"))
+                    // One overflow rather than a row of glyphs. Two of these open a list the
+                    // server serves and the third is three fixed choices the app owns, so the
+                    // Appearance rows sit inline with a check on the current one — a menu
+                    // inside a menu is not something Material does, and the iOS twin's
+                    // `Picker(.menu)` reads the same way.
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(painterResource(R.drawable.ic_more), stringResource(R.string.more_options))
                     }
-                    IconButton(onClick = { showServers = true }) {
-                        Icon(painterResource(R.drawable.ic_server), stringResource(R.string.server))
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.server)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_server), null) },
+                            onClick = { showMenu = false; showServers = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(t.mobile("language")) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_language), null) },
+                            onClick = { showMenu = false; showPrefs = true },
+                        )
+                        HorizontalDivider()
+                        // A menu item is padded 12dp, not the sheet's 16.
+                        SectionHeader(stringResource(R.string.appearance), Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp))
+                        AppearanceChoice(R.string.appearance_dark, Appearance.DARK, state, model) { showMenu = false }
+                        AppearanceChoice(R.string.appearance_light, Appearance.LIGHT, state, model) { showMenu = false }
+                        AppearanceChoice(R.string.appearance_auto, Appearance.AUTO, state, model) { showMenu = false }
                     }
                 },
             )
@@ -323,3 +351,24 @@ private fun StatusDot(live: Boolean) {
 }
 
 private val LiveGreen = Color(0xFF4CAF50)
+
+/**
+ * P-15, one of the three. `Role.RadioButton` and `selected` rather than a bare check glyph:
+ * a tick says nothing out loud, and this is a choice, not a command.
+ */
+@Composable
+private fun AppearanceChoice(
+    label: Int,
+    value: Appearance,
+    state: UiState,
+    model: AppModel,
+    onPicked: () -> Unit,
+) {
+    val selected = state.prefs.appearance == value
+    DropdownMenuItem(
+        modifier = Modifier.semantics { role = Role.RadioButton; this.selected = selected },
+        text = { Text(stringResource(label)) },
+        trailingIcon = { if (selected) Icon(painterResource(R.drawable.ic_check), null) },
+        onClick = { model.setAppearance(value); onPicked() },
+    )
+}

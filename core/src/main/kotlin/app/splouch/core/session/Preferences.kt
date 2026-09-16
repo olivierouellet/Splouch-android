@@ -2,7 +2,31 @@ package app.splouch.core.session
 
 import app.splouch.core.strings.Labels
 
-/** What survives a relaunch, per device: the server, the language and style choices (T-08, T-09), the tab (A-04). */
+/**
+ * P-15: light or dark, the app's own and not the meet's.
+ *
+ * The choice holds **everywhere** — picker, board and the chrome over both. A meet used to
+ * decide inside itself from `settings.theme_colors`, which meant a reader who chose Light
+ * got it until they opened a meet, which is where they were going. So there is no
+ * "follow the meet" case here, and the board reads this back rather than voting.
+ *
+ * [DARK] rather than [AUTO] by default: the app has been pinned dark since the web page it
+ * came from, and a spectator who never opens this menu should see the app they saw
+ * yesterday. That holds for preferences stored before the key existed, too.
+ */
+enum class Appearance {
+    DARK,
+    LIGHT,
+    /** Follow the device, which is what lets it change with the time of day. */
+    AUTO;
+
+    companion object {
+        /** A stored value, or [DARK] for anything absent or unrecognised. */
+        fun parse(raw: String?): Appearance = entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: DARK
+    }
+}
+
+/** What survives a relaunch, per device: the server, the language and style choices (T-08, T-09), the appearance (P-15), the tab (A-04). */
 data class Preferences(
     val server: String? = null,
     /** Servers added by hand (P-13), as origins. */
@@ -10,6 +34,8 @@ data class Preferences(
     val lang: String? = null,
     /** T-09's short/long choice — always one of the two, [Labels.DEFAULT] until the user picks. */
     val labelStyle: String = Labels.DEFAULT,
+    /** P-15: the app's own light/dark, [Appearance.DARK] until the user says otherwise. */
+    val appearance: Appearance = Appearance.DARK,
     val tab: Int? = null,
 ) {
     /**

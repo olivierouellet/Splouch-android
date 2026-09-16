@@ -1,5 +1,7 @@
 package app.splouch.core
 
+import app.splouch.core.session.Appearance
+import app.splouch.core.session.Preferences
 import app.splouch.core.schedule.Filter
 import app.splouch.core.schedule.HeatRef
 import app.splouch.core.schedule.ScheduleFilter
@@ -141,5 +143,34 @@ class StringsThemeScheduleTests {
         assertEquals("", ScheduleFilter.widestSeedTime(emptyList()))
         // A lane with no time still sits in the column the others set.
         assertEquals("1:02.41", widest(listOf("", "1:02.41")))
+    }
+
+    /** P-15: two palettes, both the server's own, and neither of them the meet's. */
+    @Test fun `the two palettes are the server's, not the meet's`() {
+        assertEquals("#0d0d0d", Theme.DEFAULT_COLORS.getValue("bg"))
+        assertEquals("#f8f8f8", Theme.LIGHT_COLORS.getValue("bg"))
+        assertEquals("#e0e0e0", Theme.DEFAULT_COLORS.getValue("row_text"))
+        assertEquals("#111111", Theme.LIGHT_COLORS.getValue("row_text"))
+        // Every key the dark table has, the light one has too: a missing one would fall
+        // through to the dark default and paint a dark row into a light board.
+        assertEquals(Theme.DEFAULT_COLORS.keys, Theme.LIGHT_COLORS.keys)
+        assertEquals(Theme.DEFAULT_COLORS, Theme.palette(dark = true))
+        assertEquals(Theme.LIGHT_COLORS, Theme.palette(dark = false))
+        // A meet that names its own colours changes neither — nothing renders `theme_colors`.
+        val themed = Theme(mapOf("bg" to "#123456"), emptyMap())
+        assertEquals("#123456", themed.colors.getValue("bg"))
+        assertEquals("#0d0d0d", Theme.palette(dark = true).getValue("bg"))
+    }
+
+    /**
+     * P-15: a device whose preferences were written before the key existed was seeing a
+     * pinned-dark app, so that is what it keeps.
+     */
+    @Test fun `appearance defaults to dark and round-trips`() {
+        assertEquals(Appearance.DARK, Preferences().appearance)
+        assertEquals(Appearance.DARK, Appearance.parse(null))
+        assertEquals(Appearance.DARK, Appearance.parse("moonlight"))
+        assertEquals(Appearance.LIGHT, Appearance.parse("LIGHT"))
+        assertEquals(Appearance.AUTO, Appearance.parse(Appearance.AUTO.name))
     }
 }

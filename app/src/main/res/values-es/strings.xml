@@ -21,4 +21,10 @@
     <string name="close">Cerrar</string>
     <string name="undo">Deshacer</string>
     <string name="server_removed">Servidor eliminado</string>
+
+    <string name="appearance">Apariencia</string>
+    <string name="appearance_dark">Oscuro</string>
+    <string name="appearance_light">Claro</string>
+    <string name="appearance_auto">Automático</string>
+    <string name="more_options">Más opciones</string>
 </resources>

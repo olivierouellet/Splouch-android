@@ -415,6 +415,14 @@ class AppModel(
         }
     }
 
+    /**
+     * P-15: the app's own light or dark. Device-local and immediate — nothing is re-fetched
+     * and no socket is disturbed, the window just redraws in the chosen scheme.
+     */
+    fun setAppearance(appearance: Appearance) {
+        savePrefs(current.prefs.copy(appearance = appearance))
+    }
+
     /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */
     fun setLabelStyle(style: String) {
         savePrefs(current.prefs.copy(labelStyle = if (style == Labels.SHORT) Labels.SHORT else Labels.LONG))

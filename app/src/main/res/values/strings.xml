@@ -30,4 +30,12 @@
     <string name="close">Close</string>
     <string name="undo">Undo</string>
     <string name="server_removed">Server removed</string>
+
+    <!-- Appearance (P-15). Light and dark are about the device, not about anything a
+         web page shows, so these are the app's words and no server serves them. -->
+    <string name="appearance">Appearance</string>
+    <string name="appearance_dark">Dark</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_auto">Automatic</string>
+    <string name="more_options">More options</string>
 </resources>

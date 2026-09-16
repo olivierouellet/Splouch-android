@@ -31,10 +31,10 @@ tabs move to a navigation rail; `R-01`'s waiting line replacing the grid, reache
 turning airplane mode on under a live meet; the tab choice surviving a relaunch.
 
 Not yet exercised on a device: the lock flash and the pulse, a language change made from
-the preference sheet mid-meet, the mDNS browse, `A-09`, a **light-themed meet** (every meet
-to hand paints a dark board, so `BoardColors.isDark`'s light branch has not been on
-screen), and a **tablet or foldable** — the navigation rail was seen only at phone-
-landscape width, never at `Medium`. **Not yet heard:** none of the accessibility work in
+the preference sheet mid-meet, the mDNS browse, `A-09`, and a **tablet or foldable** — the
+navigation rail was seen only at phone-landscape width, never at `Medium`. (A light board
+used to be on this list because no operator ships one; `P-15` made it the reader's choice,
+so it is reachable from the picker's menu on any meet.) **Not yet heard:** none of the accessibility work in
 §8 has been run under TalkBack. The labels and merge points are in place and compile;
 whether a lane *reads* sensibly is a judgement only the screen reader settles.
 
@@ -59,23 +59,20 @@ tap". So:
 
 | | Draws with | Follows |
 | --- | --- | --- |
-| Picker, server and language sheets, errors | Material 3 roles, dynamic colour where the device offers it | the **board** — dark, for now; see below |
-| Scoreboard, Results, Schedule cards | `T-01`/`T-02`'s palette and `T-03`'s faces, unchanged | the **meet** |
-| Sheets and dialogs *inside* a meet | Material components over a scheme derived from the meet's palette | the **meet's** light or dark, by its `bg` luminance |
+| Picker, server and language sheets, errors | Material 3 roles, dynamic colour where the device offers it | the **reader** (`P-15`) |
+| Scoreboard, Results, Schedule cards | one of two palettes, and `T-03`'s faces from the meet | the **reader** for colour, the **meet** for the faces |
+| Sheets and dialogs *inside* a meet | Material components over a scheme derived from the palette in effect | the same one answer |
 
-The picker is **dark whatever the device says**, and that is a `for now` rather than a
-retraction. Following the system was right in principle and wrong in practice: every
-meet theme an operator ships paints a dark board, so on a light phone a spectator got a
-white list and was then dropped onto black the moment they tapped a meet. The board's
-palette is the operator's (`T-01`), so a light board is their call to make; the day one
-exists, `SplouchTheme` can go back to `isSystemInDarkTheme()` and nothing else has to
-move. Dynamic colour still applies where the platform offers it, in its dark form.
+**Amended by `P-15` (see `T-01`).** The line above still holds for the *faces* — `T-03` is
+untouched, and a meet still draws in the three it names. The palette is no longer the
+meet's: the reader picks Dark, Light or Automatic and that holds everywhere. What the two
+tables in this row used to say — the picker pinned dark "for now", the board following its
+own `bg` luminance — was the problem `P-15` fixes, and both are gone. The "for now" was
+waiting on a light board to match; there is one now, and the reader chooses it rather than
+the operator.
 
-Nothing about `T-01`, `T-02`, `T-03` or `T-07` changed: the board renders exactly the
-thirteen colours and three faces it did before. What changed is that a Material component
-drawn over that board now gets a scheme built from the same colours (`BoardTheme.meetScheme`)
-instead of a hard-coded dark one, so a light-themed meet will not get dark chrome around a
-white board.
+`T-03` and `T-07` are unchanged. `T-01` and `T-02` are a deliberate departure with its cost
+named in their rows, and `app.md` still needs the matching edit.
 
 Also in this pass, and listed here because no single ID owns them:
 
@@ -115,6 +112,7 @@ Also in this pass, and listed here because no single ID owns them:
 | `P-11` | Choose which server to connect to, from a list, in the picker's menu | native-only | `done` | `ServerSheet`: default + saved + `GET /servers` + nearby, as `ListItem` rows made `selectable` so the current choice reaches TalkBack — the radio button is a glyph and a glyph says nothing out loud. The server is in the picker's app bar **always**, not only when it is not the default — that is the row's floor, and a bar holding two actions and no title reads as unfinished while the operator's own title is already the branding block below. In a meet it is the app bar's subtitle in portrait and sits beside the clock in the landscape bar header |
 | `P-12` | Servers on the local network are offered without anyone typing an address | native-only | `done` | `NsdBrowser` on `_splouch._tcp`, dialled by `.local` host name (option A); the platform exposes the host name from Android 14 only, so older devices see nothing and add the Pi by hand |
 | `P-13` | A server can be added by hand, checked before it is saved | native-only | `done` | `AppModel.addServer`: parse, `GET /server`, then save; `http` accepted for `.local` names only. One row, not three: the section header already said what this is, so the field submits itself — the IME's Go key, or the tick that appears once there is something to send — and its `supportingText` carries the progress and the error. Taking one back out is a swipe (`SwipeToDismissBox`), the gesture Android uses for removing a row, where it was a "Remove" text button in the trailing slot. **Only hand-added servers swipe**: the default and the ones `GET /servers` lists cannot be removed, and a gesture that sometimes does nothing is worse than no gesture. It is **undoable**, which a one-finger gesture over a typed address has to be: `AppModel.removeServer` hands back the origin, its index and whether it was in use, `restoreServer` puts all three back, and the snackbar carrying the Undo is hosted by the sheet rather than by the app — the sheet is its own window and a snackbar from underneath would be drawn behind it. No second `GET /server` on the way back: it answered when the server was added, and undoing a slip is not the moment to ask again on a network that is unreliable enough to be why the address is saved. Tests: AppModelTests |
+| `P-15` | The app's own light/dark, chosen in the picker's menu: Dark, Light, Automatic | native-only | `done` | `Appearance` on `Preferences`, set through `AppModel.setAppearance`, resolved to one boolean in **one place** — `SplouchRoot`. The choice holds everywhere: picker, board, and the chrome over both. `BoardTheme` and `SplouchTheme` are *handed* the answer rather than deciding, so the bars, the rows and the sheets cannot disagree, and the meet's own `theme_colors` are not consulted (see `T-01`). `AUTO` asks `isSystemInDarkTheme()`, which is what lets it move with the time of day. **Dark is the default**, including for preferences stored before the key existed — the app has been pinned dark since the web page it came from, and a spectator who never opens this menu should see the app they saw yesterday. `themes.xml` paints the launch window before Compose exists and cannot read a preference, so it carries the default and `MainActivity` repaints it from the stored choice; without that a Light reader got a black flash on every cold start. The control is a real overflow menu, which also took in the Server and Language buttons that were loose glyphs in the bar: two of them open a list the server serves, and Appearance is three fixed choices the app owns, so its rows sit inline with a check on the current one and `Role.RadioButton` so the choice is announced. The words are the app's (`T-05`) — light and dark are about the device, and no server serves them. Tests: `the two palettes are the server's, not the meet's`, `appearance defaults to dark and round-trips` |
 
 ## 2. App shell
 
@@ -243,8 +241,8 @@ Also in this pass, and listed here because no single ID owns them:
 
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`… | must | `done` | `BoardColors` — the board renders the same thirteen colours it always did. What is new is `BoardTheme.meetScheme`: the Material roles a sheet or dialog drawn over the board uses are derived from those colours, light or dark chosen by `bg`'s luminance, instead of a hard-coded dark scheme. Outside a meet there is no palette to render and the picker is the device's theme — see **The native-UI pass** |
-| `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | should | `done` |  |
+| `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`… | must | `diverges` | `BoardColors(dark)` over `Theme.palette(dark)`. **Departed from, deliberately (`P-15`).** The app does not render `settings.theme_colors`. The reader picks Dark, Light or Automatic and that choice holds **everywhere**, because a preference the next meet could overrule is not a preference — a spectator who chose Light got it until they opened a meet, which is where they were going. The two palettes are the server's own (`DEFAULT_THEME_COLORS` in `server/state.py`, `server/themes/white.toml` minus the two `connection_lost*` keys only the Qt display draws) so a board still looks like Splouch either way round. The field is still decoded and still reaches `Theme.colors`; nothing draws from it. **The cost, named rather than hidden:** an operator who themes a meet in club colours sees it on the web board and the Pi display and not here. The web board and the Pi are unchanged, and `app.md` still needs the matching edit — which is what `diverges` asserts. Tests: `the two palettes are the server's, not the meet's`. One key in the dark table differs from the server's on purpose: `header_label` is `#ffffff` where `state.py` has `#3b9eff`. Both this app and its iOS twin have carried white since before the palette was pinned, and every dark board anyone has seen on a phone has had white EVENT and HEAT words over it — changing it now would restyle the board to fix a number nobody is reading. `BoardTheme.meetScheme` still derives the Material roles a sheet or dialog drawn over the board uses from the palette in effect, so they belong to the same screen |
+| `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | should | `diverges` | `HeatCard` uses `scheduleEvent`/`Time`/`Name`/`Club` from whichever of the two palettes is in effect. **Departed from, deliberately (`P-15`).** The app does not render `settings.theme_colors`. The reader picks Dark, Light or Automatic and that choice holds **everywhere**, because a preference the next meet could overrule is not a preference — a spectator who chose Light got it until they opened a meet, which is where they were going. The two palettes are the server's own (`DEFAULT_THEME_COLORS` in `server/state.py`, `server/themes/white.toml` minus the two `connection_lost*` keys only the Qt display draws) so a board still looks like Splouch either way round. The field is still decoded and still reaches `Theme.colors`; nothing draws from it. **The cost, named rather than hidden:** an operator who themes a meet in club colours sees it on the web board and the Pi display and not here. The web board and the Pi are unchanged, and `app.md` still needs the matching edit — which is what `diverges` asserts. Tests: `the two palettes are the server's, not the meet's` |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | must | `done` | six faces bundled in `res/font`, unknown → system monospace. The three roles are the board's; the picker, the sheets and every standard control use the system face, which is what a platform control is for |
 | `T-04` | Column headers and header labels are the server's words, never the app's | must | `done` | `settings.labels` as sent, or the `/i18n/{lang}` table once the user picks a language (`Labels.resolve`); the EVENT and HEAT headers come from that table in the style `T-09` is set to. Both sources are the server's and nothing else is layered over them — there is no per-meet override |
 | `T-05` | The app's own chrome — tab names, empty states, filter UI — is fetched and cached, not translated in the app | must | `done` | Every word the web page also shows comes from `GET /i18n/{lang}` → `mobile` through `StringTable`, cached with its ETag; words about the app or the device — the server sheet, connection and address errors, the standard buttons — are native resources in `values`, `values-fr` and `values-es`. `SnapshotCoverageTests` fails the build if the app asks for a `mobile` key the captured snapshot lacks |
@@ -275,7 +273,7 @@ under TalkBack yet** (see the verification note at the top).
 | Font scale | done | **Scaling happens once, and which half of the app does it is now one rule.** Every size on the picker, the sheets and the schedule is `sp` off the Material type scale and follows the device's font-size setting. The board does not: it takes its sizes from the height it has — the screen's, the app bar's, or the share each lane got — and puts each through `toSp()`, which divides the setting back out. The header had done this since the native-UI pass; the lane rows had not, and that was the open part. They took their size from the height they share (`L-15`, `L-16`) and then declared it in `sp`, so the setting multiplied a fraction of a `dp` height inside a row that had not grown at all. `L-17`'s auto-shrink hid it in the name cell; the club, time, delta and place cells have no such give, and by 2.0× they were running out of the row. The landscape column titles went the same way (13`dp`, not 13`sp`) — a header that grew with the setting took its height from the lanes underneath it. The board is a display and sizes itself from the height it has; the setting reaches everything a reader reads as text. This mirrors the iOS twin's `Font.custom(_:fixedSize:)` fix, where a bundled face scaled itself *and* the caller scaled it again, squaring the setting |
 | Haptics | partial | The swipe that removes a saved server fires one when it crosses its threshold, which is how Android answers a committed gesture. Nothing else in the app does — not the pager settling on a tab, not a filter being added |
 | Remove animations | partial | The picker's live dot honours it (`ui/common/Motion.kt`). The board's `L-11` lock flash and `L-12` pulse do not, on purpose — those two are information rather than decoration: the flash is how a final time announces itself and the pulse is how a lane says its clock has gone quiet |
-| Contrast | n/a | The board's palette is the operator's (`T-01`), so its contrast is theirs to get right; the app renders what it is sent. The chrome is the platform's and inherits the platform's |
+| Contrast | done | The board no longer renders whatever it is sent (`P-15`, `T-01`): it draws one of two palettes, both the server's own, so their contrast is a fixed and checkable property of this app rather than the operator's to get right meet by meet. The chrome is the platform's and inherits the platform's. Two colours that had assumed a dark board went with the change — a running time was a fixed `#A0A0A0` and the `L-11` lock flash a fixed white, which on the light board is pale grey on near-white and a flash that cannot be seen at all. Both come off `row_text` now, so each dims or flashes against the row it is actually drawn on |
 
 
 ## Open questions for the contract

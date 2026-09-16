@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The window behind Compose. Dark, and not the device's choice: every meet theme an
-     operator ships paints a dark board (app.md T-01), so the picker follows the board
-     rather than the system until there is a light board to match. See `SplouchTheme`. -->
+<!-- The window behind Compose, painted before Compose exists. It cannot read a preference,
+     so it carries P-15's default; `MainActivity` repaints it from the stored choice as soon
+     as that is known, and `SplouchRoot` owns the scheme from there. -->
 <resources>
     <style name="Theme.Splouch" parent="@android:style/Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">#000000</item>

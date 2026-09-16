@@ -25,7 +25,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -241,8 +240,13 @@ private fun LaneNumber(text: String, pulsing: Boolean, size: TextUnit, modifier:
 }
 
 /**
- * L-11: a running time is grey; on the stop edge it flashes white and settles to the
- * timing colour; running again drops the lock at once. Results reuse the settled look (R-09).
+ * L-11: a running time is dimmed; on the stop edge it flashes and settles to the timing
+ * colour; running again drops the lock at once. Results reuse the settled look (R-09).
+ *
+ * The flash starts from `row_text` rather than a fixed white. White was from a board that
+ * was only ever dark; on the light one (`P-15`) it is a flash that cannot be seen at all,
+ * and this is the one moment on the board that has to be. `row_text` is the highest-contrast
+ * colour the palette has against the row it is drawn on, whichever way round that row is.
  */
 @Composable
 private fun TimeText(text: String, style: TimeStyle, lockEdge: Int, size: TextUnit, modifier: Modifier, align: TextAlign) {
@@ -251,7 +255,7 @@ private fun TimeText(text: String, style: TimeStyle, lockEdge: Int, size: TextUn
     val color = remember { Animatable(target) }
     LaunchedEffect(style, lockEdge, colors) {
         if (style == TimeStyle.LOCKED && lockEdge > 0) {
-            color.snapTo(Color.White)
+            color.snapTo(colors.rowText)
             color.animateTo(colors.time, tween(800))
         } else {
             color.snapTo(target)
