@@ -172,6 +172,13 @@ fun AutoSizeText(
     color: Color = LocalBoardColors.current.rowText,
     fontFamily: FontFamily? = LocalBoardFonts.current.family,
     maxSize: TextUnit = 16.sp,
+    /**
+     * The floor. A caller sizing from a height it measured must derive this from the *same*
+     * unit as [maxSize] — a raw `sp` floor under a `dp`-pinned maximum inverts the range the
+     * moment the device's font-size setting goes above 1, and the text is then drawn bigger
+     * than the cell was measured for rather than smaller. [coerceAtMost] is the belt to that
+     * braces: an inverted range silently mis-sizes instead of failing.
+     */
     minSize: TextUnit = 8.sp,
     textAlign: TextAlign = TextAlign.Start,
     fontWeight: FontWeight? = null,
@@ -183,6 +190,6 @@ fun AutoSizeText(
         style = TextStyle(color = color, fontFamily = fontFamily, fontSize = maxSize, textAlign = textAlign, fontWeight = fontWeight),
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = maxSize, stepSize = 0.5.sp),
+        autoSize = TextAutoSize.StepBased(minFontSize = if (minSize > maxSize) maxSize else minSize, maxFontSize = maxSize, stepSize = 0.5.sp),
     )
 }

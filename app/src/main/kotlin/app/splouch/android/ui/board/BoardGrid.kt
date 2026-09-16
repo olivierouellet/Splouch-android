@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -78,8 +80,33 @@ fun BoardGrid(
     headerInBar: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (landscape) LandscapeGrid(rows, settings, labels, modifier)
-    else PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
+    BoardType {
+        if (landscape) LandscapeGrid(rows, settings, labels, modifier)
+        else PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
+    }
+}
+
+/**
+ * The board's line box, pinned the way its type is.
+ *
+ * Material's `Text` inherits `LocalTextStyle`, whose `lineHeight` is a fixed `24.sp` off the
+ * type scale — and `sp` keeps following the device's font-size setting however the
+ * `fontSize` beside it was worked out. So a board that had carefully sized itself from the
+ * height it has still got a **48dp line box for 15dp type** at 2×, and every row overflowed
+ * the height it had been measured into: the second scaling channel, hidden behind the first
+ * (`parity.md` §8).
+ *
+ * `Unspecified` hands the line box back to the font, which makes it proportional to the
+ * `fontSize` — the one number the board controls. This covers the Material `Text`s; the
+ * `BasicText` behind `AutoSizeText` never inherited a `lineHeight` to begin with.
+ */
+@Composable
+internal fun BoardType(content: @Composable () -> Unit) {
+    val style = LocalTextStyle.current
+    CompositionLocalProvider(
+        LocalTextStyle provides remember(style) { style.copy(lineHeight = TextUnit.Unspecified) },
+        content = content,
+    )
 }
 
 /**
@@ -213,7 +240,8 @@ private fun PortraitRow(
         LaneNumber(r.lane, r.pulsing, size, Modifier.width(34.dp * scale))
         Column(Modifier.weight(1f).padding(end = 8.dp * scale)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = size) else Box(Modifier.weight(1f))
+                // The floor comes off the same pinned size as the ceiling — see `AutoSizeText`.
+                if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = size, minSize = size * 0.6f) else Box(Modifier.weight(1f))
                 // Club, delta and place read at the name's size rather than a quarter under
                 // it. They were sized as annotations on a row whose only real content was the
                 // name and the time, but on a results board the club and the place are half of
@@ -296,7 +324,7 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
                     LaneNumber(r.lane, r.pulsing, size, Modifier.width(LaneW))
                     if (settings.showName) {
                         Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
-                            AutoSizeText(r.name, Modifier.fillMaxWidth(), maxSize = size * 0.85f)
+                            AutoSizeText(r.name, Modifier.fillMaxWidth(), maxSize = size * 0.85f, minSize = size * 0.5f)
                             if (r.alt.isNotEmpty()) Text(r.alt, color = colors.thText, fontSize = size * 0.5f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
                         }
                     }
@@ -442,6 +470,7 @@ fun BoardHeader(
     val density = LocalDensity.current
     val height = (cfg.screenHeightDp * 0.085f).coerceIn(52f, 92f).dp
     val t = headerType(height)
+    BoardType {
     Row(
         Modifier.fillMaxWidth().heightIn(min = height).padding(horizontal = 12.dp, vertical = 8.dp)
             .onSizeChanged { with(density) { metrics.headerBand = it.height.toDp() } },
@@ -459,6 +488,7 @@ fun BoardHeader(
         if (clock != null) {
             Text(clock, color = colors.headerValue, fontSize = t.value, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
         }
+    }
     }
 }
 
@@ -500,6 +530,7 @@ fun BoardBarHeaderRow(
     val fonts = LocalBoardFonts.current
     // A top app bar is a fixed 64dp, so that is the height this row is sized from.
     val t = headerType(BarHeight)
+    BoardType {
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -517,6 +548,7 @@ fun BoardBarHeaderRow(
         if (clock != null) {
             Text(clock, color = colors.headerValue, fontSize = t.value, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
         }
+    }
     }
 }
 
