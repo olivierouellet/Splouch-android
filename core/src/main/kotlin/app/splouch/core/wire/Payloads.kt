@@ -123,6 +123,39 @@ data class PickerConfig(
 
 // ── Meet settings (api.md §5.4 `settings`; the Pi's GET /config carries the same keys flat) ──
 
+/**
+ * Which console is driving this meet (api.md §5.4), from `settings.console` on the cloud
+ * and the same block at the top level of the Pi's `GET /config` (§6).
+ *
+ * [timed] is the half the app acts on: false means no time and no place will ever arrive,
+ * because the operator is driving the boards by hand from `/manual`, and that is what
+ * takes the Results tab away (`A-11`). The server reads it off the decoder, so a console
+ * added as a local plugin and driven by hand answers it correctly — which is why nothing
+ * here branches on [key], and why a client that matched `key == "manual"` would call that
+ * plugin timed.
+ *
+ * [key] is diagnostic only: *which console did this meet run on*, for a support question.
+ * Its human label does not travel — it exists in English only.
+ */
+data class ConsoleInfo(val key: String = "", val timed: Boolean = true) {
+    companion object {
+        /**
+         * What a server too old to send `console` means, and what a malformed value reads
+         * as: there is a console, and it times. The absent field has always meant that, so
+         * the default is to show the tab and never to take one away on a parse failure.
+         */
+        val TIMED = ConsoleInfo()
+
+        fun fromJson(e: JsonElement?): ConsoleInfo {
+            val o = e.asObjectOrNull() ?: return TIMED
+            return ConsoleInfo(
+                key = o["key"].asStringOrNull()?.trim().orEmpty(),
+                timed = o["timed"].asBoolOrNull() ?: true,
+            )
+        }
+    }
+}
+
 data class MeetSettings(
     val numLanes: Int,
     val showName: Boolean = true,
@@ -144,6 +177,8 @@ data class MeetSettings(
     val labels: Map<String, String> = emptyMap(),
     /** `"short"` or `"long"`, as the operator set it; null when absent (the Pi's /config). T-09's control starts from long either way. */
     val labelStyle: String? = null,
+    /** A-11: which console drives this meet, and whether it times at all. [ConsoleInfo.TIMED] when the server did not say. */
+    val console: ConsoleInfo = ConsoleInfo.TIMED,
 ) {
     companion object {
         const val DEFAULT_NUM_LANES = 8
@@ -171,6 +206,7 @@ data class MeetSettings(
                 labels = o?.get("labels").asObjectOrNull().stringMap(),
                 labelStyle = o?.get("label_style").asStringOrNull()?.trim()?.lowercase()
                     ?.takeIf { it == "short" || it == "long" },
+                console = ConsoleInfo.fromJson(o?.get("console")),
             )
         }
     }

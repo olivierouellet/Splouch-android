@@ -2,6 +2,7 @@ package app.splouch.android.platform
 
 import android.content.Context
 import app.splouch.core.session.Appearance
+import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.PreferencesStore
 import app.splouch.core.session.VidStore
@@ -36,8 +37,23 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         // P-15. A device that stored its preferences before this key existed was seeing a
         // pinned-dark app, so that is what it keeps.
         appearance = Appearance.parse(prefs.getString("appearance", null)),
-        tab = if (prefs.contains("tab")) prefs.getInt("tab", 0) else null,
+        tab = storedTab(),
     )
+
+    /**
+     * A-04, by identity since A-11. A device that stored its tab as an index — every
+     * release before this one — is read once through the tab order it was written in, so a
+     * spectator who left the app on Schedule comes back to Schedule and not to page 2 of
+     * whatever this meet turns out to have. The next [save] writes it back as a name.
+     */
+    private fun storedTab(): MeetTab? = when {
+        !prefs.contains("tab") -> null
+        else -> try {
+            MeetTab.parse(prefs.getString("tab", null))
+        } catch (_: ClassCastException) {
+            MeetTab.entries.getOrNull(prefs.getInt("tab", 0))
+        }
+    }
 
     override fun save(prefs: Preferences) {
         this.prefs.edit()
@@ -48,7 +64,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
             .putString("appearance", prefs.appearance.name)
             .apply {
                 val tab = prefs.tab
-                if (tab == null) remove("tab") else putInt("tab", tab)
+                if (tab == null) remove("tab") else putString("tab", tab.name)
             }
             .apply()
     }

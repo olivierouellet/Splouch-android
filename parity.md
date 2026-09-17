@@ -16,10 +16,33 @@ scope for a native client; everything else starts `deferred`.
 `Level` is copied from `app.md` v1 for triage only. **`app.md` is authoritative** —
 if the two ever disagree, that document wins and this one is stale.
 
-**Verification status (2026-09-16).** `./gradlew :core:test` passes (77 unit tests over
+**Verification status (2026-09-16).** `./gradlew :core:test` passes (80 unit tests over
 the socket loop, race clock, frame merge, results grid, strings, filters, the app model,
-the seed column, the two palettes and the string-snapshot coverage check) and
-`./gradlew :app:assembleDebug` builds.
+the seed column, the two palettes, `A-11`'s console gate and the string-snapshot coverage
+check) and `./gradlew :app:assembleDebug` builds.
+
+**`A-11` was seen running this day**, on the Medium Phone AVD against a local Pi, with the
+console switched underneath a running app from the Pi's own Settings → Timing page — never
+by restarting the app, and never by editing a fixture:
+
+- `cts_gen6` (`timed: true`): three tabs, and Results on "Waiting for results…" — the
+  falsehood the row exists to remove.
+- Switched to **Manual — no timing console** while the reader stood on Results: the tab
+  went, the bar re-laid itself out to two real destinations, and the reader was moved to
+  the Scoreboard. One swipe from there landed on Schedule, so the pager is two pages and
+  not three with one blank.
+- Switched **back** to `cts_gen7` while the reader stood on Schedule: Results returned as
+  the middle tab and the reader **stayed on Schedule**, the selected pill following it from
+  index 1 to index 2. This is the case an `Int` would have failed, and the reason `A-04`
+  now stores an identity.
+- The navigation rail (`A-07`, landscape) carries the two destinations the bar does.
+- The `Int` migration: a device whose stored `tab` was the old `2` opened straight onto
+  Schedule in a two-tab meet — read through the order it was written in, not applied as an
+  index — and the key was rewritten as `<string>SCOREBOARD</string>` on the first change
+  after that.
+
+Not seen on a device, and covered by unit tests only: the **absent** `console` field, since
+that needs a server too old to send it. The tolerant-parse defaults around it are unit-tested.
 
 **The iOS UI pass was ported this day** — the schedule's seed column and short heat
 labels, `P-15`'s Appearance preference in place of the meet's palette, the lane-row sizes,
@@ -148,16 +171,17 @@ Also in this pass, and listed here because no single ID owns them:
 
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `A-01` | Three tabs — Scoreboard, Results, Schedule — each with icon and label | must | `done` | a Material `NavigationBar`, or a `NavigationRail` where the window is wide (A-07); Tabler icons ported as vectors, labels from `mobile.*`. Both take their selected pill and accent from the meet's palette through the derived scheme, so the board's timing colour marks the tab you are on |
+| `A-01` | Three tabs — Scoreboard, Results, Schedule — each with icon and label | must | `done` | a Material `NavigationBar`, or a `NavigationRail` where the window is wide (A-07); Tabler icons ported as vectors, labels from `mobile.*`. Both take their selected pill and accent from the meet's palette through the derived scheme, so the board's timing colour marks the tab you are on. **Three for a timed meet, two for a meet with no timing console** — `A-11` is the exception to the count, and both controls are built by iterating `MeetTab.of(config)`, so the untimed meet's bar genuinely holds two destinations rather than three with one hidden |
 | `A-02` | Back affordance to the meet picker | must | `done` | the navigation icon of a Material `TopAppBar`, plus the system back gesture — answered by `PredictiveBackHandler`, so the board eases back and fades with the finger, settles if the gesture completes and springs back if it is abandoned (`enableOnBackInvokedCallback` in the manifest is what turns that on at all). Opening and closing a meet slide along the shared axis rather than cutting between frames. It was a fixed-width `IconButton` wedged into the *bottom* `NavigationBar`, which is not a place Android puts back — a bottom bar holds peer destinations, and a fourth thing in it reads as a fourth tab however it is sized. Its content description is still `mobile.back_to_meets` |
-| `A-03` | A horizontal swipe on the tab's content moves between adjacent tabs | must | `done` | `HorizontalPager`, full width. On Android the pager **is** the Material idiom for peer sections, so the one control answers this row and `A-10` together — which is what app.md's revised §0.4 and `A-03` note now say, and why `Splouch-ios` records the same ID as `diverges` without this being a regression against it |
-| `A-04` | The selected tab survives a relaunch | should | `done` | `prefs.tab` via `AppModel.setTab` |
+| `A-03` | A horizontal swipe on the tab's content moves between adjacent tabs | must | `done` | `HorizontalPager`, full width, over `MeetTab.of(config).size` pages — two where `A-11` has taken Results away, and the drag tracks exactly as it does over three. On Android the pager **is** the Material idiom for peer sections, so the one control answers this row and `A-10` together — which is what app.md's revised §0.4 and `A-03` note now say, and why `Splouch-ios` records the same ID as `diverges` without this being a regression against it |
+| `A-04` | The selected tab survives a relaunch | should | `done` | `prefs.tab` via `AppModel.setTab`. **It was an `Int` and is now a `MeetTab`** — the row says a choice survives, and an index is not one once `A-11` can change what sits at each position: page 2 is Schedule in a timed meet and does not exist in an untimed one. A device that stored the old index is read through the tab order it was written in, once, and written back as a name (`PrefsPreferencesStore.storedTab`), so an upgrade does not move anyone |
 | `A-05` | Pull-to-refresh re-fetches config and rejoins the sockets | should | `done` | `PullToRefreshBox` → `refreshMeet`: config re-fetch, socket probe, schedule reload |
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | must (free natively) | `done` | edge-to-edge with `Scaffold` insets |
 | `A-07` | Portrait stacks label under icon; landscape drops labels to save height | should | `diverges` | **Width decides, and the labels stay.** `Compact` width (phone portrait) keeps the bottom `NavigationBar` with its labels; `Medium` and `Expanded` — phone landscape, tablets, an unfolded foldable — move the tabs to a `NavigationRail` down the side, labels intact (`ui/Adaptive.kt`, Material's own `WindowWidthSizeClass`). This serves what the row is *for* — landscape has height to spare nowhere and a bottom bar spends it — better than dropping the labels does, and unlike the orientation branch it has an answer for a tablet. `app.md` A-07 needs the matching edit: the requirement is that the tabs stop costing height on a short window, not that the labels go |
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | web-only | `n/a` | web-only — an app satisfies it by existing (app.md §0.3) |
 | `A-09` | Meet goes offline mid-session → return to the picker | must | `done` | config re-fetched on reconnect, foreground, pull-to-refresh and `reload`; a 404 on a cloud closes the meet (`AppModelTests`) |
-| `A-10` | The movement is visible: the tabs follow the finger through the drag and settle on release | should | `done` | the same `HorizontalPager` as `A-03` — on Android one control gives both rows, which is the case app.md's note describes as the platform offering the better answer |
+| `A-10` | The movement is visible: the tabs follow the finger through the drag and settle on release | should | `done` | the same `HorizontalPager` as `A-03` — on Android one control gives both rows, which is the case app.md's note describes as the platform offering the better answer. Unchanged by `A-11`: the page count is the tab count, and `beyondViewportPageCount` follows it, so the two-tab meet keeps both pages composed the way the three-tab one keeps all three |
+| `A-11` | A meet run with **no timing console** has no Results tab at all — not an empty one | must | `done` | `MeetTab.of(config)` is the only place that decides, from `settings.console.timed` — `ConsoleInfo` parses the block from `settings` on the cloud and from the top level of the Pi's `/config`, which the existing `MeetSettings.fromJson` already reaches for both. **`timed`, never `key == "manual"`**: the server reads it off the decoder, so a local-plugin console driven by hand is covered and a key comparison would have called it timed. Absent, null, malformed or a type nobody promised all read as `timed: true` — a server too old to send `console` is a server with a console, and a parse failure is not a reason to take a screen away. `key` is carried for a support question and nothing branches on it. It re-evaluates on every config fetch the app already makes — reconnect, foreground, `A-05`'s pull-to-refresh and `C-08`'s `reload` — because the operator can switch consoles mid-meet in either direction, so the tab comes and goes live, with no restart and without disturbing the session or its three sockets. Nothing else is conditional: the Scoreboard is what the operator is driving from `/manual`, the Schedule is the full start list either way, and there is no "no results this meet" screen — the tab goes, the remaining two are unchanged. Tests: `A-11 reads console timed, defaults to timed, and never branches on the key`, `A-11 the Results tab comes and goes with the console, on the re-fetch the app already makes`, `A-04 stores a tab as a choice, not as a number` |
 
 ## 3.1 Header
 
@@ -202,6 +226,12 @@ Also in this pass, and listed here because no single ID owns them:
 | `L-22` | Independent per-lane clock, each lane timing its own length | n/a | `n/a` | the console has one race clock and the lanes mirror it; a lane's own figure exists only as its split… |
 
 ## 4. Results tab
+
+The whole tab is absent for a meet with no timing console (`A-11`); everything below
+describes it where it exists. Nothing in this section is otherwise conditional — in
+particular `R-01`'s waiting line is still the right answer for a timed meet that has not
+yet sent a snapshot, and it is precisely because it is *not* the right answer for a meet
+that will never send one that `A-11` takes the tab away instead of rewording it.
 
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |

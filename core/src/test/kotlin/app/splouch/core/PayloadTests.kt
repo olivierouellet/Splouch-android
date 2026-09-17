@@ -1,5 +1,6 @@
 package app.splouch.core
 
+import app.splouch.core.session.MeetTab
 import app.splouch.core.wire.I18nBundle
 import app.splouch.core.wire.MeetConfig
 import app.splouch.core.wire.MeetSummary
@@ -83,6 +84,57 @@ class PayloadTests {
         assertEquals(6, p.settings.numLanes)
         assertNull(p.settings.labelStyle)
         assertEquals("DSEG14Classic", p.settings.themeFonts["digits"])
+
+        // A-11: neither of those servers sent `console`, and neither loses its Results tab.
+        assertTrue(c.settings.console.timed)
+        assertTrue(p.settings.console.timed)
+        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.RESULTS, MeetTab.SCHEDULE), MeetTab.of(c))
+    }
+
+    @Test fun `A-11 reads console timed, defaults to timed, and never branches on the key`() {
+        fun cloud(settings: String) = MeetConfig.fromCloudJson(j("""{"name":"M","settings":$settings}"""))!!
+        val manual = cloud("""{"num_lanes":8,"console":{"key":"manual","timed":false}}""")
+        assertFalse(manual.settings.console.timed)
+        assertEquals("manual", manual.settings.console.key)
+        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE), MeetTab.of(manual))
+
+        // A wired console: the key is carried for a support question, and the tab stays.
+        val wired = cloud("""{"num_lanes":8,"console":{"key":"cts_gen6","timed":true}}""")
+        assertEquals("cts_gen6", wired.settings.console.key)
+        assertEquals(3, MeetTab.of(wired).size)
+
+        // The key is never the test. A local plugin driven by hand loses the tab although
+        // its key is not "manual"; one named "manual_backup" that times keeps it.
+        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE),
+            MeetTab.of(cloud("""{"console":{"key":"club_plugin","timed":false}}""")))
+        assertEquals(3, MeetTab.of(cloud("""{"console":{"key":"manual_backup","timed":true}}""")).size)
+
+        // Absent, empty, malformed, or a type nobody promised — all of it reads as timed,
+        // because the tab is only ever taken away on the server saying so in as many words.
+        listOf("""{"num_lanes":8}""", """{"console":{}}""", """{"console":null}""",
+               """{"console":"manual"}""", """{"console":[]}""", """{"console":{"timed":"maybe"}}""")
+            .forEach { assertTrue(cloud(it).settings.console.timed, "expected timed for $it") }
+
+        // "false" as a string is what a lenient server sends, and it still means false.
+        assertFalse(cloud("""{"console":{"key":"manual","timed":"false"}}""").settings.console.timed)
+
+        // The Pi carries the same block one level up (api.md §6).
+        val pi = MeetConfig.fromPiJson(j("""{"meet_title":"Pool","num_lanes":6,"console":{"key":"manual","timed":false}}"""))!!
+        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE), MeetTab.of(pi))
+        assertTrue(MeetConfig.fromPiJson(j("""{"meet_title":"Pool"}"""))!!.settings.console.timed)
+    }
+
+    @Test fun `A-04 stores a tab as a choice, not as a number`() {
+        assertEquals(MeetTab.SCHEDULE, MeetTab.parse("SCHEDULE"))
+        assertEquals(MeetTab.RESULTS, MeetTab.parse("results"))
+        assertNull(MeetTab.parse("2"))
+        assertNull(MeetTab.parse(null))
+        assertNull(MeetTab.parse(""))
+        // Schedule is page 2 of a timed meet and page 1 of an untimed one; the identity is
+        // what survives the change, which is the whole reason it is stored as one.
+        val untimed = MeetConfig.fromCloudJson(j("""{"name":"M","settings":{"console":{"key":"manual","timed":false}}}"""))!!
+        assertEquals(1, MeetTab.of(untimed).indexOf(MeetTab.SCHEDULE))
+        assertEquals(-1, MeetTab.of(untimed).indexOf(MeetTab.RESULTS))
     }
 
     @Test fun `meet list, i18n`() {

@@ -36,7 +36,12 @@ data class Preferences(
     val labelStyle: String = Labels.DEFAULT,
     /** P-15: the app's own light/dark, [Appearance.DARK] until the user says otherwise. */
     val appearance: Appearance = Appearance.DARK,
-    val tab: Int? = null,
+    /**
+     * A-04: which tab, by identity — never its index. A meet's tab row can lose Results
+     * mid-session (`A-11`), so a stored number would hand a returning spectator whichever
+     * screen now sits at that position. Null until a tab has settled.
+     */
+    val tab: MeetTab? = null,
 ) {
     /**
      * What the board actually renders (T-09). The control is withdrawn from the UI, so

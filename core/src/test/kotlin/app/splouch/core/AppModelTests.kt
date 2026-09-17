@@ -4,6 +4,7 @@ import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.InMemoryPreferencesStore
 import app.splouch.core.session.InMemoryVidStore
+import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.strings.InMemoryBundleCache
@@ -117,6 +118,37 @@ class AppModelTests {
         assertFalse(r.model.current.meetGone)
     }
 
+    @Test fun `A-11 the Results tab comes and goes with the console, on the re-fetch the app already makes`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start(); runCurrent()
+        r.model.openMeet("m1"); runCurrent()
+        fun tabs() = MeetTab.of(r.model.current.meet!!.config)
+        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.RESULTS, MeetTab.SCHEDULE), tabs())
+
+        // The operator unplugs the console mid-meet and drives the boards from /manual.
+        // The Pi re-registers, the cloud's config changes, and the app finds out on the
+        // fetch it was already going to make — here, coming back to the foreground.
+        fun console(json: String) = r.http.on("https://c.example/meet/m1/config",
+            body = """{"name":"Meet One","live":true,"settings":{"num_lanes":6,"locale":"en","console":$json}}""")
+        console("""{"key":"manual","timed":false}""")
+        r.model.foreground(); runCurrent()
+        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE), tabs())
+        // The meet itself is untouched: same session, same sockets, nothing re-opened.
+        assertEquals(3, r.transport.connections.count { !it.closed })
+
+        // Pull-to-refresh (A-05) is the same fetch and reads the same flag.
+        console("""{"key":"cts_gen6","timed":true}""")
+        r.model.refreshMeet(); runCurrent()
+        assertEquals(3, tabs().size)
+        assertFalse(r.model.current.meet!!.refreshing)
+
+        // A network fault changes nothing — least of all takes a tab away.
+        r.http.on("https://c.example/meet/m1/config", status = 503, body = "")
+        r.model.refreshMeet(); runCurrent()
+        assertEquals(3, tabs().size)
+    }
+
     @Test fun `a pi goes straight to the board, joins nothing, and shows a contract notice once`() = runTest {
         val r = Rig(this, Preferences(server = pi))
         r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v1","app":"v1"}}""")
@@ -185,7 +217,7 @@ class AppModelTests {
         r.model.start(); runCurrent()
         assertNotNull(r.model.current.serverError)
         assertNull(r.model.current.kind)
-        r.model.setTab(2)
-        assertEquals(2, r.prefsStore.load().tab)
+        r.model.setTab(MeetTab.SCHEDULE)
+        assertEquals(MeetTab.SCHEDULE, r.prefsStore.load().tab)
     }
 }

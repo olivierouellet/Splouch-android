@@ -57,21 +57,36 @@ import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.MeetState
+import app.splouch.core.session.MeetTab
 import app.splouch.core.session.UiState
 import kotlinx.coroutines.launch
 
-private const val SCOREBOARD = 0
-private const val RESULTS = 1
-private const val SCHEDULE = 2
+private fun MeetTab.icon(): Int = when (this) {
+    MeetTab.SCOREBOARD -> R.drawable.ic_tab_scoreboard
+    MeetTab.RESULTS -> R.drawable.ic_tab_results
+    MeetTab.SCHEDULE -> R.drawable.ic_tab_schedule
+}
+
+private fun MeetTab.labelKey(): String = when (this) {
+    MeetTab.SCOREBOARD -> "scoreboard"
+    MeetTab.RESULTS -> "results"
+    MeetTab.SCHEDULE -> "schedule"
+}
 
 /**
  * The app shell (app.md §2).
  *
  * The shape is the platform's: a Material top app bar carrying `A-02`'s back arrow and
- * the meet's name, three tabs in the navigation bar — or the navigation rail where the
+ * the meet's name, the tabs in the navigation bar — or the navigation rail where the
  * window is wide enough for one (`A-07`) — and `A-03`/`A-10`'s pager, which on Android
  * *is* the idiom and so gives both rows at once. Pull-to-refresh is `A-05`, safe areas
  * come free from `Scaffold` (`A-06`), and the selected tab is remembered (`A-04`).
+ *
+ * **Which tabs, from the config** (`A-11`): [MeetTab.of] is the only place that decides,
+ * and it decides on every recomposition, so a config re-fetch that finds the console
+ * changed rebuilds the row without an app restart. Both the navigation bar and the pager
+ * are built from that one list — two destinations are genuinely two, not three with one
+ * hidden, and the pager's page count follows it rather than a constant.
  *
  * In landscape the board's own header (`L-01`–`L-03`) moves into the app bar rather than
  * sitting under it: two bands of chrome for one screen is what the web shell had to do
@@ -83,8 +98,12 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     val t = meet.strings
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val rail = useNavigationRail()
-    val pager = rememberPagerState(initialPage = (state.prefs.tab ?: 0).coerceIn(0, 2)) { 3 }
+    // A-11: the tab row is the meet's, not the app's. Recomputed rather than remembered,
+    // so the config re-fetches of A-05, C-08, reconnect and foreground each land here.
+    val tabs = MeetTab.of(meet.config)
+    val pager = rememberPagerState(initialPage = tabs.indexOf(state.prefs.tab).coerceAtLeast(0)) { tabs.size }
     val scope = rememberCoroutineScope()
+    val tab = tabs.getOrElse(pager.currentPage) { MeetTab.DEFAULT }
 
     // L-15: what the board has measured about itself, held here because this is the only
     // view that knows both what the lanes want and what the app bar is currently carrying.
@@ -120,19 +139,38 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     }
 
     // L-14 / R-10: the on-appear callbacks the web had to fake with `resize` and `on_tab_shown`.
+    //
+    // Keyed on the settled page alone, deliberately — **not** on [tabs]. A page number is
+    // only a choice while the row it indexes is the row the reader saw: drop Results and
+    // page 1 stops meaning Results and starts meaning Schedule without the reader moving a
+    // finger. So this fires on movement, the effect below fires on the row changing, and
+    // neither has to guess which of the two just happened.
     LaunchedEffect(pager.settledPage) {
-        model.setTab(pager.settledPage)
-        when (pager.settledPage) {
-            SCOREBOARD -> meet.session.revealScoreboard()
-            RESULTS -> meet.session.revealResults()
+        val settled = tabs.getOrNull(pager.settledPage) ?: return@LaunchedEffect
+        model.setTab(settled)
+        when (settled) {
+            MeetTab.SCOREBOARD -> meet.session.revealScoreboard()
+            MeetTab.RESULTS -> meet.session.revealResults()
+            MeetTab.SCHEDULE -> Unit
         }
     }
 
-    val tabs = listOf(
-        Triple(t.mobile("scoreboard"), R.drawable.ic_tab_scoreboard, SCOREBOARD),
-        Triple(t.mobile("results"), R.drawable.ic_tab_results, RESULTS),
-        Triple(t.mobile("schedule"), R.drawable.ic_tab_schedule, SCHEDULE),
-    )
+    // A-11, the live half: the operator can switch consoles mid-meet in either direction,
+    // and the Pi re-registers and broadcasts `reload` when they do, so the row changes
+    // under a spectator standing on it. The stored choice is an identity (`A-04`), so
+    // Schedule stays Schedule whether it is page 1 of two or page 2 of three, and only a
+    // reader whose own tab has just ceased to exist is moved — to the Scoreboard, which is
+    // what the operator is driving. The move re-settles the pager, so the effect above
+    // records where they ended up.
+    //
+    // `scrollToPage`, not `animateScrollToPage`: this is not a navigation the reader asked
+    // for, and sliding them across the pager would read as one.
+    LaunchedEffect(tabs) {
+        val want = tabs.indexOf(state.prefs.tab)
+        val target = if (want >= 0) want else tabs.indexOf(MeetTab.DEFAULT).coerceAtLeast(0)
+        if (target != pager.currentPage) pager.scrollToPage(target)
+    }
+
     fun go(index: Int) = scope.launch { pager.animateScrollToPage(index) }
 
     // Pinned, not collapsing: where this bar *is* the board header (L-01..L-03), a board
@@ -150,7 +188,7 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
      * The need is `BoardMetrics.wantsBar`, which is normalised so that moving the row cannot
      * hand back the space that caused the move — see there.
      */
-    val onBoard = pager.currentPage != SCHEDULE
+    val onBoard = tab != MeetTab.SCHEDULE
     val headerInBar = onBoard && (landscape || metrics.needsBar)
 
     Scaffold(
@@ -174,7 +212,7 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     if (headerInBar) {
                         BoardBarHeader(
                             meet,
-                            results = pager.currentPage == RESULTS,
+                            results = tab == MeetTab.RESULTS,
                             landscape = landscape,
                             // In portrait the bar has given up the meet's title to make room,
                             // so P-11's server name has nowhere else to go either.
@@ -201,7 +239,7 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                 },
                 actions = {
                     // S-08: the filter opens from the top bar, and only on the tab it filters.
-                    if (pager.currentPage == SCHEDULE) {
+                    if (tab == MeetTab.SCHEDULE) {
                         IconButton(onClick = { showFilter = true }) {
                             // S-12: the count rides the button rather than hanging off a corner.
                             BadgedBox(badge = {
@@ -217,12 +255,12 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
         bottomBar = {
             if (!rail) {
                 NavigationBar {
-                    tabs.forEach { (label, icon, index) ->
+                    tabs.forEachIndexed { index, item ->
                         NavigationBarItem(
                             selected = pager.currentPage == index,
                             onClick = { go(index) },
-                            icon = { Icon(painterResource(icon), null) },
-                            label = { Text(label, maxLines = 1) },
+                            icon = { Icon(painterResource(item.icon()), null) },
+                            label = { Text(t.mobile(item.labelKey()), maxLines = 1) },
                         )
                     }
                 }
@@ -232,12 +270,12 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
         Row(Modifier.padding(padding).fillMaxSize()) {
             if (rail) {
                 NavigationRail {
-                    tabs.forEach { (label, icon, index) ->
+                    tabs.forEachIndexed { index, item ->
                         NavigationRailItem(
                             selected = pager.currentPage == index,
                             onClick = { go(index) },
-                            icon = { Icon(painterResource(icon), null) },
-                            label = { Text(label, maxLines = 1) },
+                            icon = { Icon(painterResource(item.icon()), null) },
+                            label = { Text(t.mobile(item.labelKey()), maxLines = 1) },
                         )
                     }
                 }
@@ -248,15 +286,15 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     onRefresh = { model.refreshMeet() },
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 2) { page ->
+                    HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = tabs.size - 1) { page ->
                         Box(Modifier.fillMaxSize()) {
-                            when (page) {
+                            when (tabs.getOrElse(page) { MeetTab.DEFAULT }) {
                                 // Both board tabs answer the same question, the way they
                                 // already did in landscape: the bar carries whichever one is
                                 // in view, so neither draws its own band.
-                                SCOREBOARD -> ScoreboardTab(meet, landscape, metrics, headerInBar)
-                                RESULTS -> ResultsTab(meet, landscape, metrics, headerInBar)
-                                else -> ScheduleTab(meet, filter, onResetFilters = { filter = filter.reset() })
+                                MeetTab.SCOREBOARD -> ScoreboardTab(meet, landscape, metrics, headerInBar)
+                                MeetTab.RESULTS -> ResultsTab(meet, landscape, metrics, headerInBar)
+                                MeetTab.SCHEDULE -> ScheduleTab(meet, filter, onResetFilters = { filter = filter.reset() })
                             }
                         }
                     }

@@ -431,9 +431,9 @@ class AppModel(
             shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, m.strings)) }) }
     }
 
-    /** A-04: the selected tab survives a relaunch. */
-    fun setTab(index: Int) {
-        if (current.prefs.tab != index) savePrefs(current.prefs.copy(tab = index))
+    /** A-04: the selected tab survives a relaunch — as a choice, not as a page number (A-11). */
+    fun setTab(tab: MeetTab) {
+        if (current.prefs.tab != tab) savePrefs(current.prefs.copy(tab = tab))
     }
 
     private fun pickerTable(prefs: Preferences): StringTable = table(current.server, prefs.lang ?: deviceLang)
