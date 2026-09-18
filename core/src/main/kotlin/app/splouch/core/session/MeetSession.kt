@@ -164,6 +164,14 @@ class MeetSession(
                         _currentHeat.value = HeatRef(ev ?: cur?.event ?: "", ht ?: cur?.heat ?: "")
                     }
                 }
+                // api.md §2.2, a local Pi only: the explicit wipe when a test session ends and
+                // the operator's own meet has been reloaded. Distinct from `test_mode
+                // {active: false}`, which only takes the badge down — an operator who stops a
+                // replay to keep studying the last heat still has the board.
+                "reset" -> {
+                    board.reset()
+                    _currentHeat.value = null
+                }
                 "meet_live" -> board.setMeetLive(MeetLive.fromJson(e.data).live)
                 "reload" -> reloadChannel.trySend(Unit)
                 else -> Unit // C-07

@@ -31,6 +31,8 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         /** Trimmed; empty when there is none, so no `#` is drawn (L-15). */
         val place: String = "",
         val running: Boolean = false,
+        /** L-23: lengths this lane has completed (`lane_splits<i>`); `0` at the top of every heat. */
+        val splits: Int = 0,
         val timeStyle: TimeStyle = TimeStyle.NORMAL,
         /** Increments on every running→stopped edge: the key for the one-shot lock transition. */
         val lockEdge: Int = 0,
@@ -48,7 +50,51 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         val lanes: List<Lane>,
         /** Bumps when a frame carried a `lane_name<i>`: the L-17 re-fit gate. */
         val namesVersion: Int,
-    )
+        /** L-23: lengths the event runs to; `0` when unknown, and then nothing to count down from. */
+        val expectedSplits: Int = 0,
+        /** L-23: lengths one counted split is worth — `2` on a pool padded at one end only. */
+        val splitStep: Int = 1,
+    ) {
+        /**
+         * What [lane]'s delta cell carries while the lap is its tenant (L-23), or null when the
+         * cell belongs to the delta or to nothing.
+         *
+         * Derived from merged state and from nothing else — no edge, no "when this changed". A
+         * client that joins mid-heat is handed the cached snapshot (api.md §3) with every
+         * transition already behind it, and any rule keyed to a change would read that replay as
+         * a heat in which nothing ever happened.
+         */
+        fun lap(lane: Lane, settings: LapSettings): LapCount? {
+            if (!settings.show) return null
+            // The delta takes the cell back the moment it has something to say.
+            if (DeltaFormat.text(lane.deltaSeconds).isNotEmpty()) return null
+            // And the place ends the lap whatever the delta is doing: a swimmer with no seed
+            // time never gets a delta at all, so waiting for one would leave the lap sitting
+            // under a finished swim for the rest of the heat.
+            if (lane.place.isNotEmpty()) return null
+
+            // Counting down needs a total to count down from. `expected_splits` is 0 for any
+            // event whose meet file carries no distance, and the count falls back to up rather
+            // than running to a number nobody reaches.
+            val countingDown = settings.direction == LapDirection.DOWN && expectedSplits > 0
+            // Counting up waits for the first wall — a column of noughts under a start list is
+            // noise. Counting down has the whole race to report and shows from the moment the
+            // heat loads, but it needs a swimmer to say it about: an empty lane in a short heat
+            // must not advertise lengths nobody is swimming.
+            if (lane.splits <= 0 && !(countingDown && lane.name.isNotBlank())) return null
+
+            // Clamped at 0 so a console that over-counts reads as the last length rather than a
+            // negative one.
+            val text = if (countingDown) maxOf(0, expectedSplits - lane.splits).toString() else lane.splits.toString()
+            // `+ splitStep`, never `+ 1`: with touchpads at one end only the count arrives in
+            // twos and never lands on an odd length, so a `+ 1` test would never fire on exactly
+            // the setup where the deck can least easily tell. Once true it holds to the finish —
+            // the next thing the console reports *is* the finish — and on a half-padded pool it
+            // covers the last two lengths, because the swimmer is not seen in between.
+            val isFinal = expectedSplits > 0 && lane.splits + splitStep >= expectedSplits
+            return LapCount(text, isFinal)
+        }
+    }
 
     private val lanes = MutableList(numLanes) { Lane(it + 1) }
     private var currentEvent = ""
@@ -59,9 +105,12 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
     private var lastEvent: String? = null
     private var lastHeat: String? = null
     private var namesVersion = 0
+    private var expectedSplits = 0
+    private var splitStep = 1
 
     fun view(): View = View(
         currentEvent, currentHeat, eventName, eventNameParts, meetLive, clock.isRunning, lanes.toList(), namesVersion,
+        expectedSplits, splitStep,
     )
 
     /**
@@ -73,6 +122,36 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         lastEvent = null
         lastHeat = null
         for (i in lanes.indices) lanes[i] = lanes[i].copy(running = false)
+        // L-23's three inputs go back to "nothing known", the way the reference board's
+        // `reset_state` does: the join replay carries the cached snapshot and puts back
+        // whatever is still true, and a stale `expected_splits` from the last meet would
+        // otherwise count down from a distance this one does not swim.
+        clearLaps()
+        clock.stop()
+        refreshPulses()
+    }
+
+    /**
+     * `reset` (api.md §2.2): *everything on this board belongs to something that is over.* A Pi
+     * sends it when a test session ends and the operator's own meet has been reloaded; the
+     * cloud never does, because a replay that reaches it is a real session as far as it is
+     * concerned.
+     *
+     * The contract says a client handles it the way it handles a fresh connection, so this is
+     * [onConnect]'s wipe plus the cells — including the lap count, which is a cell like any
+     * other and must not sit over the blank board the wipe leaves. Nothing is about to replay
+     * here: the board is about to be repainted from the real meet, and holding the recording's
+     * lanes until that lands would show a heat that never swam.
+     */
+    fun reset() {
+        lastEvent = null
+        lastHeat = null
+        currentEvent = ""
+        currentHeat = ""
+        eventName = ""
+        eventNameParts = null
+        for (i in lanes.indices) lanes[i] = Lane(i + 1)
+        clearLaps()
         clock.stop()
         refreshPulses()
     }
@@ -124,6 +203,11 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         // split over it. A value that does not parse is no re-base at all.
         frame.runningTime?.let { if (clock.rebase(it)) tick() }
 
+        // L-23's venue numbers, before any lane is read below: both halves of the final-stretch
+        // test are board-wide and arrive with the heat.
+        frame.expectedSplits?.let { expectedSplits = it }
+        frame.splitStep?.let { splitStep = it }
+
         frame.currentEvent?.let { currentEvent = it }
         frame.currentHeat?.let { currentHeat = it }
         frame.eventName?.let { eventName = it }
@@ -141,6 +225,7 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
             frame.lanePlace(i)?.let { lane = lane.copy(place = it.trim()) }
             if (frame.hasLaneDeltaSeconds(i)) lane = lane.copy(deltaSeconds = frame.laneDeltaSeconds(i))
             if (frame.hasLaneDeltaBetter(i)) lane = lane.copy(deltaBetter = frame.laneDeltaBetter(i))
+            frame.laneSplits(i)?.let { lane = lane.copy(splits = it) }
             lanes[i - 1] = lane
         }
 
@@ -169,8 +254,21 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         for (i in lanes.indices) {
             lanes[i] = lanes[i].copy(
                 time = "", deltaSeconds = null, deltaBetter = null, place = "", timeStyle = TimeStyle.NORMAL,
+                // L-23's cell empties with the rest of the row. Every decoder blanks
+                // `lane_splits<i>` in its own reset and the zeros land in this very frame, so in
+                // practice this changes nothing — but the board already refuses to take a
+                // cleared row on trust for times, places and deltas, and the lane sharing that
+                // cell should not be the one field that waits for the server to say so.
+                splits = 0,
             )
         }
+    }
+
+    /** The lap count's three inputs, back to "nothing known" (L-23). */
+    private fun clearLaps() {
+        expectedSplits = 0
+        splitStep = 1
+        for (i in lanes.indices) lanes[i] = lanes[i].copy(splits = 0)
     }
 
     private fun clockOwns(lane: Lane): Boolean = clock.isRunning && lane.running

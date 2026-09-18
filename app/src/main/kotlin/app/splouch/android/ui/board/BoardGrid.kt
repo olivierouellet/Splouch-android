@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +35,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
@@ -44,10 +46,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.splouch.android.R
 import app.splouch.android.ui.theme.AutoSizeText
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
 import app.splouch.core.board.DeltaFormat
+import app.splouch.core.board.LapCount
+import app.splouch.core.board.LapSettings
 import app.splouch.core.board.ScoreboardState.TimeStyle
 import app.splouch.core.wire.MeetSettings
 import kotlinx.coroutines.flow.first
@@ -66,6 +71,12 @@ data class GridRow(
     val deltaSeconds: Double? = null,
     val deltaBetter: Boolean? = null,
     val place: String = "",
+    /**
+     * `L-23`: the delta cell's other tenant, or null when the cell belongs to the delta or to
+     * nothing. Decided in the core off merged state and handed down here — the Results tab is
+     * all finishes and never has one.
+     */
+    val lap: LapCount? = null,
 )
 
 /** The six-column board shared by the Scoreboard and Results tabs (app.md L-04..L-09, L-15..L-17, R-04). */
@@ -79,9 +90,15 @@ fun BoardGrid(
     /** Whether the app bar is already carrying the `EVENT`/`HEAT` row (`L-15`, `L-16`). */
     headerInBar: Boolean,
     modifier: Modifier = Modifier,
+    /**
+     * `L-23`, and the Scoreboard tab's alone: the lap shares the delta *cell*, but the column
+     * header it takes down is the whole column's. The Results tab is every lane's finish, where
+     * the cell only ever holds a delta, so `R-04`'s header keeps its word.
+     */
+    laps: LapSettings = LapSettings.OFF,
 ) {
     BoardType {
-        if (landscape) LandscapeGrid(rows, settings, labels, modifier)
+        if (landscape) LandscapeGrid(rows, settings, labels, laps, modifier)
         else PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
     }
 }
@@ -115,7 +132,7 @@ internal fun BoardType(content: @Composable () -> Unit) {
  * it is spoken in the meet's language rather than the app's. An empty lane says only its
  * number, which is what `L-09`'s blank row means.
  */
-private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, String>): String {
+private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, String>, lapsWord: String): String {
     fun word(key: String) = labels[key].orEmpty()
     val parts = mutableListOf("${word("lane")} ${r.lane}".trim())
     if (settings.showName && r.name.isNotBlank()) parts += r.name
@@ -123,6 +140,11 @@ private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, Strin
     if (settings.showClub && r.club.isNotBlank()) parts += "${word("club")} ${r.club}".trim()
     if (r.time.isNotBlank()) parts += "${word("time")} ${r.time}".trim()
     if (settings.showDelta && r.deltaSeconds != null) parts += "${word("delta")} ${DeltaFormat.text(r.deltaSeconds)}".trim()
+    // The wire has no spectator word for a lap — `GET /i18n/{lang}`'s `labels` names the six
+    // columns and stops — so this one comes from the app's own strings, in the app's languages
+    // rather than the meet's. The single place on the board where `T-04` does not hold, taken
+    // over reading a bare integer after the time.
+    if (settings.showDelta && r.lap != null) parts += "$lapsWord ${r.lap.text}".trim()
     if (settings.showPosition && r.place.isNotBlank()) parts += "${word("place")} ${r.place}".trim()
     return parts.joinToString(", ")
 }
@@ -140,6 +162,7 @@ private fun PortraitGrid(
 ) {
     val colors = LocalBoardColors.current
     val density = LocalDensity.current
+    val lapsWord = stringResource(R.string.laps)
     BoxWithConstraints(modifier.fillMaxSize()) {
         val count = rows.size.coerceAtLeast(1)
         // The lanes share the whole height, equally, and there is no floor under a row: the
@@ -199,7 +222,7 @@ private fun PortraitGrid(
             }
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 rows.forEachIndexed { i, r ->
-                    val description = spoken(r, settings, labels)
+                    val description = spoken(r, settings, labels, lapsWord)
                     PortraitRow(
                         r, settings, base, scale, showsAlt,
                         modifier = Modifier.height(rowHeight)
@@ -258,8 +281,24 @@ private fun PortraitRow(
                 Text(r.alt, color = colors.thText, fontSize = size * 0.62f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.92f, Modifier.weight(1f), TextAlign.Start)
-                if (settings.showDelta) DeltaText(r.deltaSeconds, r.deltaBetter, size, size * 0.7f)
+                // The time and whatever shares its line sit **together**, at the left of the
+                // line, rather than one at each end of it: a delta pushed against the place
+                // column reads as belonging to the place, and a lap there reads as a rank. The
+                // slack goes between that pair and the place, which stays hard right. The time
+                // is the only weighted cell, so it can never squeeze what follows it off the
+                // row — it is capped at what the pair has left — but with `fill = false` it
+                // takes only the width it needs and the delta starts a gutter later.
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.92f, Modifier.weight(1f, fill = false), TextAlign.Start)
+                    // L-23: one cell, two tenants. There is no delta *column* to centre in here
+                    // — the second line is time · delta · place laid out in flow — so the cell
+                    // is sized to whichever of the two is in it, and the colour and the swap
+                    // carry the meaning on their own.
+                    if (settings.showDelta) {
+                        Spacer(Modifier.width(CellGutter * scale))
+                        if (r.lap != null) LapText(r.lap, size) else DeltaText(r.deltaSeconds, r.deltaBetter, size, size * 0.7f)
+                    }
+                }
                 if (settings.showPosition) PlaceText(r.place, size, Modifier.width(56.dp * scale))
             }
         }
@@ -269,12 +308,18 @@ private fun PortraitRow(
 // ── landscape: the full table, font scaled to lane count (L-16) ──────────────
 
 @Composable
-private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, modifier: Modifier) {
+private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, laps: LapSettings, modifier: Modifier) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val density = LocalDensity.current
+    val lapsWord = stringResource(R.string.laps)
+    // L-23: the delta title goes entirely while the lap count is on. For most of a heat that
+    // column holds lengths, and a `Δ` over a column of small integers reads as a claim about
+    // them. It stays gone through the results too — a header that appeared at the finish would
+    // be the moving header L-23 rejects.
+    val showDeltaHeader = settings.showDeltaHeader && !laps.show
     val anyHeader = settings.showLaneHeader || (settings.showName && settings.showNameHeader) || (settings.showClub && settings.showClubHeader) ||
-        settings.showTimeHeader || (settings.showDelta && settings.showDeltaHeader) || (settings.showPosition && settings.showPositionHeader)
+        settings.showTimeHeader || (settings.showDelta && showDeltaHeader) || (settings.showPosition && settings.showPositionHeader)
     // What the column titles cost, measured while they are being drawn and kept after they
     // go — which is exactly the number needed to decide whether to bring them back. Measured
     // rather than declared: it is a line of text on this device at this setting, and a
@@ -309,12 +354,12 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
                     if (settings.showName) th(labels["name"].orEmpty(), settings.showNameHeader, Modifier.weight(1f), TextAlign.Start)
                     if (settings.showClub) th(labels["club"].orEmpty(), settings.showClubHeader, Modifier.weight(0.6f), TextAlign.Center)
                     th(labels["time"].orEmpty(), settings.showTimeHeader, Modifier.width(TimeW), TextAlign.Center)
-                    if (settings.showDelta) th(labels["delta"].orEmpty(), settings.showDeltaHeader, Modifier.width(DeltaW), TextAlign.Center)
+                    if (settings.showDelta) th(labels["delta"].orEmpty(), showDeltaHeader, Modifier.width(DeltaW), TextAlign.Center)
                     if (settings.showPosition) th(labels["place"].orEmpty(), settings.showPositionHeader, Modifier.width(PlaceW), TextAlign.Center)
                 }
             }
             rows.forEachIndexed { i, r ->
-                val description = spoken(r, settings, labels)
+                val description = spoken(r, settings, labels, lapsWord)
                 Row(
                     Modifier.fillMaxWidth().height(rowHeight)
                         .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
@@ -334,7 +379,11 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
                     // Shrink rather than wrap: the column is fixed and the delta is now set
                     // at the name's size, so a four-lane board at the row-font cap can ask
                     // for more width than it has. A delta on two lines is not a delta.
-                    if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) { DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.85f, size * 0.6f) }
+                    // L-23: the lap is centred in the column the delta shares with it, and
+                    // the header above them both says nothing while it may hold either.
+                    if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) {
+                        if (r.lap != null) LapText(r.lap, size * 0.85f) else DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.85f, size * 0.6f)
+                    }
                     // The place takes the row font whole: it is one character, it is the
                     // answer, and it has a column to itself.
                     if (settings.showPosition) PlaceText(r.place, size, Modifier.width(PlaceW), Arrangement.Center)
@@ -360,6 +409,12 @@ private const val TypeShare = 0.55f
  * drops them and gives the band back to the lanes.
  */
 private val HeaderFloor = 14.dp
+
+/**
+ * The gutter between the time and the delta cell sharing its line in portrait (`L-15`). Small
+ * enough that the two read as one group and wide enough that `2:24.28+0.18` never does.
+ */
+private val CellGutter = 8.dp
 
 private val LaneW = 52.dp
 private val TimeW = 130.dp
@@ -428,6 +483,31 @@ private fun DeltaText(seconds: Double?, better: Boolean?, size: TextUnit, minSiz
     } else {
         Text(text, color = color, fontSize = size, fontFamily = font, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
     }
+}
+
+/**
+ * `L-23`'s tenant of the delta cell: the lengths a lane has swum, or what is left of them.
+ *
+ * It keeps the cell's timing face and changes only its colour, which is the whole of what says
+ * which of the two numbers is on screen. `header_label` is the accent the EVENT and HEAT words
+ * take — *this is a label, not a number you race against* — and on the final stretch it moves
+ * to `time`, the colour a stopped chrono has.
+ *
+ * **No animation.** An earlier version pulsed the final stretch and it was removed on purpose:
+ * the number is already the information, and a static colour change is the whole effect.
+ */
+@Composable
+private fun LapText(lap: LapCount, size: TextUnit) {
+    val colors = LocalBoardColors.current
+    Text(
+        lap.text,
+        color = if (lap.isFinal) colors.time else colors.headerLabel,
+        fontSize = size,
+        fontFamily = LocalBoardFonts.current.timing,
+        maxLines = 1,
+        softWrap = false,
+        textAlign = TextAlign.Center,
+    )
 }
 
 /**

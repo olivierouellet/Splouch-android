@@ -169,6 +169,15 @@ data class MeetSettings(
     val showTimeHeader: Boolean = true,
     val showDeltaHeader: Boolean = true,
     val showPositionHeader: Boolean = true,
+    /**
+     * L-23: whether the delta cell carries a lane's lengths while it is still swimming.
+     *
+     * The one display flag that is **off** by default rather than on — not every console's
+     * count is exact (api.md §5.1), so the operator turns it on for a venue where it is.
+     */
+    val showLaps: Boolean = false,
+    /** `"up"` or `"down"` as the operator set it, raw; anything else counts up ([app.splouch.core.board.LapDirection]). */
+    val lapDirection: String? = null,
     val themeColors: Map<String, String> = emptyMap(),
     val themeFonts: Map<String, String> = emptyMap(),
     /** The meet's language (app.md T-06); null when the server did not say. */
@@ -200,6 +209,11 @@ data class MeetSettings(
                 showTimeHeader = flag("show_time_header"),
                 showDeltaHeader = flag("show_delta_header"),
                 showPositionHeader = flag("show_position_header"),
+                // Not `flag(...)`: this is the one that ships off, and a server too old to
+                // send it must not turn the column into lengths on its own.
+                showLaps = o?.get("show_laps").asBoolOrNull() ?: false,
+                lapDirection = o?.get("lap_direction").asStringOrNull()?.trim()?.lowercase()
+                    ?.takeIf { it.isNotEmpty() },
                 themeColors = o?.get("theme_colors").asObjectOrNull().stringMap(),
                 themeFonts = o?.get("theme_fonts").asObjectOrNull().stringMap(),
                 locale = o?.get("locale").asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() },
@@ -297,6 +311,16 @@ class ScoreboardFrame(val fields: Map<String, JsonElement>) {
     val eventNameParts: EventNameParts? get() = EventNameParts.fromJson(fields["event_name_parts"])
     val runningTime: String? get() = string("running_time")
 
+    /**
+     * L-23's two venue numbers. They describe the pool, not the console, and arrive together
+     * on every heat change. Null when the frame did not carry them — the board keeps what it
+     * has; a value that does not decode is the same nothing, and so is a negative one.
+     */
+    val expectedSplits: Int? get() = fields["expected_splits"].asIntOrNull()?.coerceAtLeast(0)
+
+    /** Floored at 1: a `split_step` of 0 would fire the final-stretch test a length early. */
+    val splitStep: Int? get() = fields["split_step"].asIntOrNull()?.coerceAtLeast(1)
+
     fun laneName(i: Int): String? = string("lane_name$i")
     fun laneNameAlt(i: Int): String? = string("lane_name_alt$i")
     fun laneClub(i: Int): String? = string("lane_club$i")
@@ -307,6 +331,14 @@ class ScoreboardFrame(val fields: Map<String, JsonElement>) {
     fun laneDeltaSeconds(i: Int): Double? = fields["lane_delta_seconds$i"].asDoubleOrNull()
     fun hasLaneDeltaBetter(i: Int): Boolean = has("lane_delta_better$i")
     fun laneDeltaBetter(i: Int): Boolean? = fields["lane_delta_better$i"].asBoolOrNull()
+
+    /**
+     * L-23: lengths lane `i` has completed. Null when the frame did not carry the key; a key
+     * that is there but does not decode reads as 0, which is what the server sends at the top
+     * of every heat anyway.
+     */
+    fun laneSplits(i: Int): Int? =
+        if (has("lane_splits$i")) (fields["lane_splits$i"].asIntOrNull() ?: 0).coerceAtLeast(0) else null
 
     /** Every `lane_running<i>` on this frame, lane → flag. */
     fun runningEdges(): Map<Int, Boolean> = fields.entries.mapNotNull { (k, v) ->

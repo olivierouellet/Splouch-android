@@ -27,4 +27,6 @@
     <string name="appearance_light">Claro</string>
     <string name="appearance_auto">Automático</string>
     <string name="more_options">Más opciones</string>
+
+    <string name="laps">largos</string>
 </resources>

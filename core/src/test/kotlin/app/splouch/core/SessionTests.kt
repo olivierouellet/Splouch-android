@@ -1,5 +1,6 @@
 package app.splouch.core
 
+import app.splouch.core.board.LapSettings
 import app.splouch.core.session.ApiResult
 import app.splouch.core.session.Contract
 import app.splouch.core.session.InMemoryVidStore
@@ -175,6 +176,29 @@ class SessionTests {
         // scoreboard socket drops → not live
         sb.serverClose(); runCurrent()
         assertFalse(session.scoreboard.value.meetLive)
+        session.close()
+    }
+
+    @Test fun `a reset takes the whole board down, lap count included (api 2_2)`() = runTest {
+        val transport = FakeTransport()
+        val ctx = MeetContext(ServerAddress.parseOrNull("http://pi.local:5000")!!, ServerKind.PI, null)
+        val session = MeetSession(ctx, transport, InMemoryVidStore(), backgroundScope, numLanes = 4, timeSource = testScheduler.timeSource)
+        session.start()
+        val sb = transport.connections[0]
+        sb.serverOpen(); runCurrent()
+        sb.serverSend("""{"event":"update_scoreboard","data":{"current_event":"3","current_heat":"1","expected_splits":8,"split_step":2,"lane_name1":"Ann","lane_splits1":6,"lane_time1":"1:02.50"}}""")
+        runCurrent()
+        val laps = LapSettings(show = true)
+        assertEquals("6", session.scoreboard.value.let { it.lap(it.lanes[0], laps) }?.text)
+        assertEquals(HeatRef("3", "1"), session.currentHeat.value)
+
+        // The test session is over and the operator's own meet has been reloaded: the board
+        // repaints from the real meet, and nothing from the recording stays on screen.
+        sb.serverSend("""{"event":"reset","data":{}}"""); runCurrent()
+        assertNull(session.scoreboard.value.let { it.lap(it.lanes[0], laps) })
+        assertEquals("", session.scoreboard.value.lanes[0].time)
+        assertEquals("", session.scoreboard.value.currentEvent)
+        assertNull(session.currentHeat.value)
         session.close()
     }
 }

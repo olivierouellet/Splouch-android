@@ -13,6 +13,7 @@ import app.splouch.android.ui.board.BoardMetrics
 import app.splouch.android.ui.board.GridRow
 import app.splouch.android.ui.board.boardLabels
 import app.splouch.android.ui.board.wallClock
+import app.splouch.core.board.LapSettings
 import app.splouch.core.session.MeetState
 import app.splouch.core.strings.EventName
 
@@ -30,9 +31,16 @@ fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, he
     fun label(key: String) = labels[key].orEmpty()
     val vocab = meet.strings.eventVocab
     val eventName = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
-    val rows = remember(view.lanes) {
+    // L-23. The lap is decided in the core, off merged state alone, and the two venue numbers
+    // it reads are part of that state — so a phone that joins mid-heat gets the same answer
+    // from the cached snapshot as one that watched every frame arrive.
+    val laps = remember(meet.config.settings) { LapSettings.from(meet.config.settings) }
+    val rows = remember(view.lanes, view.expectedSplits, view.splitStep, laps) {
         view.lanes.map { l ->
-            GridRow(l.number.toString(), l.pulsing, l.name, l.alt, l.club, l.time, l.timeStyle, l.lockEdge, l.deltaSeconds, l.deltaBetter, l.place)
+            GridRow(
+                l.number.toString(), l.pulsing, l.name, l.alt, l.club, l.time, l.timeStyle, l.lockEdge,
+                l.deltaSeconds, l.deltaBetter, l.place, view.lap(l, laps),
+            )
         }
     }
     Column(Modifier.fillMaxSize()) {
@@ -41,6 +49,6 @@ fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, he
         if (!headerInBar) {
             BoardHeader(label("event"), view.currentEvent, label("heat"), view.currentHeat, eventName, wallClock(), metrics)
         }
-        BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar)
+        BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar, laps = laps)
     }
 }

@@ -38,4 +38,9 @@
     <string name="appearance_light">Light</string>
     <string name="appearance_auto">Automatic</string>
     <string name="more_options">More options</string>
+
+    <!-- L-23, the screen reader only: what the number in the delta cell is while a lane is
+         still swimming, spoken as "laps 3". The wire names the six columns and stops, so the
+         lap has no served word to keep and this one is the app's. -->
+    <string name="laps">laps</string>
 </resources>

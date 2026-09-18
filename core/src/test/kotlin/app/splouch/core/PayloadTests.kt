@@ -1,5 +1,7 @@
 package app.splouch.core
 
+import app.splouch.core.board.LapDirection
+import app.splouch.core.board.LapSettings
 import app.splouch.core.session.MeetTab
 import app.splouch.core.wire.I18nBundle
 import app.splouch.core.wire.MeetConfig
@@ -88,6 +90,13 @@ class PayloadTests {
         // A-11: neither of those servers sent `console`, and neither loses its Results tab.
         assertTrue(c.settings.console.timed)
         assertTrue(p.settings.console.timed)
+
+        // L-23: neither sent `show_laps` either, and the delta column stays a delta column.
+        // It is the one display flag that is off by default — not every console's count is
+        // exact, so the operator turns it on for a venue where it is.
+        assertFalse(c.settings.showLaps)
+        assertFalse(p.settings.showLaps)
+        assertNull(c.settings.lapDirection)
         assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.RESULTS, MeetTab.SCHEDULE), MeetTab.of(c))
     }
 
@@ -144,5 +153,45 @@ class PayloadTests {
         val b = I18nBundle.fromJson(j("""{"lang":"fr","mobile":{"scoreboard":"Tableau"},"display":{},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}"""))!!
         assertEquals("Tableau", b.mobile["scoreboard"])
         assertEquals("ÉPREUVE", b.labels["long"]!!["event"])
+    }
+
+    @Test fun `L-23 show_laps is off unless the meet says so, and anything but down counts up`() {
+        fun cloud(settings: String) = MeetConfig.fromCloudJson(j("""{"name":"M","settings":$settings}"""))!!.settings
+        val on = cloud("""{"show_laps":true,"lap_direction":"Down"}""")
+        assertTrue(on.showLaps)
+        assertEquals(LapDirection.DOWN, LapSettings.from(on).direction)
+        assertTrue(LapSettings.from(on).show)
+
+        // `"up"`, an unrecognised word, an absent field and a server older than any of it all
+        // count up: it is the direction that needs nothing but the console.
+        listOf("""{"show_laps":true,"lap_direction":"up"}""", """{"show_laps":true,"lap_direction":"sideways"}""",
+               """{"show_laps":true,"lap_direction":""}""", """{"show_laps":true}""")
+            .forEach { assertEquals(LapDirection.UP, LapSettings.from(cloud(it)).direction, "expected up for $it") }
+
+        // And a direction without the flag draws nothing at all — the flag is the only gate,
+        // so which way an unlit column would have counted never comes up.
+        assertFalse(LapSettings.from(cloud("""{"lap_direction":"down"}""")).show)
+        // A value nobody promised is not a reason to turn the column into lengths.
+        listOf("""{"show_laps":"yes"}""", """{"show_laps":1}""", """{"show_laps":null}""")
+            .forEach { assertFalse(cloud(it).showLaps, "expected off for $it") }
+        // The Pi sends the same keys flat.
+        assertTrue(MeetConfig.fromPiJson(j("""{"meet_title":"Pool","show_laps":true}"""))!!.settings.showLaps)
+    }
+
+    @Test fun `L-23 the frame's venue numbers and lane counts decode tolerantly`() {
+        val f = ScoreboardFrame.fromJson(j("""{"expected_splits":"8","split_step":2.0,"lane_splits1":6,"lane_splits2":"x","lane_splits3":-2}"""))!!
+        assertEquals(8, f.expectedSplits)
+        assertEquals(2, f.splitStep)
+        assertEquals(6, f.laneSplits(1))
+        // Present but undecodable is the same nothing the server sends at the top of a heat.
+        assertEquals(0, f.laneSplits(2))
+        assertEquals(0, f.laneSplits(3))
+        // Absent is not 0: the board keeps what it has, because frames are partial (L-10).
+        assertNull(f.laneSplits(4))
+        val empty = ScoreboardFrame.fromJson(j("""{}"""))!!
+        assertNull(empty.expectedSplits)
+        assertNull(empty.splitStep)
+        // A `split_step` of 0 would fire the final-stretch test a length early.
+        assertEquals(1, ScoreboardFrame.fromJson(j("""{"split_step":0}"""))!!.splitStep)
     }
 }
