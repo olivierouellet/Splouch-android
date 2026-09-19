@@ -35,7 +35,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,7 +77,7 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
     // about a phone screen; read aloud they are two letters a listener has to decode, and a
     // screen reader has no width problem to solve. Same table, long style (`T-04`).
     val spoken = t.labels("short") + meet.labels
-    // One seed column for the whole screen, not one per card — see `timingColumn`.
+    // One seed column for the whole screen, not one per card — see `TimingCell`.
     val seedTemplate = remember(visible) { ScheduleFilter.widestSeedTime(visible) }
 
     // S-06: scroll to the current heat once per appearance, re-armed on returning to the foreground.
@@ -124,7 +123,7 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
     val h = v.heat
     // Past this the row reflows instead of shrinking: the heading takes the full width so
     // it breaks at a space rather than down a narrow gutter, and the scheduled time drops
-    // to a line of its own — still trailing, still in the timing column.
+    // to a line of its own — still trailing, still at its own width.
     val roomy = LocalConfiguration.current.fontScale < 1.8f
     // S-04: the stripe is computed over visible cards.
     val bg = if (v.index % 2 == 0) colors.rowEven else colors.rowOdd
@@ -162,6 +161,18 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
                     )
                 }
             }
+            // A clock time, not a seed time: it draws at its own width rather than in the
+            // lanes' ruler below. Sharing that column made a narrow "9:12" sit a ruler's
+            // width away from the event name, and a heat with no scheduled time reserve
+            // the whole of it for nothing. Every call site draws this only when there is
+            // a time, so the name runs to the edge of the card when there is not.
+            val scheduledTime: @Composable () -> Unit = {
+                Text(
+                    h.time, color = colors.scheduleTime,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontFamily = fonts.timing, maxLines = 1, softWrap = false,
+                )
+            }
             // One heading, spoken once and in full, rather than three or four fragments a
             // listener has to reassemble — and in the long words (see `spoken`).
             val headingSpoken = listOf(
@@ -179,11 +190,10 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
                     ) {
                         heading(1)
                         eventName(Modifier.weight(1f), 1)
-                        // The scheduled time moved from the front of this row to the
-                        // trailing column the seed times sit in, so a card reads as two
-                        // columns rather than three loose runs of text: what the heat is on
-                        // the left, when it swims on the right, level with every time below.
-                        TimingCell(h.time, MaterialTheme.typography.titleSmall, seedTemplate)
+                        // The scheduled time moved from the front of this row to its
+                        // trailing edge, so a card reads as two runs rather than three:
+                        // what the heat is on the left, when it swims on the right.
+                        if (h.time.isNotEmpty()) scheduledTime()
                     }
                 } else {
                     // Every line gets the full width. The scheduled time used to sit beside
@@ -191,8 +201,13 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
                     // the card and left "EV 12" / "HT 3" to wrap down a narrow gutter.
                     heading(Int.MAX_VALUE)
                     eventName(Modifier.fillMaxWidth(), Int.MAX_VALUE)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TimingCell(h.time, MaterialTheme.typography.titleSmall, seedTemplate)
+                    // No time, no row. A row holding only a ruler still had the ruler's
+                    // height, which at these sizes is a blank line down every card whose
+                    // heat is unscheduled.
+                    if (h.time.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            scheduledTime()
+                        }
                     }
                 }
             }
@@ -217,7 +232,7 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
                     if (lane.club.isNotEmpty()) {
                         Text(lane.club, color = colors.scheduleClub, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.family, maxLines = 1)
                     }
-                    TimingCell(lane.seedTime, MaterialTheme.typography.bodyMedium, seedTemplate)
+                    TimingCell(lane.seedTime, seedTemplate)
                 }
             }
         }
@@ -225,9 +240,9 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
 }
 
 /**
- * The timing column: as wide as the widest seed time on screen, with its value at the
- * trailing edge. Both a lane's seed time and a heading's scheduled time sit in it, so
- * every time on a card shares one right edge.
+ * The seed-time column: as wide as the widest seed time on screen, with the lane's own
+ * time at the trailing edge of it. Only a lane's seed time sits here — a heading's
+ * scheduled time is a clock time, and draws at its own width.
  *
  * The club and the time used to be packed against the right edge at their natural widths,
  * so the club's position followed the width of the time beside it and the codes zig-zagged
@@ -236,35 +251,32 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
  * enough to break the column on any ordinary heat.
  *
  * Sized from a hidden copy of the longest string rather than a constant, so a meet whose
- * every seed time is "NT" reserves two characters and not eight. The ruler is always at
- * the lane's own size, so a heading's `titleSmall` and a lane's `bodyMedium` still share
- * one column. It is drawn transparent rather than skipped — it has to measure — and taken
- * out of the accessibility tree, because TalkBack reading every row's column width before
- * its time would be worse than the misalignment it fixes.
+ * every seed time is "NT" reserves two characters and not eight. It is drawn transparent
+ * rather than skipped — it has to measure — and taken out of the accessibility tree,
+ * because TalkBack reading every row's column width before its time would be worse than
+ * the misalignment it fixes.
  *
  * Never wrapped: a seed time broken across two lines reads as two times.
  */
 @Composable
-private fun TimingCell(value: String, style: TextStyle, seedTemplate: String) {
-    // Nothing on screen carries a time, so there is no column to keep.
-    if (value.isEmpty() && seedTemplate.isEmpty()) return
+private fun TimingCell(value: String, seedTemplate: String) {
+    // The template is the widest seed time on screen, so an empty one means no lane
+    // anywhere in the list carries a time: there is no column to keep, and `value` is
+    // empty too. A lane with no time inside a list that has them keeps its blank cell,
+    // which is what holds the clubs in line.
+    if (seedTemplate.isEmpty()) return
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
-    val text = @Composable {
-        Text(value, color = colors.scheduleTime, style = style, fontFamily = fonts.timing, maxLines = 1, softWrap = false)
-    }
-    if (seedTemplate.isEmpty()) {
-        // A heading's time is then the only one here, and can sit at its own width.
-        text()
-    } else {
-        Box(contentAlignment = Alignment.CenterEnd) {
-            Text(
-                seedTemplate, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.timing,
-                maxLines = 1, softWrap = false,
-                modifier = Modifier.alpha(0f).clearAndSetSemantics { },
-            )
-            text()
-        }
+    Box(contentAlignment = Alignment.CenterEnd) {
+        Text(
+            seedTemplate, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.timing,
+            maxLines = 1, softWrap = false,
+            modifier = Modifier.alpha(0f).clearAndSetSemantics { },
+        )
+        Text(
+            value, color = colors.scheduleTime, style = MaterialTheme.typography.bodyMedium,
+            fontFamily = fonts.timing, maxLines = 1, softWrap = false,
+        )
     }
 }
 
