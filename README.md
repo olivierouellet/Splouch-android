@@ -93,3 +93,9 @@ scripts/update-strings.sh https://splouch.ca
 `SnapshotCoverageTests` fails the build when the app asks for a `mobile` key the
 snapshot does not carry. The fix is on the server, then a recapture — not a word
 added here.
+
+## License
+
+The app is MIT licensed — see [`LICENSE`](LICENSE). The bundled fonts are not:
+each one keeps its own SIL Open Font License, shipped verbatim in
+`app/font-licenses/`.
