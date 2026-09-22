@@ -13,6 +13,13 @@
     <string name="cleartext_not_local">Le http simple n\'est permis que pour les noms .local</string>
     <string name="meet_gone">Cette compétition n\'est plus disponible</string>
 
+    <string name="add_server_question">Ajouter ce serveur\u00a0?</string>
+    <string name="switch_server_question">Passer à ce serveur\u00a0?</string>
+    <string name="add">Ajouter</string>
+    <string name="switch_to">Changer</string>
+    <string name="cannot_add_server">Impossible d\'ajouter ce serveur</string>
+    <string name="bad_server_link">Ce lien ne contient pas d\'adresse de serveur</string>
+
     <string name="cancel">Annuler</string>
     <string name="done">Terminé</string>
     <string name="ok">OK</string>

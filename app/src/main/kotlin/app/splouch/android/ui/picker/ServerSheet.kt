@@ -99,7 +99,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                 is AddServerResult.Ok -> { text = ""; onDismiss() }
                 AddServerResult.InvalidAddress -> error = invalidAddress
                 AddServerResult.CleartextNotLocal -> error = cleartextNotLocal
-                is AddServerResult.Unreachable -> error = if (r.reason == "not a Splouch server") notSplouch else unreachable
+                is AddServerResult.Unreachable -> error = if (r.reason == AppModel.NOT_SPLOUCH) notSplouch else unreachable
             }
             busy = false
         }

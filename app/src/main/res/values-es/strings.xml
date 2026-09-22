@@ -13,6 +13,13 @@
     <string name="cleartext_not_local">El http sin cifrar solo se permite para nombres .local</string>
     <string name="meet_gone">Esta competición ya no está disponible</string>
 
+    <string name="add_server_question">¿Añadir este servidor?</string>
+    <string name="switch_server_question">¿Cambiar a este servidor?</string>
+    <string name="add">Añadir</string>
+    <string name="switch_to">Cambiar</string>
+    <string name="cannot_add_server">No se puede añadir este servidor</string>
+    <string name="bad_server_link">Este enlace no contiene una dirección de servidor</string>
+
     <string name="cancel">Cancelar</string>
     <string name="done">Listo</string>
     <string name="ok">OK</string>

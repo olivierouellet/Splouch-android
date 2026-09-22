@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.ImageCache
 import app.splouch.android.R
 import app.splouch.android.ui.picker.PickerScreen
+import app.splouch.android.ui.picker.ServerInviteDialog
 import app.splouch.android.ui.shell.MeetShell
 import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.android.ui.theme.SplouchTheme
@@ -95,6 +96,12 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
                 else PickerScreen(model, state, images, snackbar)
             }
         }
+        // P-16: a QR code named a server. It is asked over whichever half is on screen —
+        // the app may have been launched straight into this from the camera, and it may
+        // equally have been open on a running meet — so it belongs here and not inside
+        // either one. `AppModel` holds the question, which is what lets it survive a
+        // recreation while the reader is still reading it.
+        state.invite?.let { ServerInviteDialog(model, it) }
     }
 }
 

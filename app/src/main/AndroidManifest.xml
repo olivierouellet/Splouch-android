@@ -12,14 +12,37 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Splouch">
+        <!-- `singleTask`: a QR code scanned while the app is already open reaches the
+             running Activity through `onNewIntent`, rather than stacking a second copy of
+             the app over the meet the reader was watching. The one `AppModel` lives on the
+             Application either way, so a second copy would have shared its state and still
+             looked like two apps. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- app.md P-16: `https://splouch.ca/add?server=<origin>`, the link a QR code
+                 carries. `autoVerify` is what makes the stock camera open the app instead
+                 of offering a chooser, and it only holds while
+                 `https://splouch.ca/.well-known/assetlinks.json` names this package and
+                 this signing certificate — see `parity.md` P-16. Without the app installed
+                 nothing intercepts the link at all: the browser lands on the page, which
+                 is where the Play Store hand-off lives (`P-10`).
+
+                 The host is the app's default server and the path is exact: `pathPrefix`
+                 would also swallow `/address` and anything else beginning those four
+                 characters. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="splouch.ca" android:path="/add" />
             </intent-filter>
         </activity>
     </application>

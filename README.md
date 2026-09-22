@@ -69,6 +69,13 @@ Only `.local` names, `localhost`, `127.0.0.1` and `10.0.2.2` may be dialled over
 HTTP (release builds: `.local` only). See `app/src/main/res/xml/network_security_config.xml`
 and app.md `P-12`.
 
+A server can also arrive by QR code (`parity.md` `P-16`): the code carries
+`https://splouch.ca/add?server=<origin>`, a verified App Link, and the app prompts before
+it adds anything. **The web half lives in the sibling `Splouch` repo and the feature is
+inert without it** — `splouch.ca` has to serve `/.well-known/assetlinks.json` and the
+`/add` page that offers the Play Store when the app is not installed. `P-16`'s row says
+exactly what those two must contain.
+
 [`emulator.md`](emulator.md) covers the rest of the AVD loop: booting one, driving it
 with `adb`, and what to check when the screen looks wrong.
 

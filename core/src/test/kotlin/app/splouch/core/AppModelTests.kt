@@ -4,9 +4,11 @@ import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.InMemoryPreferencesStore
 import app.splouch.core.session.InMemoryVidStore
+import app.splouch.core.session.InviteFailure
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
+import app.splouch.core.session.ServerLink
 import app.splouch.core.strings.InMemoryBundleCache
 import app.splouch.core.strings.Labels
 import app.splouch.core.support.FakeTransport
@@ -210,6 +212,95 @@ class AppModelTests {
 
         // Removing one that is not there hands back nothing to undo.
         assertNull(r.model.removeServer(ServerAddress.parseOrNull("https://gone.example")!!))
+    }
+
+    @Test fun `a QR link parses only on the app's own host, and only as an address`() {
+        val host = "c.example"
+        fun p(url: String) = ServerLink.parse(url, host)
+        assertEquals(ServerAddress.parseOrNull(pi), (p("https://c.example/add?server=http%3A%2F%2Fpi.local%3A5000") as ServerLink.Result.Ok).address)
+        // Unescaped is what a hand-written poster carries; it parses the same.
+        assertIs<ServerLink.Result.Ok>(p("https://c.example/add?server=$pi"))
+        assertIs<ServerLink.Result.Ok>(p("https://C.Example/add/?server=https://x.example"))
+        // Another host cannot mint a code that adds a server — the authority is the app's.
+        assertEquals(ServerLink.Result.Invalid, p("https://evil.example/add?server=$pi"))
+        // Nor can a downgraded link: the App Link is verified for `https` and nothing else.
+        assertEquals(ServerLink.Result.Invalid, p("http://c.example/add?server=$pi"))
+        assertEquals(ServerLink.Result.Invalid, p("https://c.example/address?server=$pi"))
+        assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?meet=m1"))
+        assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?server="))
+        assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?server=ftp://x"))
+        // The cleartext floor is the typed address's, and a printed code cannot lower it.
+        assertEquals(ServerLink.Result.CleartextNotLocal, p("https://c.example/add?server=http://192.168.1.10:5000"))
+        // A parameter that only starts the same is not the parameter.
+        assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?servers=$pi"))
+    }
+
+    @Test fun `a QR link asks before it adds, and the yes runs the handshake`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start(); runCurrent()
+        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v1"}}""")
+        r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
+        r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
+
+        // P-16: scanning names the server and does nothing else — no save, no select, and
+        // no request to the address either. Only the question is on screen.
+        val before = r.http.calls.size
+        r.model.openServerLink("https://c.example/add?server=$pi"); runCurrent()
+        val invite = assertNotNull(r.model.current.invite)
+        assertEquals(pi, invite.address?.origin)
+        assertFalse(invite.known)
+        assertNull(invite.failure)
+        assertEquals(before, r.http.calls.size)
+        assertEquals(emptyList(), r.prefsStore.load().servers)
+
+        // A no leaves the app exactly as it found it.
+        r.model.dismissInvite(); runCurrent()
+        assertNull(r.model.current.invite)
+        assertEquals(emptyList(), r.prefsStore.load().servers)
+
+        // A yes is P-13's path and nothing new: GET /server, then save, then select.
+        r.model.openServerLink("https://c.example/add?server=$pi")
+        r.model.acceptInvite(); runCurrent()
+        assertNull(r.model.current.invite)
+        assertEquals(listOf(pi), r.prefsStore.load().servers)
+        assertEquals(pi, r.prefsStore.load().server)
+        assertEquals(ServerKind.PI, r.model.current.kind)
+
+        // Scanning the same code again asks to *switch*, since the list already offers it.
+        r.model.openServerLink("https://c.example/add?server=$pi"); runCurrent()
+        assertTrue(assertNotNull(r.model.current.invite).known)
+        r.model.dismissInvite()
+    }
+
+    @Test fun `a link that fails says so in the prompt rather than closing it`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start(); runCurrent()
+
+        // A code that opens the app and then appears to do nothing is the worst outcome:
+        // the reader cannot tell it from a dead app. So a bad link still raises the prompt.
+        r.model.openServerLink("https://c.example/add?server=nope%20://"); runCurrent()
+        assertEquals(InviteFailure.BAD_LINK, r.model.current.invite?.failure)
+        assertNull(r.model.current.invite?.address)
+        r.model.openServerLink("https://c.example/add?server=http://192.168.1.10:5000"); runCurrent()
+        assertEquals(InviteFailure.CLEARTEXT_NOT_LOCAL, r.model.current.invite?.failure)
+
+        // An address that will not answer fails *in* the dialog, which stays open: closing
+        // it would leave the picker looking untouched and the reader with no idea why.
+        r.model.openServerLink("https://c.example/add?server=https://nowhere.example")
+        r.model.acceptInvite(); runCurrent()
+        val invite = assertNotNull(r.model.current.invite)
+        assertEquals(InviteFailure.UNREACHABLE, invite.failure)
+        assertFalse(invite.checking)
+        assertEquals("https://nowhere.example", invite.address?.origin)
+        assertEquals(emptyList(), r.prefsStore.load().servers)
+
+        // An address that answers but is not Splouch is worded differently from a fault.
+        r.http.on("https://web.example/server", status = 404)
+        r.model.openServerLink("https://c.example/add?server=https://web.example")
+        r.model.acceptInvite(); runCurrent()
+        assertEquals(InviteFailure.NOT_SPLOUCH, r.model.current.invite?.failure)
     }
 
     @Test fun `an unreachable server is an error, not a crash, and the tab choice persists`() = runTest {

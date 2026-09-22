@@ -65,6 +65,35 @@ cd ../Splouch/server && uv run uvicorn app:app --port 5056                      
 cd ../Splouch/cloud  && DATA_DIR=/tmp/splouch-cloud uv run uvicorn cloud_server:app --port 5055
 ```
 
+## Scanning a QR code without a camera (`P-16`)
+
+The App Link a code carries is `https://splouch.ca/add?server=<origin>`. Deliver that
+Intent by hand, naming the package so it goes to the app whether or not the link has
+been verified:
+
+```sh
+adb shell am start -a android.intent.action.VIEW \
+  -d "'https://splouch.ca/add?server=http%3A%2F%2F10.0.2.2%3A5056'" app.splouch.android
+```
+
+Quote the URL twice — the outer quotes are the Mac's shell, the inner ones the device's,
+and without them `&` and `?` are eaten before `am` ever sees them.
+
+That is the same Intent a verified link produces, minus the one thing it cannot test:
+whether Android decides to send it to the app at all rather than offering a chooser.
+That decision needs `https://splouch.ca/.well-known/assetlinks.json` and shows here:
+
+```sh
+adb shell pm get-app-links app.splouch.android   # splouch.ca: verified, or 1024 for no response
+adb shell pm verify-app-links --re-verify app.splouch.android
+```
+
+A debug build is signed with the debug key, so it will never verify against an
+`assetlinks.json` listing the release certificate. To try the real path end to end,
+either add the debug fingerprint (`keytool -list -v -keystore ~/.android/debug.keystore
+-alias androiddebugkey -storepass android`) as a second entry in the file, or install a
+release-signed build.
+
 ## Driving it from the shell
 
 ```sh

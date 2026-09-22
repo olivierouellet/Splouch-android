@@ -82,12 +82,35 @@ data class UiState(
     /** A-09: the meet was found gone; the UI says so once and calls [AppModel.dismissMeetGone]. */
     val meetGone: Boolean = false,
     val prefs: Preferences = Preferences(),
+    /** P-16: a QR code named a server and the reader has not answered yet. */
+    val invite: ServerInvite? = null,
     /** Strings for the picker and the server sheet, in the device's or chosen language. */
     val pickerStrings: StringTable = StringTable.EMPTY,
     val locales: List<LocaleEntry> = emptyList(),
 ) {
     val kind: ServerKind? get() = serverInfo?.kind
 }
+
+/**
+ * P-16: a server a QR code named, waiting on the reader's yes. The address is **not**
+ * saved, not selected and not even dialled while this sits in [UiState] — a code taped to
+ * a wall is a stranger's input, and the only thing it is allowed to do on its own is ask.
+ *
+ * [address] is null when the link carried nothing usable; then [failure] says why and the
+ * prompt is an apology with one button. An invite that came in while the app was already
+ * open on a meet leaves the meet alone until the yes.
+ */
+data class ServerInvite(
+    val address: ServerAddress?,
+    /** The list already offers it, so the prompt asks to *switch*, not to add. */
+    val known: Boolean = false,
+    /** The `GET /server` of `P-13` is in flight; the prompt's button is spinning. */
+    val checking: Boolean = false,
+    val failure: InviteFailure? = null,
+)
+
+/** Why an invite cannot be taken up. The words are the app's own (`T-05`), so this names the case and the UI picks the string. */
+enum class InviteFailure { BAD_LINK, CLEARTEXT_NOT_LOCAL, NOT_SPLOUCH, UNREACHABLE }
 
 sealed interface AddServerResult {
     data class Ok(val server: KnownServer) : AddServerResult
@@ -154,7 +177,7 @@ class AppModel(
         }
         val info = when (val r = SplouchApi(http, address).serverInfo()) {
             is ApiResult.Ok -> r.value
-            ApiResult.NotFound -> return AddServerResult.Unreachable("not a Splouch server")
+            ApiResult.NotFound -> return AddServerResult.Unreachable(NOT_SPLOUCH)
             is ApiResult.Failure -> return AddServerResult.Unreachable(r.reason)
         }
         val known = KnownServer(address, info.name.ifEmpty { address.display }, info.kind, KnownServer.Source.SAVED)
@@ -196,6 +219,54 @@ class AppModel(
         rebuildServers()
         if (removed.wasSelected) ServerAddress.parseOrNull(removed.origin)?.let { selectServer(it) }
     }
+
+    // ── added by QR code (P-16) ───────────────────────────────────────────────
+
+    /**
+     * P-16: a `https://<default host>/add?server=…` link arrived from the camera. It puts
+     * the address on screen as a question and does nothing else — no save, no select, and
+     * no request to the address either, since a link that only had to be *scanned* is not
+     * consent to dial whatever it names. [acceptInvite] is where `P-13`'s handshake runs.
+     *
+     * A link that does not parse still raises the prompt, carrying [InviteFailure.BAD_LINK]:
+     * a code that opens the app and then appears to do nothing is the one outcome worse
+     * than a code that fails, because the reader has no way to tell it from a dead app.
+     */
+    fun openServerLink(url: String) {
+        val invite = when (val r = ServerLink.parse(url, defaultServer.host)) {
+            is ServerLink.Result.Ok ->
+                ServerInvite(r.address, known = current.servers.any { it.address == r.address })
+            ServerLink.Result.CleartextNotLocal -> ServerInvite(null, failure = InviteFailure.CLEARTEXT_NOT_LOCAL)
+            ServerLink.Result.Invalid -> ServerInvite(null, failure = InviteFailure.BAD_LINK)
+        }
+        _state.update { it.copy(invite = invite) }
+    }
+
+    /**
+     * The reader said yes: run `P-13` — `GET /server`, then save, then select — and let the
+     * prompt stand while it does, so a Pi that has gone off the network fails *in* the
+     * dialog rather than dismissing it and leaving the picker looking untouched.
+     */
+    fun acceptInvite() {
+        val invite = current.invite ?: return
+        val address = invite.address ?: return
+        if (invite.checking) return
+        _state.update { it.copy(invite = invite.copy(checking = true, failure = null)) }
+        scope.launch {
+            val failure = when (val r = addServer(address.origin)) {
+                is AddServerResult.Ok -> null
+                AddServerResult.InvalidAddress -> InviteFailure.BAD_LINK
+                AddServerResult.CleartextNotLocal -> InviteFailure.CLEARTEXT_NOT_LOCAL
+                is AddServerResult.Unreachable ->
+                    if (r.reason == NOT_SPLOUCH) InviteFailure.NOT_SPLOUCH else InviteFailure.UNREACHABLE
+            }
+            _state.update { s ->
+                s.copy(invite = if (failure == null) null else s.invite?.copy(checking = false, failure = failure))
+            }
+        }
+    }
+
+    fun dismissInvite() = _state.update { it.copy(invite = null) }
 
     /** P-12: what the platform's mDNS browse found. */
     fun setDiscovered(servers: List<KnownServer>) {
@@ -241,7 +312,7 @@ class AppModel(
                     refreshLocales()
                     refreshStrings(server, current.prefs.lang ?: deviceLang, forPicker = true)
                 }
-                ApiResult.NotFound -> _state.update { it.copy(checkingServer = false, serverError = "not a Splouch server") }
+                ApiResult.NotFound -> _state.update { it.copy(checkingServer = false, serverError = NOT_SPLOUCH) }
                 is ApiResult.Failure -> _state.update { it.copy(checkingServer = false, serverError = r.reason) }
             }
         }
@@ -489,5 +560,14 @@ class AppModel(
     private fun savePrefs(prefs: Preferences) {
         prefsStore.save(prefs)
         _state.update { it.copy(prefs = prefs) }
+    }
+
+    companion object {
+        /**
+         * The reason an [AddServerResult.Unreachable] carries when the address answered but
+         * is not a Splouch server — the one failure the UI words differently from a network
+         * fault, so it is a constant rather than a literal matched in three places.
+         */
+        const val NOT_SPLOUCH = "not a Splouch server"
     }
 }

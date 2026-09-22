@@ -21,6 +21,16 @@
     <string name="cleartext_not_local">Plain http is only allowed for .local names</string>
     <string name="meet_gone">This meet is no longer available</string>
 
+    <!-- Added from a QR code (P-16). The prompt is the whole of the security here: a code
+         on a pool wall names an address and the reader is the one who agrees to it, so the
+         question shows the origin in full and neither button is the default. -->
+    <string name="add_server_question">Add this server?</string>
+    <string name="switch_server_question">Switch to this server?</string>
+    <string name="add">Add</string>
+    <string name="switch_to">Switch</string>
+    <string name="cannot_add_server">Cannot add this server</string>
+    <string name="bad_server_link">This link does not carry a server address</string>
+
     <!-- Standard buttons -->
     <string name="cancel">Cancel</string>
     <string name="done">Done</string>
