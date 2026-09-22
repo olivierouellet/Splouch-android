@@ -94,6 +94,14 @@ scripts/update-strings.sh https://splouch.ca
 snapshot does not carry. The fix is on the server, then a recapture — not a word
 added here.
 
+## Community
+
+| | |
+| --- | --- |
+| [Contributing](CONTRIBUTING.md) | The contracts, setup, the checks a PR must pass, conventions, reporting a bug |
+| [Security](SECURITY.md) | Reporting a vulnerability, what the app assumes about the network it is on |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
+
 ## License
 
 The app is MIT licensed — see [`LICENSE`](LICENSE). The bundled fonts are not:

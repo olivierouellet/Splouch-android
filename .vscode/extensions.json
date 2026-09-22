@@ -1,0 +1,21 @@
+{
+  // Android Studio is where `:app` is actually worked on — the Compose previews, the
+  // layout inspector and the AVD manager have no equivalent here, and nothing below
+  // pretends otherwise. What VS Code is good for in this tree is `:core` (plain Kotlin,
+  // JDK only), the docs, and the YAML under `.github/`.
+  //
+  // `fwcd.kotlin` is syntax, navigation and a language server; it is not the Android
+  // toolchain and will not resolve a Compose symbol the way Studio does. Worth having
+  // anyway for reading `core/`. `vscjava.vscode-gradle` runs the tasks from the side bar,
+  // which is the other half of that loop.
+  //
+  // markdownlint is worth having because this tree's docs *are* the reasoning —
+  // parity.md and README.md are load-bearing, and .markdownlint.json is tuned for them.
+  "recommendations": [
+    "fwcd.kotlin",
+    "vscjava.vscode-gradle",
+    "redhat.vscode-xml",
+    "redhat.vscode-yaml",
+    "davidanson.vscode-markdownlint"
+  ]
+}

@@ -1,0 +1,26 @@
+# Unlike the iOS twin, this app does have dependencies — Compose, AndroidX, coroutines,
+# kotlinx-serialization and OkHttp — and they are all declared in one place,
+# `gradle/libs.versions.toml`, which is what Dependabot reads. It also picks up the
+# Gradle wrapper. An app that ships to a phone deserves to know when one of them moves;
+# the catalog is the only file a bump has to touch, so the PRs stay reviewable.
+#
+# Monthly, not weekly: the Compose BOM and AGP move on their own calendar, and this is a
+# one-maintainer repo where a weekly pile of version bumps is noise rather than
+# information. A bump here is never applied without `./gradlew :core:test` **and**
+# `:app:assembleDebug` — a version catalog change compiles or it doesn't, and only the
+# second of those two commands finds out.
+#
+# There is no `github-actions` entry because there are no workflows yet. Add one with the
+# first one — actions run with a token against this repo, and nothing would notice a
+# stale or yanked one until a workflow started failing.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "[Build]"
+    labels:
+      - dependencies

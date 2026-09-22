@@ -1,0 +1,37 @@
+{
+  // ── The important one ──────────────────────────────────────────────────────
+  // There is no ktlint, spotless or detekt in this repo on purpose. Running a formatter
+  // rewrites hand-aligned declarations and wrapped argument lists that are laid out to be
+  // read — the same decision the server repo made about `ruff format`. Format-on-save
+  // would do that silently on your first edit, so it is off, and organize-imports is off
+  // with it. See CONTRIBUTING.md → Conventions. (Android Studio needs the same treatment:
+  // keep Reformat Code off the file you are editing.)
+  "[kotlin]": {
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "never"
+    }
+  },
+
+  // Gradle output and caches: hundreds of megabytes that regenerate constantly. Watching
+  // them costs a file handle per entry and gains nothing; git already ignores all three.
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.gradle/**": true,
+    "**/.kotlin/**": true
+  },
+  "search.exclude": {
+    "**/build": true,
+    "**/.gradle": true,
+    "**/.kotlin": true
+  },
+
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // parity.md and the READMEs use long lines and inline HTML deliberately.
+  "[markdown]": {
+    "editor.formatOnSave": false,
+    "files.trimTrailingWhitespace": false
+  }
+}
