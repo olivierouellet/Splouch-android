@@ -74,6 +74,24 @@ jobs:
           [ "${count:-0}" -ge 80 ] \
             || { echo "::error::only ${count:-0} tests ran; the suite is around 92"; exit 1; }
 
+      - name: Test report
+        # Only on a failure: a green run's report is a file nobody opens. The log already
+        # carries the name and the full stack trace of anything that failed
+        # (`testLogging` in core/build.gradle.kts), so this is for the failure that needs
+        # reading rather than scrolling — a flake, or a suite that fell over sideways. The
+        # XML goes with the HTML because it is the machine-readable half of the same run.
+        #
+        # `if: failure()` also fires when an earlier guard in this job failed, and there
+        # is no report then; `ignore` keeps that from printing a warning about it.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-report
+          path: |
+            core/build/reports/tests/test/
+            core/build/test-results/test/
+          if-no-files-found: ignore
+
   app:
     name: Android app · debug APK
     runs-on: ubuntu-latest
