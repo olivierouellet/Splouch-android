@@ -86,7 +86,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           # Named rather than left to AGP's own download, so the log says which platform
           # this was built against. `android-37.0` and not `android-37`: platforms carry a
