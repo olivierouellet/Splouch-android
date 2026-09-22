@@ -44,7 +44,7 @@ jobs:
           # here, not just what it targets.
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Check :app really is out of the build
         # The other half of the guard below. If an SDK ever leaks into this job, it stops
@@ -112,7 +112,7 @@ jobs:
           # package that would resolve to something older.
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Check the SDK really is here
         run: |
