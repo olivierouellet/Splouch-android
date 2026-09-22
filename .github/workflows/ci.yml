@@ -84,7 +84,7 @@ jobs:
         # `if: failure()` also fires when an earlier guard in this job failed, and there
         # is no report then; `ignore` keeps that from printing a warning about it.
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: core-test-report
           path: |
