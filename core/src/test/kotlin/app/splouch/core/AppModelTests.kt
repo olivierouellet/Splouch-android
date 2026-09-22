@@ -8,6 +8,7 @@ import app.splouch.core.session.InviteFailure
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
+import app.splouch.core.session.ServerInvite
 import app.splouch.core.session.ServerLink
 import app.splouch.core.strings.InMemoryBundleCache
 import app.splouch.core.strings.Labels
@@ -249,7 +250,7 @@ class AppModelTests {
         r.model.openServerLink("https://c.example/add?server=$pi"); runCurrent()
         val invite = assertNotNull(r.model.current.invite)
         assertEquals(pi, invite.address?.origin)
-        assertFalse(invite.known)
+        assertEquals(ServerInvite.Standing.NEW, invite.standing)
         assertNull(invite.failure)
         assertEquals(before, r.http.calls.size)
         assertEquals(emptyList(), r.prefsStore.load().servers)
@@ -267,9 +268,36 @@ class AppModelTests {
         assertEquals(pi, r.prefsStore.load().server)
         assertEquals(ServerKind.PI, r.model.current.kind)
 
-        // Scanning the same code again asks to *switch*, since the list already offers it.
+        // Scanning the same code again, now that this server is the one in use and
+        // answering, has nothing to offer: the prompt says where the reader already is and
+        // carries one button. It asks the network **nothing** — a handshake here could only
+        // fail, and a poster is scanned on a deck where the wifi is worst, so the one thing
+        // it could produce is "cannot reach this server" over a live heat from that server.
+        val quiet = r.http.calls.size
         r.model.openServerLink("https://c.example/add?server=$pi"); runCurrent()
-        assertTrue(assertNotNull(r.model.current.invite).known)
+        assertEquals(ServerInvite.Standing.IN_USE, assertNotNull(r.model.current.invite).standing)
+        // ...and the yes it does not offer does nothing if it is called anyway.
+        r.model.acceptInvite(); runCurrent()
+        assertEquals(quiet, r.http.calls.size)
+        assertFalse(r.model.current.invite!!.checking)
+        assertNotNull(r.model.current.meet)
+        r.model.dismissInvite()
+
+        // A server in the list that is *not* the one in use still asks to switch.
+        r.model.selectServer(ServerAddress.parseOrNull(cloud)!!); runCurrent()
+        r.model.openServerLink("https://c.example/add?server=$pi"); runCurrent()
+        assertEquals(ServerInvite.Standing.LISTED, assertNotNull(r.model.current.invite).standing)
+        r.model.dismissInvite()
+
+        // And so does the one in use whose handshake has failed — that is a Pi that
+        // rebooted, where the useful answer is the reconnect and not "all is well".
+        r.model.selectServer(ServerAddress.parseOrNull(pi)!!)
+        r.http.routes.remove("$pi/server")
+        r.model.selectServer(ServerAddress.parseOrNull(cloud)!!); runCurrent()
+        r.model.selectServer(ServerAddress.parseOrNull(pi)!!); runCurrent()
+        assertNotNull(r.model.current.serverError)
+        r.model.openServerLink("https://c.example/add?server=$pi"); runCurrent()
+        assertEquals(ServerInvite.Standing.LISTED, assertNotNull(r.model.current.invite).standing)
         r.model.dismissInvite()
     }
 

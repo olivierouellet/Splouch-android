@@ -17,6 +17,7 @@
     <string name="switch_server_question">¿Cambiar a este servidor?</string>
     <string name="add">Añadir</string>
     <string name="switch_to">Cambiar</string>
+    <string name="already_on_server">Ya estás en este servidor</string>
     <string name="cannot_add_server">No se puede añadir este servidor</string>
     <string name="bad_server_link">Este enlace no contiene una dirección de servidor</string>
 

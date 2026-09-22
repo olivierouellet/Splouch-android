@@ -37,6 +37,10 @@ import app.splouch.core.session.ServerInvite
 fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
     val address = invite.address
     val failure = invite.failure?.let { stringResource(it.message) }
+    // A server already in use has nothing to agree to: the prompt tells the reader where
+    // they are and gets out of the way. It still names the address, which is the whole
+    // reason to show anything at all — "already" is only useful with an "on what".
+    val nothingToDo = address == null || invite.standing == ServerInvite.Standing.IN_USE
     AlertDialog(
         // A press outside is a no, and a no is always allowed — except mid-handshake,
         // where dismissing would leave a request running with nothing on screen for it.
@@ -47,7 +51,8 @@ fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
                 // A link with nothing in it is a refusal, not an invitation with a red
                 // line under it, so it does not borrow the list's "Add a server" header.
                 address == null -> R.string.cannot_add_server
-                invite.known -> R.string.switch_server_question
+                invite.standing == ServerInvite.Standing.IN_USE -> R.string.already_on_server
+                invite.standing == ServerInvite.Standing.LISTED -> R.string.switch_server_question
                 else -> R.string.add_server_question
             }))
         },
@@ -65,18 +70,19 @@ fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
             }
         },
         confirmButton = {
-            if (address == null) {
+            if (nothingToDo) {
                 TextButton(onClick = { model.dismissInvite() }) { Text(stringResource(R.string.ok)) }
             } else {
                 TextButton(onClick = { model.acceptInvite() }, enabled = !invite.checking) {
                     // The spinner takes the label's place rather than sitting beside it, so
                     // the dialog's buttons do not move under a finger that is already there.
                     if (invite.checking) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(if (invite.known) R.string.switch_to else R.string.add))
+                    else Text(stringResource(
+                        if (invite.standing == ServerInvite.Standing.LISTED) R.string.switch_to else R.string.add))
                 }
             }
         },
-        dismissButton = if (address == null) null else ({
+        dismissButton = if (nothingToDo) null else ({
             TextButton(onClick = { model.dismissInvite() }, enabled = !invite.checking) {
                 Text(stringResource(R.string.cancel))
             }

@@ -102,12 +102,32 @@ data class UiState(
  */
 data class ServerInvite(
     val address: ServerAddress?,
-    /** The list already offers it, so the prompt asks to *switch*, not to add. */
-    val known: Boolean = false,
+    val standing: Standing = Standing.NEW,
     /** The `GET /server` of `P-13` is in flight; the prompt's button is spinning. */
     val checking: Boolean = false,
     val failure: InviteFailure? = null,
-)
+) {
+    /** Where the scanned address already stands with the app, which is the whole of what the prompt asks. */
+    enum class Standing {
+        /** Offered nowhere yet: the prompt asks to **add** it. */
+        NEW,
+        /** Already in the list, but not the one in use: the prompt asks to **switch**. */
+        LISTED,
+        /**
+         * Already the server in use, and answering. There is nothing to do, so the prompt
+         * says so and offers one button — no handshake, which is the point: asking
+         * `GET /server` here could only fail, and a poster is scanned on a pool deck where
+         * the wifi is worst. Telling a reader the app cannot reach a server it is at that
+         * moment showing a live heat from is the one answer that is simply untrue.
+         *
+         * **Only while it is answering.** A selected server whose handshake failed is
+         * [LISTED] instead, so scanning its code re-dials it — that is a spectator whose Pi
+         * rebooted, and the useful thing is the reconnect, not a claim that all is well
+         * while the screen behind says otherwise.
+         */
+        IN_USE,
+    }
+}
 
 /** Why an invite cannot be taken up. The words are the app's own (`T-05`), so this names the case and the UI picks the string. */
 enum class InviteFailure { BAD_LINK, CLEARTEXT_NOT_LOCAL, NOT_SPLOUCH, UNREACHABLE }
@@ -234,8 +254,11 @@ class AppModel(
      */
     fun openServerLink(url: String) {
         val invite = when (val r = ServerLink.parse(url, defaultServer.host)) {
-            is ServerLink.Result.Ok ->
-                ServerInvite(r.address, known = current.servers.any { it.address == r.address })
+            is ServerLink.Result.Ok -> ServerInvite(r.address, standing = when {
+                r.address == current.server && current.serverInfo != null -> ServerInvite.Standing.IN_USE
+                current.servers.any { it.address == r.address } -> ServerInvite.Standing.LISTED
+                else -> ServerInvite.Standing.NEW
+            })
             ServerLink.Result.CleartextNotLocal -> ServerInvite(null, failure = InviteFailure.CLEARTEXT_NOT_LOCAL)
             ServerLink.Result.Invalid -> ServerInvite(null, failure = InviteFailure.BAD_LINK)
         }
@@ -250,7 +273,9 @@ class AppModel(
     fun acceptInvite() {
         val invite = current.invite ?: return
         val address = invite.address ?: return
-        if (invite.checking) return
+        // A server already in use has no yes to give: its prompt carries one button, and
+        // this guard is what makes that a property of the model rather than of the dialog.
+        if (invite.checking || invite.standing == ServerInvite.Standing.IN_USE) return
         _state.update { it.copy(invite = invite.copy(checking = true, failure = null)) }
         scope.launch {
             val failure = when (val r = addServer(address.origin)) {
