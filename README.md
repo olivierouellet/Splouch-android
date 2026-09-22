@@ -1,5 +1,8 @@
 # Splouch for Android
 
+[![CI](https://github.com/olivierouellet/Splouch-android/actions/workflows/ci.yml/badge.svg)](https://github.com/olivierouellet/Splouch-android/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 The spectator app for Splouch meets. It follows two contracts that live in the
 sibling `Splouch` repo and are never copied here:
 

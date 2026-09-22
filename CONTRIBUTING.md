@@ -94,6 +94,16 @@ SPLOUCH_LIVE_SERVER=http://127.0.0.1:5056 ./gradlew :core:test --tests '*LiveSer
 and the resources are built by `:app:assembleDebug` and nothing else, so a change in
 `app/` can be green locally and not compile. Assemble it before you push.
 
+CI runs both of those on every push and pull request, in two jobs that exist because
+each proves something the other cannot see. One has **no Android SDK at all** and asserts
+`:app` really is out of the build — the README's claim, checked rather than trusted — and
+runs the suite with a floor under the test count, because a test task that discovers
+nothing still succeeds. The other has the SDK, builds the APK, and then checks what no
+test reads: that the six fonts are in it, that the network config is, and that no
+loopback or emulator address has drifted out of the debug overlay into the release rule.
+Android Lint runs there too and **gates nothing** — its six current errors are all
+deliberate, so read the report for what is new beside them.
+
 Anything touching a screen also gets installed and looked at, in both orientations if the
 layout moved. Say in the PR which device or AVD and what you saw — `parity.md` is written
 that way for a reason, and a claim about the UI that nobody looked at is how this tree

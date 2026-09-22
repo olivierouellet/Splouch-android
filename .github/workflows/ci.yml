@@ -1,0 +1,176 @@
+# Three jobs, and the first two are split because each one proves something the other
+# cannot see.
+#
+# `settings.gradle.kts` includes `:app` **only when an Android SDK is found**, and says
+# so in a warning rather than failing. That is deliberate — a clone with no SDK is still
+# a working checkout of the contract layer — but it is also the one thing on this repo
+# that can turn a green tick into a lie: a job whose SDK setup quietly broke would run
+# `:core:test`, build nothing else, and pass. So one job asserts `:app` is **absent** and
+# runs the suite on a bare JDK, which is the claim the README makes; the other asserts it
+# is **present** and builds it. Neither trusts the warning to be read.
+#
+# `:core:test` never compiles `:app` either way: the Compose screens, the OkHttp and NSD
+# adapters and every resource are built by `assembleDebug` and nothing else.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  core:
+    name: Contract layer · JDK only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # `ubuntu-latest` ships an Android SDK and sets both of these, so without emptying
+      # them this job would silently be the same job as the one below. Blank reads as
+      # absent to `settings.gradle.kts`, which is what a contributor's JDK-only machine
+      # looks like.
+      ANDROID_HOME: ''
+      ANDROID_SDK_ROOT: ''
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          # `jvmToolchain(17)` and the app's `compileOptions`. 17 is what Gradle runs on
+          # here, not just what it targets.
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check :app really is out of the build
+        # The other half of the guard below. If an SDK ever leaks into this job, it stops
+        # testing the JDK-only path and nobody would notice from the result.
+        run: |
+          ./gradlew -q projects | tee projects.txt
+          grep -q "Project ':core'" projects.txt \
+            || { echo "::error::':core' is not in the build"; exit 1; }
+          grep -q "Project ':app'" projects.txt \
+            && { echo "::error::':app' was included; this job is meant to run without an SDK"; exit 1; }
+          echo "no SDK, ':core' only — as intended"
+
+      - name: Tests
+        # LiveServerTests returns early here by design: its checks need a real server at
+        # SPLOUCH_LIVE_SERVER and there is none on a runner. Everything else uses the HTTP
+        # stub and the fake WebSocket in core/src/test/kotlin/app/splouch/core/support/.
+        run: ./gradlew :core:test
+
+      - name: Check the suite really ran
+        # The guard that makes green mean green. A test task that compiles but discovers
+        # nothing succeeds, which is the one failure mode a green tick cannot be trusted
+        # about. The floor is well under the current count — raise it if it ever starts
+        # catching real growth instead of breakage.
+        run: |
+          count=$(grep -o '<testcase' core/build/test-results/test/*.xml | wc -l | tr -d ' ')
+          echo "ran ${count:-0} tests"
+          [ "${count:-0}" -ge 80 ] \
+            || { echo "::error::only ${count:-0} tests ran; the suite is around 92"; exit 1; }
+
+  app:
+    name: Android app · debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          # Named rather than left to AGP's own download, so the log says which platform
+          # this was built against. `android-37.0` and not `android-37`: platforms carry a
+          # minor version since Android 16, and the unqualified name is a different
+          # package that would resolve to something older.
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check the SDK really is here
+        run: |
+          ./gradlew -q projects | grep -q "Project ':app'" \
+            || { echo "::error::':app' is not in the build — the SDK was not found"; exit 1; }
+
+      - name: Build
+        run: ./gradlew :app:assembleDebug
+
+      - name: Check the APK came out whole
+        # Resources are not compiled by anything the suite runs, so a font dropped from
+        # `res/font/` or a network config renamed in a merge reaches a phone unnoticed:
+        # the app still launches, it just draws a digit in the wrong face or refuses to
+        # reach a Pi. Both are asserted on the packaged APK rather than on the tree,
+        # which is where the merging actually happens.
+        run: |
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$apk" || { echo "::error::no APK at $apk"; exit 1; }
+          fonts=$(unzip -l "$apk" | grep -c '\.ttf$' || true)
+          echo "fonts bundled: $fonts"
+          [ "$fonts" -eq 6 ] \
+            || { echo "::error::expected 6 bundled fonts, found $fonts"; exit 1; }
+          unzip -l "$apk" | grep -q 'res/xml/network_security_config.xml' \
+            || { echo "::error::the APK has no network security config"; exit 1; }
+
+      - name: Check the release rule kept the dev addresses out
+        # The debug overlay shadows the release config, so the two files are edited in the
+        # same breath and the wrong one is easy to reach for. A loopback or emulator host
+        # that lands in the main config ships cleartext to a phone, and nothing at runtime
+        # would say so (app.md P-12).
+        run: |
+          main=app/src/main/res/xml/network_security_config.xml
+          grep -q 'cleartextTrafficPermitted="false"' "$main" \
+            || { echo "::error::$main no longer denies cleartext by default"; exit 1; }
+          for host in localhost 127.0.0.1 10.0.2.2; do
+            grep -q "$host" "$main" \
+              && { echo "::error::$host is in the release network config; it belongs in src/debug"; exit 1; }
+          done
+          echo "release config: .local only"
+
+      - name: Lint
+        # Not a gate, and printed into this log the way the server repo prints coverage.
+        # Android Lint currently reports six errors here and every one of them is a
+        # decision: the exact hosts in the debug network config want no `includeSubdomains`,
+        # a theme attribute sits above `minSdk` on purpose, the app's name is not
+        # translated, and a Bonjour call guarded by an SDK_INT check is read as an
+        # extension-SDK call. Read the report for what is *new* next to those.
+        continue-on-error: true
+        run: |
+          ./gradlew :app:lintDebug || true
+          cat app/build/reports/lint-results-debug.txt || true
+
+  scripts:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
+
+      - name: Syntax-check the scripts
+        # Not shellcheck, and not one shell for both: `update-strings.sh` is zsh and uses
+        # glob qualifiers (`*.json(N)`) that no POSIX shell parses, while
+        # `render-play-icon.sh` is bash. Each is checked with the shell named in its own
+        # shebang, so a script added later is covered by the line it starts with.
+        run: |
+          status=0
+          for f in scripts/*.sh; do
+            case "$(head -1 "$f")" in
+              *zsh) shell=zsh ;;
+              *bash) shell=bash ;;
+              *) echo "::error::$f has no bash or zsh shebang"; status=1; continue ;;
+            esac
+            echo "$shell -n $f"
+            "$shell" -n "$f" || status=1
+          done
+          exit $status

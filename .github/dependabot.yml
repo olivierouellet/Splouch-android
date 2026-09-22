@@ -6,13 +6,13 @@
 #
 # Monthly, not weekly: the Compose BOM and AGP move on their own calendar, and this is a
 # one-maintainer repo where a weekly pile of version bumps is noise rather than
-# information. A bump here is never applied without `./gradlew :core:test` **and**
-# `:app:assembleDebug` — a version catalog change compiles or it doesn't, and only the
-# second of those two commands finds out.
+# information. CI runs `:core:test` **and** `:app:assembleDebug` on each of these PRs,
+# which is most of the point of opening them: a catalog bump compiles or it doesn't, and
+# only the second of those two finds out.
 #
-# There is no `github-actions` entry because there are no workflows yet. Add one with the
-# first one — actions run with a token against this repo, and nothing would notice a
-# stale or yanked one until a workflow started failing.
+# Actions are a different matter: they run with a token against this repo, they are pinned
+# by tag, and nothing here would notice a stale or yanked one until a workflow started
+# failing. That entry watches `.github/workflows/ci.yml`.
 version: 2
 updates:
   - package-ecosystem: gradle
@@ -20,6 +20,15 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "[Build]"
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
     commit-message:
       prefix: "[Build]"
     labels:
