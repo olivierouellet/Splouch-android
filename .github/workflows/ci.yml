@@ -18,6 +18,10 @@ on:
     branches: [main]
   pull_request:
 
+# CI reads the code and nothing else: no job pushes, comments or publishes.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -35,16 +39,21 @@ jobs:
       ANDROID_HOME: ''
       ANDROID_SDK_ROOT: ''
     steps:
-      - uses: actions/checkout@v7
+      # Every action is pinned to a commit, with its tag in the comment: a tag can be
+      # moved to other code, a commit cannot (zizmor checks). Dependabot bumps the SHA
+      # and the comment together.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6  # v6.0.1
         with:
           distribution: temurin
           # `jvmToolchain(17)` and the app's `compileOptions`. 17 is what Gradle runs on
           # here, not just what it targets.
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6  # v6.4.0
 
       - name: Check :app really is out of the build
         # The other half of the guard below. If an SDK ever leaks into this job, it stops
@@ -74,6 +83,13 @@ jobs:
           [ "${count:-0}" -ge 80 ] \
             || { echo "::error::only ${count:-0} tests ran; the suite is around 92"; exit 1; }
 
+      - name: Coverage
+        # Printed, never gated, the way the server repo prints pytest-cov: a floor on a
+        # percentage gets met by tests written for the number. The tests already ran
+        # above, so this only reads their result. `./gradlew :core:koverHtmlReport`
+        # locally for which lines.
+        run: ./gradlew :core:koverLog
+
       - name: Test report
         # Only on a failure: a green run's report is a file nobody opens. The log already
         # carries the name and the full stack trace of anything that failed
@@ -84,7 +100,7 @@ jobs:
         # `if: failure()` also fires when an earlier guard in this job failed, and there
         # is no report then; `ignore` keeps that from printing a warning about it.
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: core-test-report
           path: |
@@ -97,14 +113,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6  # v6.0.1
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd  # v4.0.4
         with:
           # Named rather than left to AGP's own download, so the log says which platform
           # this was built against. `android-37.0` and not `android-37`: platforms carry a
@@ -112,7 +130,7 @@ jobs:
           # package that would resolve to something older.
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6  # v6.4.0
 
       - name: Check the SDK really is here
         run: |
@@ -154,23 +172,41 @@ jobs:
           echo "release config: .local only"
 
       - name: Lint
-        # Not a gate, and printed into this log the way the server repo prints coverage.
-        # Android Lint currently reports six errors here and every one of them is a
-        # decision: the exact hosts in the debug network config want no `includeSubdomains`,
-        # a theme attribute sits above `minSdk` on purpose, the app's name is not
-        # translated, and a Bonjour call guarded by an SDK_INT check is read as an
-        # extension-SDK call. Read the report for what is *new* next to those.
-        continue-on-error: true
+        # A gate for anything new. Android Lint reports six errors here and every one of
+        # them is a decision: the exact hosts in the debug network config want no
+        # `includeSubdomains`, a theme attribute sits above `minSdk` on purpose, the
+        # app's name is not translated, and a Bonjour call guarded by an SDK_INT check is
+        # read as an extension-SDK call. Those, and the warnings, are recorded in
+        # app/lint-baseline.xml; an error that is not in it fails here. The report is
+        # printed either way, since the log is where it gets read.
         run: |
-          ./gradlew :app:lintDebug || true
+          status=0
+          ./gradlew :app:lintDebug || status=$?
           cat app/build/reports/lint-results-debug.txt || true
+          exit $status
 
   scripts:
-    name: Shell scripts
+    name: Scripts, workflows and docs
+    # The same tools, at the same versions, as the server repo's lint job, so one
+    # Markdown or workflow habit holds across both trees. They come from PyPI through
+    # `uvx`, pinned here since this repo has no Python project to lock them in.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      ACTIONLINT: actionlint-py==1.7.12.25
+      SHELLCHECK: shellcheck-py==0.11.0.1
+      ZIZMOR: zizmor==1.30.1
+      RUMDL: rumdl==0.2.77
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        with:
+          # Nothing to key a cache on: there is no lockfile, and four wheels download
+          # faster than a cache restores.
+          enable-cache: false
 
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
@@ -192,3 +228,22 @@ jobs:
             "$shell" -n "$f" || status=1
           done
           exit $status
+
+      - name: ShellCheck
+        # `render-play-icon.sh` only: ShellCheck reads sh, bash, dash and ksh, and
+        # `update-strings.sh` is zsh — the syntax check above is all it gets.
+        run: uvx --from "$SHELLCHECK" shellcheck -S warning scripts/render-play-icon.sh
+
+      - name: Workflows
+        # Expressions, runner labels, and ShellCheck over every `run:` block.
+        run: uvx --from "$ACTIONLINT" --with "$SHELLCHECK" actionlint
+
+      - name: Workflow security
+        # Token permissions, persisted credentials, unpinned actions, template
+        # injection. --offline: the audits that need the GitHub API are skipped, so the
+        # result depends on this file alone.
+        run: uvx "$ZIZMOR" --offline .github/workflows/
+
+      - name: Markdown
+        # Rules in .markdownlint.json, which the VS Code extension reads too.
+        run: uvx "$RUMDL" check .

@@ -184,6 +184,10 @@ private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, on
         return
     }
     val haptics = LocalHapticFeedback.current
+    // `confirmValueChange` is deprecated in Material3 1.4 in favour of `SwipeToDismissBox`'s
+    // own `onDismiss`. Moving changes when the row settles and when it is removed, which
+    // is a thing to try on a device, not to slip in with a build change.
+    @Suppress("DEPRECATION")
     val dismiss = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {

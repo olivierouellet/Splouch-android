@@ -10,9 +10,10 @@
 # which is most of the point of opening them: a catalog bump compiles or it doesn't, and
 # only the second of those two finds out.
 #
-# Actions are a different matter: they run with a token against this repo, they are pinned
-# by tag, and nothing here would notice a stale or yanked one until a workflow started
-# failing. That entry watches `.github/workflows/ci.yml`.
+# Actions are a different matter: they run with a token against this repo, and nothing here
+# would notice a stale or yanked one until a workflow started failing. They are pinned to a
+# commit with the tag in a trailing comment (zizmor checks the pin), and Dependabot moves
+# the SHA and the comment together. That entry watches `.github/workflows/ci.yml`.
 version: 2
 updates:
   - package-ecosystem: gradle

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.4.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.4.1)" variant="all" version="9.4.1">
+
+    <issue
+        id="NewApi"
+        message="Call requires version 17 of the T Extensions SDK (current min is 0): `android.net.nsd.NsdServiceInfo#getHostname`"
+        errorLine1="                    val host = if (Build.VERSION.SDK_INT >= 34) serviceInfo.hostname else null"
+        errorLine2="                                                                            ~~~~~~~~">
+        <location
+            file="src/main/kotlin/app/splouch/android/platform/NsdBrowser.kt"
+            line="55"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="`android:windowLayoutInDisplayCutoutMode` requires API level 27 (current min is 26)"
+        errorLine1="        &lt;item name=&quot;android:windowLayoutInDisplayCutoutMode&quot;>shortEdges&lt;/item>"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/themes.xml"
+            line="9"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 36"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="13"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `enableOnBackInvokedCallback` is only used in API level 33 and higher (current min is 26)"
+        errorLine1="        android:enableOnBackInvokedCallback=&quot;true&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="13"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NetworkSecurityConfig"
+        message="Missing `includeSubdomains` attribute"
+        errorLine1="        &lt;domain>localhost&lt;/domain>"
+        errorLine2="         ~~~~~~">
+        <location
+            file="src/debug/res/xml/network_security_config.xml"
+            line="8"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NetworkSecurityConfig"
+        message="Missing `includeSubdomains` attribute"
+        errorLine1="        &lt;domain>127.0.0.1&lt;/domain>"
+        errorLine2="         ~~~~~~">
+        <location
+            file="src/debug/res/xml/network_security_config.xml"
+            line="9"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NetworkSecurityConfig"
+        message="Missing `includeSubdomains` attribute"
+        errorLine1="        &lt;domain>10.0.2.2&lt;/domain>"
+        errorLine2="         ~~~~~~">
+        <location
+            file="src/debug/res/xml/network_security_config.xml"
+            line="10"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val height = (cfg.screenHeightDp * 0.085f).coerceIn(52f, 92f).dp"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/app/splouch/android/ui/board/BoardGrid.kt"
+            line="551"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Optional Modifier parameter should have a default value of `Modifier`"
+        errorLine1="internal fun SectionHeader(text: String, modifier: Modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {"
+        errorLine2="                                         ~~~~~~~~">
+        <location
+            file="src/main/kotlin/app/splouch/android/ui/picker/ServerSheet.kt"
+            line="159"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;app_name&quot; is not translated in &quot;fr&quot; (French) or &quot;es&quot; (Spanish)"
+        errorLine1="    &lt;string name=&quot;app_name&quot;>Splouch&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="7"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 26. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_chevron` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_chevron.xml"
+            line="4"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.getString(origin, null)?.takeIf { it.isNotEmpty() } ?: VidStore.fresh().also { prefs.edit().putString(origin, it).apply() }"
+        errorLine2="                                                                                             ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/app/splouch/android/platform/AndroidStores.kt"
+            line="24"
+            column="94"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        this.prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/app/splouch/android/platform/AndroidStores.kt"
+            line="59"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Int.toDrawable` instead?"
+        errorLine1="        window.setBackgroundDrawable(ColorDrawable(bg))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/app/splouch/android/MainActivity.kt"
+            line="35"
+            column="38"/>
+    </issue>
+
+</issues>

@@ -29,6 +29,22 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    lint {
+        // Every issue Lint reported when this was written is recorded here, and each of
+        // the errors among them is a decision (see the Lint step in ci.yml). Anything
+        // not in the file fails `lintDebug`. Fix a new error, or if it too is a
+        // decision, regenerate with `./gradlew :app:updateLintBaseline` and say why in
+        // the commit.
+        baseline = file("lint-baseline.xml")
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // Same as `:core`: the build is warning-free, and stays so.
+        allWarningsAsErrors = true
+    }
 }
 
 dependencies {

@@ -110,7 +110,6 @@ Suggested order: `P-13` (handshake) → `C-01`–`C-05` (sockets) → `P-01`/`P-
 list, open a meet) → `L-01`–`L-14` (scoreboard). Results, Schedule and the `T-*`
 language controls reuse all of it.
 
-
 ## The native-UI pass (2026-09-15)
 
 The screens were rebuilt on the platform's own components. One line decides everything
@@ -161,7 +160,6 @@ Also in this pass, and listed here because no single ID owns them:
 - **The only hex left outside the board** is the picker's live dot, `#4CAF50`. That is
   product — "this meet is running now" is the same statement whatever the device's colours
   are — rather than chrome.
-
 
 ## 1. Meet picker
 
@@ -361,7 +359,6 @@ navigation needs a double tap.
 | Remove animations | partial | The picker's live dot honours it (`ui/common/Motion.kt`). The board's `L-11` lock flash and `L-12` pulse do not, on purpose — those two are information rather than decoration: the flash is how a final time announces itself and the pulse is how a lane says its clock has gone quiet |
 | Contrast | done | The board no longer renders whatever it is sent (`P-15`, `T-01`): it draws one of two palettes, both the server's own, so their contrast is a fixed and checkable property of this app rather than the operator's to get right meet by meet. The chrome is the platform's and inherits the platform's. Two colours that had assumed a dark board went with the change — a running time was a fixed `#A0A0A0` and the `L-11` lock flash a fixed white, which on the light board is pale grey on near-white and a flash that cannot be seen at all. Both come off `row_text` now, so each dims or flashes against the row it is actually drawn on. **One measured shortfall, and it is the app's now.** Every pair in the light palette clears WCAG AA-large (3.0); in the dark one, `th_text #666666` on `row_even #202020` is **2.84** — the club cell on every even row, and the same pair on `th_bg` is 3.03, only just over. It is the server's own number (`DEFAULT_THEME_COLORS`), inherited rather than invented here, and raising the club's size to the name's (`L-15`) at least puts it under the large-text bar rather than the 4.5 body one. Left as it is rather than quietly restyling the board a second time, but it is a real shortfall and the fix is a lighter `th_text` in the dark table |
 
-
 ## Open questions for the contract
 
 Raised while building this app; each needs an answer in `app.md` or `api.md` (or in
@@ -413,7 +410,6 @@ Raised while building this app; each needs an answer in `app.md` or `api.md` (or
    "landscape", or say that tablets are out of scope, which is also an answer worth
    writing down. `Splouch-ios` ships to iPad and raised the same question there, so it
    wants one answer for both repos. **Until it has one, a tablet gets phone layout.**
-
 
 Also noted, not blocking: the Pi's `GET /config` carries no `label_style`, which now
 costs nothing either way — `T-09` starts from long on every server; `T-07`'s "documented

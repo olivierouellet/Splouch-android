@@ -12,7 +12,11 @@ import java.net.URI
  * developer uses. Anything remote must be `https`. This matches the app's network
  * security config, which lists the same names; it cannot express IP ranges, so a Pi is
  * dialled by its `.local` name, never by a raw address.
+ *
+ * `copy()` is as private as the constructor: a public one would be a way round the
+ * normalisation above.
  */
+@ConsistentCopyVisibility
 data class ServerAddress private constructor(val scheme: String, val host: String, val port: Int) {
 
     val origin: String get() = "$scheme://$host" + if (port > 0) ":$port" else ""

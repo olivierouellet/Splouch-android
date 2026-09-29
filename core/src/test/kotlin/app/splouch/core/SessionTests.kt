@@ -112,7 +112,7 @@ class SessionTests {
             val join = Frame.decode(c.sent.single())!!
             assertEquals("join_meet", join.event)
             assertEquals("m1", join.data!!.jsonObject["meet_id"]!!.jsonPrimitive.content)
-            assertEquals(vid, join.data!!.jsonObject["vid"]!!.jsonPrimitive.content)
+            assertEquals(vid, join.data.jsonObject["vid"]!!.jsonPrimitive.content)
         }
         // reconnect → join again, and the owner is told to re-check the meet (A-09)
         val reconnects = ArrayList<Unit>()
