@@ -12,8 +12,10 @@ interface WebSocketTransport {
     interface Listener {
         fun onOpen()
         fun onMessage(text: String)
+
         /** The peer closed, or the close handshake finished. */
         fun onClosed()
+
         /** The connection failed to open, or broke. */
         fun onFailure(error: Throwable)
     }

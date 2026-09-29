@@ -15,7 +15,8 @@ import app.splouch.core.wire.MeetConfig
 enum class MeetTab {
     SCOREBOARD,
     RESULTS,
-    SCHEDULE;
+    SCHEDULE,
+    ;
 
     companion object {
         /** The tab a spectator lands on when the one they were on goes away, or was never stored. */

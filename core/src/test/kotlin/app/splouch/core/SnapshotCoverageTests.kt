@@ -22,10 +22,9 @@ class SnapshotCoverageTests {
     private val call = Regex("""\bmobile\(\s*"([a-z0-9_]+)"\s*\)""")
 
     /** Both source sets: the core module's own, and the app module's beside it. */
-    private fun sources(): List<File> =
-        listOf(File("src/main/kotlin"), File("../app/src/main/kotlin"))
-            .filter { it.isDirectory }
-            .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList() }
+    private fun sources(): List<File> = listOf(File("src/main/kotlin"), File("../app/src/main/kotlin"))
+        .filter { it.isDirectory }
+        .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList() }
 
     @Test fun `every mobile key the app uses is in the English snapshot`() {
         val files = sources()

@@ -26,9 +26,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,14 +51,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -71,9 +72,8 @@ import app.splouch.android.ImageCache
 import app.splouch.android.R
 import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
-import androidx.compose.ui.semantics.Role
-import app.splouch.core.session.Appearance
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.Appearance
 import app.splouch.core.session.UiState
 import app.splouch.core.wire.ServerKind
 
@@ -128,16 +128,25 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.server)) },
                             leadingIcon = { Icon(painterResource(R.drawable.ic_server), null) },
-                            onClick = { showMenu = false; showServers = true },
+                            onClick = {
+                                showMenu = false
+                                showServers = true
+                            },
                         )
                         DropdownMenuItem(
                             text = { Text(t.mobile("language")) },
                             leadingIcon = { Icon(painterResource(R.drawable.ic_language), null) },
-                            onClick = { showMenu = false; showPrefs = true },
+                            onClick = {
+                                showMenu = false
+                                showPrefs = true
+                            },
                         )
                         HorizontalDivider()
                         // A menu item is padded 12dp, not the sheet's 16.
-                        SectionHeader(stringResource(R.string.appearance), Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp))
+                        SectionHeader(
+                            stringResource(R.string.appearance),
+                            Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+                        )
                         AppearanceChoice(R.string.appearance_dark, Appearance.DARK, state, model) { showMenu = false }
                         AppearanceChoice(R.string.appearance_light, Appearance.LIGHT, state, model) { showMenu = false }
                         AppearanceChoice(R.string.appearance_auto, Appearance.AUTO, state, model) { showMenu = false }
@@ -161,7 +170,13 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                     state.serverError != null -> item {
                         EmptyState(
                             icon = painterResource(R.drawable.ic_cloud_off),
-                            title = stringResource(if (state.serverError == "not a Splouch server") R.string.not_splouch else R.string.server_unreachable),
+                            title = stringResource(
+                                if (state.serverError == "not a Splouch server") {
+                                    R.string.not_splouch
+                                } else {
+                                    R.string.server_unreachable
+                                },
+                            ),
                             supporting = state.server.display,
                             actionLabel = stringResource(R.string.retry),
                             onAction = { model.retry() },
@@ -177,7 +192,9 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                         MeetCard(
                             name = (state.serverInfo?.name ?: "").ifBlank { state.server.display },
                             meta = listOf(state.server.display),
-                            live = true, image = null, reserveImage = false,
+                            live = true,
+                            image = null,
+                            reserveImage = false,
                         ) { model.openMeet(null) }
                     }
                     else -> {
@@ -203,8 +220,16 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                                 reserveImage = anyImage,
                             ) { model.openMeet(m.id) }
                         }
-                        item { Footer(cfg?.strings?.get("results_disclaimer") ?: t.mobile("results_disclaimer"),
-                            if (cfg?.analyticsEnabled == true) (cfg.strings["privacy_note"] ?: t.mobile("privacy_note")) else null) }
+                        item {
+                            Footer(
+                                cfg?.strings?.get("results_disclaimer") ?: t.mobile("results_disclaimer"),
+                                if (cfg?.analyticsEnabled == true) {
+                                    (cfg.strings["privacy_note"] ?: t.mobile("privacy_note"))
+                                } else {
+                                    null
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -244,7 +269,8 @@ private fun Logo(bmp: Bitmap?) {
     // aspect ratio inside the content width under a height cap, never a fixed box.
     if (bmp != null) {
         Image(
-            bmp.asImageBitmap(), null,
+            bmp.asImageBitmap(),
+            null,
             Modifier.heightIn(max = 120.dp).clip(RoundedCornerShape(8.dp)),
             contentScale = ContentScale.Fit,
         )
@@ -259,7 +285,10 @@ private fun Logo(bmp: Bitmap?) {
  */
 @Composable
 private fun Footer(disclaimer: String, privacy: String?) {
-    Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.medium,
@@ -309,19 +338,33 @@ private fun MeetCard(
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             leadingContent = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     StatusDot(live)
                     if (image != null) {
-                        Image(image.asImageBitmap(), null, Modifier.size(56.dp).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
+                        Image(
+                            image.asImageBitmap(),
+                            null,
+                            Modifier.size(56.dp).clip(MaterialTheme.shapes.small),
+                            contentScale = ContentScale.Crop,
+                        )
                     } else if (reserveImage) {
                         Spacer(Modifier.size(56.dp))
                     }
                 }
             },
             headlineContent = { Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2) },
-            supportingContent = if (meta.isEmpty()) null else ({
-                Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-            }),
+            supportingContent = if (meta.isEmpty()) {
+                null
+            } else {
+                (
+                    {
+                        Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                    }
+                    )
+            },
         )
     }
 }
@@ -365,18 +408,18 @@ private val LiveGreen = Color(0xFF4CAF50)
  * `checkable=false`, `selected=false`, on every one of the three.
  */
 @Composable
-private fun AppearanceChoice(
-    label: Int,
-    value: Appearance,
-    state: UiState,
-    model: AppModel,
-    onPicked: () -> Unit,
-) {
+private fun AppearanceChoice(label: Int, value: Appearance, state: UiState, model: AppModel, onPicked: () -> Unit) {
     val selected = state.prefs.appearance == value
     DropdownMenuItem(
-        modifier = Modifier.semantics(mergeDescendants = true) { role = Role.RadioButton; this.selected = selected },
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            role = Role.RadioButton
+            this.selected = selected
+        },
         text = { Text(stringResource(label)) },
         trailingIcon = { if (selected) Icon(painterResource(R.drawable.ic_check), null) },
-        onClick = { model.setAppearance(value); onPicked() },
+        onClick = {
+            model.setAppearance(value)
+            onPicked()
+        },
     )
 }

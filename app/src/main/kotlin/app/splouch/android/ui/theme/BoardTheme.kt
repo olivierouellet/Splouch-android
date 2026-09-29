@@ -187,9 +187,25 @@ fun AutoSizeText(
     BasicText(
         text = text,
         modifier = modifier,
-        style = TextStyle(color = color, fontFamily = fontFamily, fontSize = maxSize, textAlign = textAlign, fontWeight = fontWeight),
+        style = TextStyle(
+            color = color,
+            fontFamily = fontFamily,
+            fontSize = maxSize,
+            textAlign = textAlign,
+            fontWeight = fontWeight,
+        ),
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        autoSize = TextAutoSize.StepBased(minFontSize = if (minSize > maxSize) maxSize else minSize, maxFontSize = maxSize, stepSize = 0.5.sp),
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = if (minSize >
+                maxSize
+            ) {
+                maxSize
+            } else {
+                minSize
+            },
+            maxFontSize = maxSize,
+            stepSize = 0.5.sp,
+        ),
     )
 }

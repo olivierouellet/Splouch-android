@@ -21,7 +21,11 @@ class ResultsAndDeltaTests {
 
     @Test fun `lane sort - row index is the channel, gaps stay blank, absent sort means lane`() {
         val r = ResultsBoard(4)
-        r.apply(snap("""{"event":"3","heat":"1","event_name":"E","lanes":[{"channel":4,"place":"1","time":"2:20.92","name":"D","club":"c"},{"channel":2,"place":" ","time":"2:21.00","name":"B"}]}"""))
+        r.apply(
+            snap(
+                """{"event":"3","heat":"1","event_name":"E","lanes":[{"channel":4,"place":"1","time":"2:20.92","name":"D","club":"c"},{"channel":2,"place":" ","time":"2:21.00","name":"B"}]}""",
+            ),
+        )
         val v = r.view()
         assertFalse(v.waiting)
         assertEquals("3", v.event)
@@ -38,7 +42,11 @@ class ResultsAndDeltaTests {
 
     @Test fun `place sort fills top-down, unfilled ranks show a dash for the lane`() {
         val r = ResultsBoard(4)
-        r.apply(snap("""{"event":"3","heat":"1","sort":"place","lanes":[{"channel":4,"place":"1","time":"1.00","name":"D"},{"channel":1,"place":"2","time":"2.00","name":"A"}]}"""))
+        r.apply(
+            snap(
+                """{"event":"3","heat":"1","sort":"place","lanes":[{"channel":4,"place":"1","time":"1.00","name":"D"},{"channel":1,"place":"2","time":"2.00","name":"A"}]}""",
+            ),
+        )
         val v = r.view()
         assertEquals(listOf("D", "A", "", ""), v.rows.map { it.name })
         assertEquals(listOf("4", "1", "—", "—"), v.rows.map { it.laneLabel })

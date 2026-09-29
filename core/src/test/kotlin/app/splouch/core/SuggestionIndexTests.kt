@@ -19,7 +19,7 @@ class SuggestionIndexTests {
         assertEquals("strasse", fold("Straße"))
         assertEquals("sorensen", fold("Sørensen"))
         assertEquals("aevar", fold("Ævar"))
-        assertEquals("oyvind", fold("Ǿyvind"))       // ǿ → ø + acute, then the ø row
+        assertEquals("oyvind", fold("Ǿyvind")) // ǿ → ø + acute, then the ø row
         assertEquals("thor", fold("Þór"))
         assertEquals("dorde", fold("Ðorđe"))
         assertEquals("lukasz", fold("Łukasz"))
@@ -43,7 +43,9 @@ class SuggestionIndexTests {
         assertEquals(1, setOf(fold("ELISE"), fold("Élise"), fold("élise")).size)
     }
 
-    private val heats: List<ScheduleHeat> = ScheduleHeat.listFromJson(parseJsonOrNull("""{"heats":[
+    private val heats: List<ScheduleHeat> = ScheduleHeat.listFromJson(
+        parseJsonOrNull(
+            """{"heats":[
         {"event":1,"heat":1,"event_name":"a","time":"","lanes":[
             {"lane":1,"name":"Élise Côté","club":"Île-des-Sœurs","seed_time":"","swimmers":[]},
             {"lane":2,"name":"Bo Xu","club":"Rays","seed_time":"","swimmers":[]}]},
@@ -52,7 +54,9 @@ class SuggestionIndexTests {
                 {"name":"Ann Lee","first":"Ann"},{"name":"Sørensen Þór","first":"Þór"}]}]},
         {"event":3,"heat":1,"event_name":"c","time":"","lanes":[
             {"lane":1,"name":"Bo Xu","club":"Sharks","seed_time":"","swimmers":[]}]}
-    ]}""")) ?: error("fixture is not a schedule")
+    ]}""",
+        ),
+    ) ?: error("fixture is not a schedule")
 
     private val index = SuggestionIndex.from(heats)
 
@@ -95,9 +99,17 @@ class SuggestionIndexTests {
         assertEquals(listOf(Suggestion(SuggestionType.SWIMMER, "Bo Xu", "Sharks")), index.search("bo xu"))
         assertEquals(1, index.search("sharks").count { it.type == SuggestionType.CLUB })
 
-        val many = ScheduleHeat.listFromJson(parseJsonOrNull("""{"heats":[{"event":1,"heat":1,"event_name":"a","time":"","lanes":[""" +
-            (1..30).joinToString(",") { """{"lane":$it,"name":"Swimmer ${"%02d".format(it)}","club":"Club $it","seed_time":"","swimmers":[]}""" } +
-            """]}]}"""))!!
+        val many = ScheduleHeat.listFromJson(
+            parseJsonOrNull(
+                """{"heats":[{"event":1,"heat":1,"event_name":"a","time":"","lanes":[""" +
+                    (1..30).joinToString(",") {
+                        """{"lane":$it,"name":"Swimmer ${"%02d".format(
+                            it,
+                        )}","club":"Club $it","seed_time":"","swimmers":[]}"""
+                    } +
+                    """]}]}""",
+            ),
+        )!!
         val all = SuggestionIndex.from(many).search("swimmer")
         assertEquals(SuggestionIndex.MAX, all.size)
         assertEquals("Swimmer 01", all.first().name)

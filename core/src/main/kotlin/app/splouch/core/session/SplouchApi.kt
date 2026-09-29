@@ -31,9 +31,13 @@ class SplouchApi(private val http: HttpClient, val server: ServerAddress) {
     /** The handshake (P-13, api.md §5.10). `NotFound` here means "not a Splouch server". */
     suspend fun serverInfo(): ApiResult<ServerInfo> = getJson(server.httpUrl("/server")) { ServerInfo.fromJson(it) }
 
-    suspend fun servers(): ApiResult<List<ServerEntry>> = getJson(server.httpUrl("/servers")) { ServerEntry.listFromJson(it) }
+    suspend fun servers(): ApiResult<List<ServerEntry>> = getJson(server.httpUrl("/servers")) {
+        ServerEntry.listFromJson(it)
+    }
 
-    suspend fun meets(): ApiResult<List<MeetSummary>> = getJson(server.httpUrl("/meets")) { MeetSummary.listFromJson(it) }
+    suspend fun meets(): ApiResult<List<MeetSummary>> = getJson(server.httpUrl("/meets")) {
+        MeetSummary.listFromJson(it)
+    }
 
     suspend fun pickerConfig(lang: String?): ApiResult<PickerConfig> {
         val q = lang?.takeIf { it.isNotBlank() }?.let { "?lang=${MeetContext.enc(it)}" } ?: ""
@@ -48,7 +52,9 @@ class SplouchApi(private val http: HttpClient, val server: ServerAddress) {
     suspend fun schedule(context: MeetContext): ApiResult<List<ScheduleHeat>> =
         getJson(context.scheduleUrl) { ScheduleHeat.listFromJson(it) }
 
-    suspend fun locales(): ApiResult<List<LocaleEntry>> = getJson(server.httpUrl("/locales")) { LocaleEntry.listFromJson(it) }
+    suspend fun locales(): ApiResult<List<LocaleEntry>> = getJson(server.httpUrl("/locales")) {
+        LocaleEntry.listFromJson(it)
+    }
 
     /** T-10: revalidates with the ETag the last fetch returned. */
     suspend fun i18n(lang: String, etag: String?): I18nResult {

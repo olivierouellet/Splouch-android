@@ -31,5 +31,7 @@ val sdkDir: String? = run {
 if (sdkDir != null) {
     include(":app")
 } else {
-    logger.warn("Android SDK not found (local.properties sdk.dir / ANDROID_HOME): ':app' is not included, only ':core'.")
+    logger.warn(
+        "Android SDK not found (local.properties sdk.dir / ANDROID_HOME): ':app' is not included, only ':core'.",
+    )
 }

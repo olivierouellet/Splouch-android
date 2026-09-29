@@ -16,6 +16,8 @@ object Contract {
      */
     fun mismatchNotice(server: ContractVersions): String? {
         if (server.api == BUILT.api && server.app == BUILT.app) return null
-        return "Server contract api ${server.api.ifEmpty { "?" }} / app ${server.app.ifEmpty { "?" }}, this app was built for api ${BUILT.api} / app ${BUILT.app}"
+        return "Server contract api ${server.api.ifEmpty {
+            "?"
+        }} / app ${server.app.ifEmpty { "?" }}, this app was built for api ${BUILT.api} / app ${BUILT.app}"
     }
 }

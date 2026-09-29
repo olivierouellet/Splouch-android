@@ -17,8 +17,11 @@ import app.splouch.core.strings.Labels
 enum class Appearance {
     DARK,
     LIGHT,
+
     /** Follow the device, which is what lets it change with the time of day. */
-    AUTO;
+    AUTO,
+
+    ;
 
     companion object {
         /** A stored value, or [DARK] for anything absent or unrecognised. */
@@ -62,5 +65,7 @@ interface PreferencesStore {
 
 class InMemoryPreferencesStore(private var prefs: Preferences = Preferences()) : PreferencesStore {
     override fun load(): Preferences = prefs
-    override fun save(prefs: Preferences) { this.prefs = prefs }
+    override fun save(prefs: Preferences) {
+        this.prefs = prefs
+    }
 }

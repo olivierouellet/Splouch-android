@@ -26,13 +26,13 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -98,8 +98,11 @@ fun BoardGrid(
     laps: LapSettings = LapSettings.OFF,
 ) {
     BoardType {
-        if (landscape) LandscapeGrid(rows, settings, labels, laps, modifier)
-        else PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
+        if (landscape) {
+            LandscapeGrid(rows, settings, labels, laps, modifier)
+        } else {
+            PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
+        }
     }
 }
 
@@ -139,7 +142,11 @@ private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, Strin
     if (settings.showName && r.alt.isNotBlank()) parts += r.alt
     if (settings.showClub && r.club.isNotBlank()) parts += "${word("club")} ${r.club}".trim()
     if (r.time.isNotBlank()) parts += "${word("time")} ${r.time}".trim()
-    if (settings.showDelta && r.deltaSeconds != null) parts += "${word("delta")} ${DeltaFormat.text(r.deltaSeconds)}".trim()
+    if (settings.showDelta &&
+        r.deltaSeconds != null
+    ) {
+        parts += "${word("delta")} ${DeltaFormat.text(r.deltaSeconds)}".trim()
+    }
     // The wire has no spectator word for a lap — `GET /i18n/{lang}`'s `labels` names the six
     // columns and stops — so this one comes from the app's own strings, in the app's languages
     // rather than the meet's. The single place on the board where `T-04` does not hold, taken
@@ -187,7 +194,7 @@ private fun PortraitGrid(
         val want = if (showsAlt) wantAlt else wantPlain
         // Then the type scales to the share, floored — past which the board scrolls rather
         // than fit twelve lanes of relay at a size nobody can read.
-        val scale = (if (want > 0.dp) share / want else 1f).coerceIn(PortraitTypeFloor, 1f)
+        val scale = (if (want > 0.dp) share / want else 1f).coerceIn(PORTRAIT_TYPE_FLOOR, 1f)
         val rowHeight = maxOf(share, want * scale)
 
         // And above both of those, the app bar taking the EVENT / HEAT row. Reported rather
@@ -207,15 +214,28 @@ private fun PortraitGrid(
             if (rows.isNotEmpty()) {
                 Column(Modifier.alpha(0f).clearAndSetSemantics { }) {
                     PortraitRow(
-                        rows.first(), settings, base, scale = 1f, showsAlt = false,
+                        rows.first(),
+                        settings,
+                        base,
+                        scale = 1f,
+                        showsAlt = false,
                         modifier = Modifier.onSizeChanged { with(density) { metrics.laneIdeal = it.height.toDp() } },
                     )
                     // Real content, not a stand-in: the height of a relay row is the height
                     // of the words actually in it.
                     rows.firstOrNull { it.alt.isNotEmpty() }?.let { relay ->
                         PortraitRow(
-                            relay, settings, base, scale = 1f, showsAlt = true,
-                            modifier = Modifier.onSizeChanged { with(density) { metrics.laneIdealWithAlt = it.height.toDp() } },
+                            relay,
+                            settings,
+                            base,
+                            scale = 1f,
+                            showsAlt = true,
+                            modifier = Modifier.onSizeChanged {
+                                with(density) {
+                                    metrics.laneIdealWithAlt =
+                                        it.height.toDp()
+                                }
+                            },
                         )
                     }
                 }
@@ -224,7 +244,11 @@ private fun PortraitGrid(
                 rows.forEachIndexed { i, r ->
                     val description = spoken(r, settings, labels, lapsWord)
                     PortraitRow(
-                        r, settings, base, scale, showsAlt,
+                        r,
+                        settings,
+                        base,
+                        scale,
+                        showsAlt,
                         modifier = Modifier.height(rowHeight)
                             .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
                             .clearAndSetSemantics { contentDescription = description },
@@ -264,7 +288,16 @@ private fun PortraitRow(
         Column(Modifier.weight(1f).padding(end = 8.dp * scale)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 // The floor comes off the same pinned size as the ceiling — see `AutoSizeText`.
-                if (settings.showName) AutoSizeText(r.name, Modifier.weight(1f), maxSize = size, minSize = size * 0.6f) else Box(Modifier.weight(1f))
+                if (settings.showName) {
+                    AutoSizeText(
+                        r.name,
+                        Modifier.weight(1f),
+                        maxSize = size,
+                        minSize = size * 0.6f,
+                    )
+                } else {
+                    Box(Modifier.weight(1f))
+                }
                 // Club, delta and place read at the name's size rather than a quarter under
                 // it. They were sized as annotations on a row whose only real content was the
                 // name and the time, but on a results board the club and the place are half of
@@ -272,13 +305,33 @@ private fun PortraitRow(
                 // column of wasted width. Colour still carries the hierarchy — the club stays
                 // `th_text` against the name's `row_text` — so matching the sizes does not
                 // make them compete.
-                if (settings.showClub) Text(r.club, color = colors.thText, fontSize = size, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    fontFamily = fonts.family, textAlign = TextAlign.End, modifier = Modifier.padding(start = 6.dp * scale))
+                if (settings.showClub) {
+                    Text(
+                        r.club,
+                        color = colors.thText,
+                        fontSize = size,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontFamily = fonts.family,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.padding(
+                            start =
+                                6.dp * scale,
+                        ),
+                    )
+                }
             }
             // L-06: relay members, dimmed, under the name — the first thing given up when the
             // lanes get tight.
             if (settings.showName && showsAlt && r.alt.isNotEmpty()) {
-                Text(r.alt, color = colors.thText, fontSize = size * 0.62f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
+                Text(
+                    r.alt,
+                    color = colors.thText,
+                    fontSize = size * 0.62f,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontFamily = fonts.family,
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // The time and whatever shares its line sit **together**, at the left of the
@@ -289,14 +342,25 @@ private fun PortraitRow(
                 // row — it is capped at what the pair has left — but with `fill = false` it
                 // takes only the width it needs and the delta starts a gutter later.
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.92f, Modifier.weight(1f, fill = false), TextAlign.Start)
+                    TimeText(
+                        r.time,
+                        r.timeStyle,
+                        r.lockEdge,
+                        size * 0.92f,
+                        Modifier.weight(1f, fill = false),
+                        TextAlign.Start,
+                    )
                     // L-23: one cell, two tenants. There is no delta *column* to centre in here
                     // — the second line is time · delta · place laid out in flow — so the cell
                     // is sized to whichever of the two is in it, and the colour and the swap
                     // carry the meaning on their own.
                     if (settings.showDelta) {
                         Spacer(Modifier.width(CellGutter * scale))
-                        if (r.lap != null) LapText(r.lap, size) else DeltaText(r.deltaSeconds, r.deltaBetter, size, size * 0.7f)
+                        if (r.lap != null) {
+                            LapText(r.lap, size)
+                        } else {
+                            DeltaText(r.deltaSeconds, r.deltaBetter, size, size * 0.7f)
+                        }
                     }
                 }
                 if (settings.showPosition) PlaceText(r.place, size, Modifier.width(56.dp * scale))
@@ -308,7 +372,13 @@ private fun PortraitRow(
 // ── landscape: the full table, font scaled to lane count (L-16) ──────────────
 
 @Composable
-private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: Map<String, String>, laps: LapSettings, modifier: Modifier) {
+private fun LandscapeGrid(
+    rows: List<GridRow>,
+    settings: MeetSettings,
+    labels: Map<String, String>,
+    laps: LapSettings,
+    modifier: Modifier,
+) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val density = LocalDensity.current
@@ -318,8 +388,11 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
     // them. It stays gone through the results too — a header that appeared at the finish would
     // be the moving header L-23 rejects.
     val showDeltaHeader = settings.showDeltaHeader && !laps.show
-    val anyHeader = settings.showLaneHeader || (settings.showName && settings.showNameHeader) || (settings.showClub && settings.showClubHeader) ||
-        settings.showTimeHeader || (settings.showDelta && showDeltaHeader) || (settings.showPosition && settings.showPositionHeader)
+    val anyHeader =
+        settings.showLaneHeader || (settings.showName && settings.showNameHeader) ||
+            (settings.showClub && settings.showClubHeader) ||
+            settings.showTimeHeader || (settings.showDelta && showDeltaHeader) ||
+            (settings.showPosition && settings.showPositionHeader)
     // What the column titles cost, measured while they are being drawn and kept after they
     // go — which is exactly the number needed to decide whether to bring them back. Measured
     // rather than declared: it is a line of text on this device at this setting, and a
@@ -327,7 +400,7 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
     var headerBand by remember { mutableStateOf(0.dp) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val count = rows.size.coerceAtLeast(1)
-        fun font(available: Dp): Dp = (available * TypeShare / count).coerceIn(10.dp, 32.dp)
+        fun font(available: Dp): Dp = (available * TYPE_SHARE / count).coerceIn(10.dp, 32.dp)
         // Sized once with the header's band withheld; if that comes out cramped the titles go
         // and the rows are sized again over the whole height. It cannot oscillate: the
         // predicate reads the *cached* band and never the height the answer changes, and
@@ -348,14 +421,50 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
                     // setting would take that height from the lanes underneath it.
                     val thSize = with(density) { 13.dp.toSp() }
                     val th: @Composable (String, Boolean, Modifier, TextAlign) -> Unit = { text, show, m, align ->
-                        Text(if (show) text else "", color = colors.thText, fontSize = thSize, fontFamily = fonts.family, maxLines = 1, textAlign = align, modifier = m.padding(horizontal = 6.dp))
+                        Text(
+                            if (show) text else "",
+                            color = colors.thText,
+                            fontSize = thSize,
+                            fontFamily = fonts.family,
+                            maxLines = 1,
+                            textAlign = align,
+                            modifier = m.padding(horizontal = 6.dp),
+                        )
                     }
                     th(labels["lane"].orEmpty(), settings.showLaneHeader, Modifier.width(LaneW), TextAlign.Center)
-                    if (settings.showName) th(labels["name"].orEmpty(), settings.showNameHeader, Modifier.weight(1f), TextAlign.Start)
-                    if (settings.showClub) th(labels["club"].orEmpty(), settings.showClubHeader, Modifier.weight(0.6f), TextAlign.Center)
+                    if (settings.showName) {
+                        th(
+                            labels["name"].orEmpty(),
+                            settings.showNameHeader,
+                            Modifier.weight(1f),
+                            TextAlign.Start,
+                        )
+                    }
+                    if (settings.showClub) {
+                        th(
+                            labels["club"].orEmpty(),
+                            settings.showClubHeader,
+                            Modifier.weight(0.6f),
+                            TextAlign.Center,
+                        )
+                    }
                     th(labels["time"].orEmpty(), settings.showTimeHeader, Modifier.width(TimeW), TextAlign.Center)
-                    if (settings.showDelta) th(labels["delta"].orEmpty(), showDeltaHeader, Modifier.width(DeltaW), TextAlign.Center)
-                    if (settings.showPosition) th(labels["place"].orEmpty(), settings.showPositionHeader, Modifier.width(PlaceW), TextAlign.Center)
+                    if (settings.showDelta) {
+                        th(
+                            labels["delta"].orEmpty(),
+                            showDeltaHeader,
+                            Modifier.width(DeltaW),
+                            TextAlign.Center,
+                        )
+                    }
+                    if (settings.showPosition) {
+                        th(
+                            labels["place"].orEmpty(),
+                            settings.showPositionHeader,
+                            Modifier.width(PlaceW),
+                            TextAlign.Center,
+                        )
+                    }
                 }
             }
             rows.forEachIndexed { i, r ->
@@ -370,19 +479,49 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
                     if (settings.showName) {
                         Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
                             AutoSizeText(r.name, Modifier.fillMaxWidth(), maxSize = size * 0.85f, minSize = size * 0.5f)
-                            if (r.alt.isNotEmpty()) Text(r.alt, color = colors.thText, fontSize = size * 0.5f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family)
+                            if (r.alt.isNotEmpty()) {
+                                Text(
+                                    r.alt,
+                                    color = colors.thText,
+                                    fontSize = size * 0.5f,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontFamily = fonts.family,
+                                )
+                            }
                         }
                     }
-                    if (settings.showClub) Text(r.club, color = colors.rowText, fontSize = size * 0.85f, maxLines = 1, overflow = TextOverflow.Ellipsis, fontFamily = fonts.family,
-                        textAlign = TextAlign.Center, modifier = Modifier.weight(0.6f).padding(horizontal = 6.dp))
+                    if (settings.showClub) {
+                        Text(
+                            r.club,
+                            color = colors.rowText,
+                            fontSize = size * 0.85f,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontFamily = fonts.family,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(0.6f).padding(horizontal = 6.dp),
+                        )
+                    }
                     TimeText(r.time, r.timeStyle, r.lockEdge, size * 0.85f, Modifier.width(TimeW), TextAlign.Center)
                     // Shrink rather than wrap: the column is fixed and the delta is now set
                     // at the name's size, so a four-lane board at the row-font cap can ask
                     // for more width than it has. A delta on two lines is not a delta.
                     // L-23: the lap is centred in the column the delta shares with it, and
                     // the header above them both says nothing while it may hold either.
-                    if (settings.showDelta) Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) {
-                        if (r.lap != null) LapText(r.lap, size * 0.85f) else DeltaText(r.deltaSeconds, r.deltaBetter, size * 0.85f, size * 0.6f)
+                    if (settings.showDelta) {
+                        Box(Modifier.width(DeltaW), contentAlignment = Alignment.Center) {
+                            if (r.lap != null) {
+                                LapText(r.lap, size * 0.85f)
+                            } else {
+                                DeltaText(
+                                    r.deltaSeconds,
+                                    r.deltaBetter,
+                                    size * 0.85f,
+                                    size * 0.6f,
+                                )
+                            }
+                        }
                     }
                     // The place takes the row font whole: it is one character, it is the
                     // answer, and it has a column to itself.
@@ -402,7 +541,7 @@ private fun LandscapeGrid(rows: List<GridRow>, settings: MeetSettings, labels: M
  * the type down. 0.55 still leaves room for a name with an alt line under it (0.85 + 0.5
  * of the row font, so 74% of the row).
  */
-private const val TypeShare = 0.55f
+private const val TYPE_SHARE = 0.55f
 
 /**
  * Below this the column titles cost more height than their words are worth, so the table
@@ -418,6 +557,7 @@ private val CellGutter = 8.dp
 
 private val LaneW = 52.dp
 private val TimeW = 130.dp
+
 // Widened with the delta's own size: it is set from the row font now, not two thirds of it.
 private val DeltaW = 110.dp
 private val PlaceW = 56.dp
@@ -443,7 +583,15 @@ private fun LaneNumber(text: String, pulsing: Boolean, size: TextUnit, modifier:
             } while (pulsingNow)
         }
     }
-    Text(text, color = color.value, fontSize = size, fontFamily = LocalBoardFonts.current.family, textAlign = TextAlign.Center, maxLines = 1, modifier = modifier)
+    Text(
+        text,
+        color = color.value,
+        fontSize = size,
+        fontFamily = LocalBoardFonts.current.family,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        modifier = modifier,
+    )
 }
 
 /**
@@ -456,7 +604,14 @@ private fun LaneNumber(text: String, pulsing: Boolean, size: TextUnit, modifier:
  * colour the palette has against the row it is drawn on, whichever way round that row is.
  */
 @Composable
-private fun TimeText(text: String, style: TimeStyle, lockEdge: Int, size: TextUnit, modifier: Modifier, align: TextAlign) {
+private fun TimeText(
+    text: String,
+    style: TimeStyle,
+    lockEdge: Int,
+    size: TextUnit,
+    modifier: Modifier,
+    align: TextAlign,
+) {
     val colors = LocalBoardColors.current
     val target = if (style == TimeStyle.RUNNING) colors.timeRunning else colors.time
     val color = remember { Animatable(target) }
@@ -468,20 +623,48 @@ private fun TimeText(text: String, style: TimeStyle, lockEdge: Int, size: TextUn
             color.snapTo(target)
         }
     }
-    Text(text, color = color.value, fontSize = size, fontFamily = LocalBoardFonts.current.timing, textAlign = align, maxLines = 1, softWrap = false, modifier = modifier)
+    Text(
+        text,
+        color = color.value,
+        fontSize = size,
+        fontFamily = LocalBoardFonts.current.timing,
+        textAlign = align,
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier,
+    )
 }
 
 /** [minSize] under [size] lets a fixed column shrink the delta rather than wrap it. */
 @Composable
 private fun DeltaText(seconds: Double?, better: Boolean?, size: TextUnit, minSize: TextUnit = size) {
     val colors = LocalBoardColors.current
-    val color = when (better) { true -> colors.deltaBetter; false -> colors.deltaWorse; null -> colors.rowText }
+    val color = when (better) {
+        true -> colors.deltaBetter
+        false -> colors.deltaWorse
+        null -> colors.rowText
+    }
     val text = DeltaFormat.text(seconds)
     val font = LocalBoardFonts.current.timing
     if (minSize < size) {
-        AutoSizeText(text, color = color, fontFamily = font, maxSize = size, minSize = minSize, textAlign = TextAlign.End)
+        AutoSizeText(
+            text,
+            color = color,
+            fontFamily = font,
+            maxSize = size,
+            minSize = minSize,
+            textAlign = TextAlign.End,
+        )
     } else {
-        Text(text, color = color, fontSize = size, fontFamily = font, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
+        Text(
+            text,
+            color = color,
+            fontSize = size,
+            fontFamily = font,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.End,
+        )
     }
 }
 
@@ -518,12 +701,30 @@ private fun LapText(lap: LapCount, size: TextUnit) {
  * so it stays hard right.
  */
 @Composable
-private fun PlaceText(place: String, size: TextUnit, modifier: Modifier, arrangement: Arrangement.Horizontal = Arrangement.End) {
+private fun PlaceText(
+    place: String,
+    size: TextUnit,
+    modifier: Modifier,
+    arrangement: Arrangement.Horizontal = Arrangement.End,
+) {
     val colors = LocalBoardColors.current
     Row(modifier, horizontalArrangement = arrangement, verticalAlignment = Alignment.CenterVertically) {
         if (place.isNotEmpty()) {
-            Text("#", color = colors.headerLabel.copy(alpha = 0.5f), fontSize = size, fontFamily = LocalBoardFonts.current.digits, maxLines = 1)
-            Text(place, color = colors.headerLabel, fontSize = size, fontWeight = FontWeight.Bold, fontFamily = LocalBoardFonts.current.digits, maxLines = 1)
+            Text(
+                "#",
+                color = colors.headerLabel.copy(alpha = 0.5f),
+                fontSize = size,
+                fontFamily = LocalBoardFonts.current.digits,
+                maxLines = 1,
+            )
+            Text(
+                place,
+                color = colors.headerLabel,
+                fontSize = size,
+                fontWeight = FontWeight.Bold,
+                fontFamily = LocalBoardFonts.current.digits,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -540,7 +741,12 @@ private fun PlaceText(place: String, size: TextUnit, modifier: Modifier, arrange
  */
 @Composable
 fun BoardHeader(
-    eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?,
+    eventLabel: String,
+    event: String,
+    heatLabel: String,
+    heat: String,
+    eventName: String,
+    clock: String?,
     /** What this band costs is measured here and kept once it moves into the app bar. */
     metrics: BoardMetrics,
 ) {
@@ -551,24 +757,37 @@ fun BoardHeader(
     val height = (cfg.screenHeightDp * 0.085f).coerceIn(52f, 92f).dp
     val t = headerType(height)
     BoardType {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = height).padding(horizontal = 12.dp, vertical = 8.dp)
-            .onSizeChanged { with(density) { metrics.headerBand = it.height.toDp() } },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        HeaderCell(eventLabel, event, t.label, t.value, fonts.family, fonts.digits)
-        HeaderCell(heatLabel, heat, t.label, t.value, fonts.family, fonts.digits)
-        // Centred in the slot between the header cells and the clock: pinned left between
-        // two items sitting at the edges, it read as floating rather than placed.
-        AutoSizeText(
-            eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family,
-            maxSize = t.name, minSize = t.nameFloor, textAlign = TextAlign.Center, maxLines = 2,
-        )
-        if (clock != null) {
-            Text(clock, color = colors.headerValue, fontSize = t.value, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = height).padding(horizontal = 12.dp, vertical = 8.dp)
+                .onSizeChanged { with(density) { metrics.headerBand = it.height.toDp() } },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            HeaderCell(eventLabel, event, t.label, t.value, fonts.family, fonts.digits)
+            HeaderCell(heatLabel, heat, t.label, t.value, fonts.family, fonts.digits)
+            // Centred in the slot between the header cells and the clock: pinned left between
+            // two items sitting at the edges, it read as floating rather than placed.
+            AutoSizeText(
+                eventName,
+                Modifier.weight(1f),
+                color = colors.headerValue,
+                fontFamily = fonts.family,
+                maxSize = t.name,
+                minSize = t.nameFloor,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+            )
+            if (clock != null) {
+                Text(
+                    clock,
+                    color = colors.headerValue,
+                    fontSize = t.value,
+                    fontFamily = fonts.digits,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
-    }
     }
 }
 
@@ -602,7 +821,12 @@ private fun headerType(height: Dp): HeaderType = with(LocalDensity.current) {
  */
 @Composable
 fun BoardBarHeaderRow(
-    eventLabel: String, event: String, heatLabel: String, heat: String, eventName: String, clock: String?,
+    eventLabel: String,
+    event: String,
+    heatLabel: String,
+    heat: String,
+    eventName: String,
+    clock: String?,
     /** P-11's server name, where the app bar's subtitle slot is taken by this row. */
     server: String? = null,
 ) {
@@ -611,24 +835,44 @@ fun BoardBarHeaderRow(
     // A top app bar is a fixed 64dp, so that is the height this row is sized from.
     val t = headerType(BarHeight)
     BoardType {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        InlineCell(eventLabel, event, t.label, t.value, fonts.family, fonts.digits)
-        InlineCell(heatLabel, heat, t.label, t.value, fonts.family, fonts.digits)
-        AutoSizeText(
-            eventName, Modifier.weight(1f), color = colors.headerValue, fontFamily = fonts.family,
-            maxSize = t.name, minSize = t.nameFloor, textAlign = TextAlign.Center, maxLines = 2,
-        )
-        if (server != null) {
-            Text(server, color = colors.thText, fontSize = t.label, fontFamily = fonts.family, maxLines = 1, softWrap = false)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            InlineCell(eventLabel, event, t.label, t.value, fonts.family, fonts.digits)
+            InlineCell(heatLabel, heat, t.label, t.value, fonts.family, fonts.digits)
+            AutoSizeText(
+                eventName,
+                Modifier.weight(1f),
+                color = colors.headerValue,
+                fontFamily = fonts.family,
+                maxSize = t.name,
+                minSize = t.nameFloor,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+            )
+            if (server != null) {
+                Text(
+                    server,
+                    color = colors.thText,
+                    fontSize = t.label,
+                    fontFamily = fonts.family,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+            if (clock != null) {
+                Text(
+                    clock,
+                    color = colors.headerValue,
+                    fontSize = t.value,
+                    fontFamily = fonts.digits,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
-        if (clock != null) {
-            Text(clock, color = colors.headerValue, fontSize = t.value, fontFamily = fonts.digits, maxLines = 1, softWrap = false)
-        }
-    }
     }
 }
 
@@ -637,21 +881,53 @@ private val BarHeight = 64.dp
 
 /** The word and its number read as one thing, and say nothing at all before a number arrives. */
 @Composable
-private fun HeaderCell(label: String, value: String, labelSize: TextUnit, valueSize: TextUnit, labelFont: FontFamily, valueFont: FontFamily) {
+private fun HeaderCell(
+    label: String,
+    value: String,
+    labelSize: TextUnit,
+    valueSize: TextUnit,
+    labelFont: FontFamily,
+    valueFont: FontFamily,
+) {
     val colors = LocalBoardColors.current
     val spokenValue = if (value.isBlank()) "" else "$label $value"
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clearAndSetSemantics { if (spokenValue.isNotEmpty()) contentDescription = spokenValue },
     ) {
-        Text(label, color = colors.headerLabel, fontSize = labelSize, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
+        Text(
+            label,
+            color = colors.headerLabel,
+            fontSize = labelSize,
+            fontFamily = labelFont,
+            maxLines = 1,
+            letterSpacing = 1.sp,
+        )
         // The web colours these with `header_label` and sets the seven-segment face; give the tall glyphs their line.
-        Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = valueSize, lineHeight = valueSize * 1.25f, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
+        Text(
+            value.ifEmpty {
+                " "
+            },
+            color = colors.headerLabel,
+            fontSize = valueSize,
+            lineHeight = valueSize * 1.25f,
+            fontFamily = valueFont,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Visible,
+        )
     }
 }
 
 @Composable
-private fun InlineCell(label: String, value: String, labelSize: TextUnit, valueSize: TextUnit, labelFont: FontFamily, valueFont: FontFamily) {
+private fun InlineCell(
+    label: String,
+    value: String,
+    labelSize: TextUnit,
+    valueSize: TextUnit,
+    labelFont: FontFamily,
+    valueFont: FontFamily,
+) {
     val colors = LocalBoardColors.current
     val spokenValue = if (value.isBlank()) "" else "$label $value"
     Row(
@@ -659,7 +935,24 @@ private fun InlineCell(label: String, value: String, labelSize: TextUnit, valueS
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         modifier = Modifier.clearAndSetSemantics { if (spokenValue.isNotEmpty()) contentDescription = spokenValue },
     ) {
-        Text(label, color = colors.headerLabel, fontSize = labelSize, fontFamily = labelFont, maxLines = 1, letterSpacing = 1.sp)
-        Text(value.ifEmpty { " " }, color = colors.headerLabel, fontSize = valueSize, fontFamily = valueFont, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
+        Text(
+            label,
+            color = colors.headerLabel,
+            fontSize = labelSize,
+            fontFamily = labelFont,
+            maxLines = 1,
+            letterSpacing = 1.sp,
+        )
+        Text(
+            value.ifEmpty {
+                " "
+            },
+            color = colors.headerLabel,
+            fontSize = valueSize,
+            fontFamily = valueFont,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Visible,
+        )
     }
 }

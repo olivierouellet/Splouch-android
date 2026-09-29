@@ -71,4 +71,4 @@ class BoardMetrics {
  * overflows and scrolls, which is the honest answer: twelve lanes of relay at 8dp would fit
  * and be unreadable.
  */
-internal const val PortraitTypeFloor = 0.72f
+internal const val PORTRAIT_TYPE_FLOOR = 0.72f

@@ -27,21 +27,35 @@ class NsdBrowser(context: Context, private val onChange: (List<KnownServer>) -> 
     fun start() {
         if (listener != null || nsd == null) return
         val l = object : NsdManager.DiscoveryListener {
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { listener = null }
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                listener = null
+            }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
             override fun onDiscoveryStarted(serviceType: String) {}
             override fun onDiscoveryStopped(serviceType: String) {}
-            override fun onServiceFound(info: NsdServiceInfo) { resolve(info) }
+            override fun onServiceFound(info: NsdServiceInfo) {
+                resolve(info)
+            }
             override fun onServiceLost(info: NsdServiceInfo) {
                 main.post { if (found.remove(info.serviceName) != null) onChange(found.values.toList()) }
             }
         }
         listener = l
-        try { nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, l) } catch (_: Exception) { listener = null }
+        try {
+            nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, l)
+        } catch (
+            _: Exception,
+        ) {
+            listener = null
+        }
     }
 
     fun stop() {
-        listener?.let { try { nsd?.stopServiceDiscovery(it) } catch (_: Exception) { } }
+        listener?.let {
+            try {
+                nsd?.stopServiceDiscovery(it)
+            } catch (_: Exception) { }
+        }
         listener = null
         found.clear()
     }
@@ -49,18 +63,26 @@ class NsdBrowser(context: Context, private val onChange: (List<KnownServer>) -> 
     @Suppress("DEPRECATION")
     private fun resolve(info: NsdServiceInfo) {
         try {
-            nsd?.resolveService(info, object : NsdManager.ResolveListener {
-                override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
-                override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                    val host = if (Build.VERSION.SDK_INT >= 34) serviceInfo.hostname else null
-                    val name = host?.trimEnd('.') ?: return
-                    val port = serviceInfo.port.takeIf { it > 0 } ?: 5000
-                    val address = ServerAddress.parseOrNull("http://$name:$port") ?: return
-                    val kind = ServerKind.fromWire(serviceInfo.attributes["kind"]?.toString(Charsets.UTF_8)) ?: ServerKind.PI
-                    val server = KnownServer(address, serviceInfo.serviceName, kind, KnownServer.Source.DISCOVERED)
-                    main.post { found[serviceInfo.serviceName] = server; onChange(found.values.toList()) }
-                }
-            })
+            nsd?.resolveService(
+                info,
+                object : NsdManager.ResolveListener {
+                    override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                    override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                        val host = if (Build.VERSION.SDK_INT >= 34) serviceInfo.hostname else null
+                        val name = host?.trimEnd('.') ?: return
+                        val port = serviceInfo.port.takeIf { it > 0 } ?: 5000
+                        val address = ServerAddress.parseOrNull("http://$name:$port") ?: return
+                        val kind =
+                            ServerKind.fromWire(serviceInfo.attributes["kind"]?.toString(Charsets.UTF_8))
+                                ?: ServerKind.PI
+                        val server = KnownServer(address, serviceInfo.serviceName, kind, KnownServer.Source.DISCOVERED)
+                        main.post {
+                            found[serviceInfo.serviceName] = server
+                            onChange(found.values.toList())
+                        }
+                    }
+                },
+            )
         } catch (_: Exception) { }
     }
 

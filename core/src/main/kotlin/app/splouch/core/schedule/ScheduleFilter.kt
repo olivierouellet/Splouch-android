@@ -86,11 +86,12 @@ object ScheduleFilter {
     fun widestSeedTime(visible: List<VisibleHeat>): String =
         visible.asSequence().flatMap { it.lanes.asSequence() }.maxByOrNull { it.seedTime.length }?.seedTime.orEmpty()
 
-    fun emptyState(heats: List<ScheduleHeat>, visible: List<VisibleHeat>, state: ScheduleFilterState): EmptyState = when {
-        heats.isEmpty() -> EmptyState.NO_SCHEDULE
-        visible.isEmpty() && state.hasFilters -> EmptyState.NO_MATCHES
-        else -> EmptyState.NONE
-    }
+    fun emptyState(heats: List<ScheduleHeat>, visible: List<VisibleHeat>, state: ScheduleFilterState): EmptyState =
+        when {
+            heats.isEmpty() -> EmptyState.NO_SCHEDULE
+            visible.isEmpty() && state.hasFilters -> EmptyState.NO_MATCHES
+            else -> EmptyState.NONE
+        }
 
     /**
      * S-21: after a re-fetch, keep the filters whose names still exist in the new list and
@@ -101,11 +102,13 @@ object ScheduleFilter {
         val lanes = heats.asSequence().flatMap { it.lanes.asSequence() }
         val clubs = lanes.map { it.club }.toSet()
         val swimmers = lanes.flatMap { l -> sequenceOf(l.name) + l.swimmers.asSequence().map { it.name } }.toSet()
-        return state.copy(filters = state.filters.filter {
-            when (it.type) {
-                SuggestionType.CLUB -> it.name in clubs
-                SuggestionType.SWIMMER -> it.name in swimmers
-            }
-        })
+        return state.copy(
+            filters = state.filters.filter {
+                when (it.type) {
+                    SuggestionType.CLUB -> it.name in clubs
+                    SuggestionType.SWIMMER -> it.name in swimmers
+                }
+            },
+        )
     }
 }

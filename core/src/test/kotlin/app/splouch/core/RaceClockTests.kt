@@ -1,13 +1,13 @@
 package app.splouch.core
 
 import app.splouch.core.clock.RaceClock
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runTest
 
 class RaceClockTests {
     @Test fun `parses the one pattern and nothing looser`() {
@@ -15,8 +15,9 @@ class RaceClockTests {
         assertEquals(2561, RaceClock.parseHundredths("25.61"))
         assertEquals(6523, RaceClock.parseHundredths("1:05.23"))
         assertEquals(12 * 6000 + 5, RaceClock.parseHundredths("12:00.05"))
-        for (bad in listOf("", "25", "25.6", "25.612", "125.00", "1:5.2", " 5.23", "5.23 ", "a", "-5.23", "1:05:23"))
+        for (bad in listOf("", "25", "25.6", "25.612", "125.00", "1:5.2", " 5.23", "5.23 ", "a", "-5.23", "1:05:23")) {
             assertNull(RaceClock.parseHundredths(bad), bad)
+        }
     }
 
     @Test fun `formats tenths`() {

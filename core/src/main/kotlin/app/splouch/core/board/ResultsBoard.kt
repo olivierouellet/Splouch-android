@@ -80,7 +80,9 @@ class ResultsBoard(val numLanes: Int) {
         }
     }
 
-    private fun blankRows(laneSort: Boolean) = (1..numLanes).map { Row(laneLabel = if (laneSort) it.toString() else DASH) }
+    private fun blankRows(laneSort: Boolean) = (1..numLanes).map {
+        Row(laneLabel = if (laneSort) it.toString() else DASH)
+    }
 
     companion object {
         const val DASH = "—"

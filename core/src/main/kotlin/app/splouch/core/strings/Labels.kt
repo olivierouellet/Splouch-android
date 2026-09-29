@@ -29,7 +29,12 @@ object Labels {
      * @param chosenStyle the user's style (T-09), [DEFAULT] until they choose
      * @param table strings for the language in effect
      */
-    fun resolve(settings: MeetSettings, chosenLang: String?, chosenStyle: String, table: StringTable): Map<String, String> {
+    fun resolve(
+        settings: MeetSettings,
+        chosenLang: String?,
+        chosenStyle: String,
+        table: StringTable,
+    ): Map<String, String> {
         val style = if (chosenStyle == SHORT) SHORT else LONG
         val base = HashMap(if (chosenLang == null) settings.labels else table.labels(SHORT))
         for (k in WIDE_KEYS) table.labels(style)[k]?.let { base[k] = it }

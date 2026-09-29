@@ -38,8 +38,10 @@ object ServerLink {
 
     sealed interface Result {
         data class Ok(val address: ServerAddress) : Result
+
         /** Not our link, or ours with nothing usable in it. Either way there is no server here. */
         data object Invalid : Result
+
         /** A real address, but `http` to a host that is not on the local network. */
         data object CleartextNotLocal : Result
     }
@@ -49,7 +51,11 @@ object ServerLink {
      * authority a link may name.
      */
     fun parse(url: String, host: String): Result {
-        val uri = try { URI(url.trim()) } catch (_: Exception) { return Result.Invalid }
+        val uri = try {
+            URI(url.trim())
+        } catch (_: Exception) {
+            return Result.Invalid
+        }
         if (uri.scheme?.lowercase() != "https") return Result.Invalid
         if (!uri.host.equals(host, ignoreCase = true)) return Result.Invalid
         if (uri.path?.trimEnd('/') != PATH) return Result.Invalid
@@ -62,12 +68,18 @@ object ServerLink {
     }
 
     /** The last value for [name], percent-decoded; null when it is absent or empty. */
-    private fun param(rawQuery: String?, name: String): String? =
-        rawQuery.orEmpty().split('&')
-            .mapNotNull { pair ->
-                if (!pair.startsWith("$name=")) null
-                else try { URLDecoder.decode(pair.substring(name.length + 1), "UTF-8") } catch (_: Exception) { null }
+    private fun param(rawQuery: String?, name: String): String? = rawQuery.orEmpty().split('&')
+        .mapNotNull { pair ->
+            if (!pair.startsWith("$name=")) {
+                null
+            } else {
+                try {
+                    URLDecoder.decode(pair.substring(name.length + 1), "UTF-8")
+                } catch (_: Exception) {
+                    null
+                }
             }
-            .lastOrNull()
-            ?.takeIf { it.isNotBlank() }
+        }
+        .lastOrNull()
+        ?.takeIf { it.isNotBlank() }
 }

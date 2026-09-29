@@ -25,13 +25,13 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,7 +69,12 @@ import app.splouch.core.session.MeetState
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (ScheduleFilterState) -> Unit, onDismiss: () -> Unit) {
+fun FilterSheet(
+    meet: MeetState,
+    state: ScheduleFilterState,
+    onChange: (ScheduleFilterState) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val t = meet.strings
     var query by remember { mutableStateOf("") }
     var confirmReset by remember { mutableStateOf(false) }
@@ -80,7 +85,10 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
     val suggestions: List<Suggestion> = remember(meet.suggestions, query) { meet.suggestions.search(query) }
     LaunchedEffect(Unit) { focus.requestFocus() }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
         Scaffold(
             modifier = Modifier.fillMaxSize().imePadding(),
             topBar = {
@@ -106,16 +114,26 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
                     singleLine = true,
                     placeholder = { Text(t.mobile("search_placeholder")) },
                     leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
-                    trailingIcon = if (query.isEmpty()) null else ({
-                        IconButton(onClick = { query = "" }) {
-                            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear))
-                        }
-                    }),
+                    trailingIcon = if (query.isEmpty()) {
+                        null
+                    } else {
+                        (
+                            {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear))
+                                }
+                            }
+                            )
+                    },
                     // A name is matched folded, so the keyboard has no business capitalising it.
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Search),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        imeAction = ImeAction.Search,
+                    ),
                     keyboardActions = KeyboardActions(onSearch = {
                         suggestions.firstOrNull { !state.contains(Filter(it.type, it.name)) }?.let {
-                            onChange(state.add(Filter(it.type, it.name))); query = ""
+                            onChange(state.add(Filter(it.type, it.name)))
+                            query = ""
                         }
                     }),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
@@ -153,7 +171,8 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
                                     modifier = Modifier.minimumInteractiveComponentSize(),
                                     trailingIcon = {
                                         Icon(
-                                            painterResource(R.drawable.ic_close), null,
+                                            painterResource(R.drawable.ic_close),
+                                            null,
                                             Modifier.size(InputChipDefaults.AvatarSize),
                                         )
                                     },
@@ -171,13 +190,29 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
                             selected = state.upcomingOnly,
                             onClick = { onChange(state.copy(upcomingOnly = !state.upcomingOnly)) },
                             label = { Text(t.mobile("upcoming_only")) },
-                            leadingIcon = if (!state.upcomingOnly) null else ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }),
+                            leadingIcon = if (!state.upcomingOnly) {
+                                null
+                            } else {
+                                (
+                                    {
+                                        Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp))
+                                    }
+                                    )
+                            },
                         )
                         FilterChip(
                             selected = state.allHeats,
                             onClick = { onChange(state.copy(allHeats = !state.allHeats)) },
                             label = { Text(t.mobile("show_all_heats")) },
-                            leadingIcon = if (!state.allHeats) null else ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }),
+                            leadingIcon = if (!state.allHeats) {
+                                null
+                            } else {
+                                (
+                                    {
+                                        Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp))
+                                    }
+                                    )
+                            },
                         )
                     }
                     HorizontalDivider()
@@ -199,7 +234,8 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
                         LazyColumn(Modifier.fillMaxSize()) {
                             items(suggestions, key = { it.type.name + "|" + it.name + "|" + it.club }) { s ->
                                 SuggestionRow(s, state, t.mobile("swimmer"), t.mobile("club")) {
-                                    onChange(state.add(Filter(s.type, s.name))); query = ""
+                                    onChange(state.add(Filter(s.type, s.name)))
+                                    query = ""
                                 }
                             }
                         }
@@ -209,7 +245,11 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
                 if (!searching) {
                     HorizontalDivider()
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
-                        TextButton(onClick = { confirmReset = true }, enabled = state.filters.isNotEmpty() || state.allHeats || state.upcomingOnly) {
+                        TextButton(
+                            onClick = { confirmReset = true },
+                            enabled =
+                                state.filters.isNotEmpty() || state.allHeats || state.upcomingOnly,
+                        ) {
                             Icon(painterResource(R.drawable.ic_reset), null, Modifier.size(18.dp))
                             Text(t.mobile("reset_filters"), Modifier.padding(start = 8.dp))
                         }
@@ -224,25 +264,52 @@ fun FilterSheet(meet: MeetState, state: ScheduleFilterState, onChange: (Schedule
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             text = { Text(t.mobile("reset_confirm")) },
-            confirmButton = { TextButton(onClick = { confirmReset = false; onChange(state.reset()) }) { Text(stringResource(R.string.ok)) } },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmReset = false
+                    onChange(state.reset())
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) }
+            },
         )
     }
 }
 
 /** S-10: type, name and club; an already-added one is marked and inert. */
 @Composable
-private fun SuggestionRow(s: Suggestion, state: ScheduleFilterState, swimmerWord: String, clubWord: String, onAdd: () -> Unit) {
+private fun SuggestionRow(
+    s: Suggestion,
+    state: ScheduleFilterState,
+    swimmerWord: String,
+    clubWord: String,
+    onAdd: () -> Unit,
+) {
     val already = state.contains(Filter(s.type, s.name))
     val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
     ListItem(
         modifier = if (already) Modifier else Modifier.clickable(onClick = onAdd),
-        colors = if (!already) ListItemDefaults.colors() else ListItemDefaults.colors(headlineColor = dim, overlineColor = dim, supportingColor = dim),
+        colors = if (!already) {
+            ListItemDefaults.colors()
+        } else {
+            ListItemDefaults.colors(
+                headlineColor = dim,
+                overlineColor = dim,
+                supportingColor = dim,
+            )
+        },
         overlineContent = { Text(if (s.type == SuggestionType.SWIMMER) swimmerWord else clubWord) },
         headlineContent = { Text(s.name, maxLines = 1) },
         supportingContent = if (s.club.isEmpty()) null else ({ Text(s.club, maxLines = 1) }),
-        trailingContent = if (!already) null else ({
-            Icon(painterResource(R.drawable.ic_check), null, tint = MaterialTheme.colorScheme.primary)
-        }),
+        trailingContent = if (!already) {
+            null
+        } else {
+            (
+                {
+                    Icon(painterResource(R.drawable.ic_check), null, tint = MaterialTheme.colorScheme.primary)
+                }
+                )
+        },
     )
 }

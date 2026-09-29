@@ -15,12 +15,17 @@ class NetworkWatcher(context: Context, private val onRestored: () -> Unit) {
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             // The first callback describes the network we already have; every later one is a change.
-            if (first) { first = false; return }
+            if (first) {
+                first = false
+                return
+            }
             main.post(onRestored)
         }
     }
 
     fun start() {
-        try { cm.registerDefaultNetworkCallback(callback) } catch (_: Exception) { }
+        try {
+            cm.registerDefaultNetworkCallback(callback)
+        } catch (_: Exception) { }
     }
 }

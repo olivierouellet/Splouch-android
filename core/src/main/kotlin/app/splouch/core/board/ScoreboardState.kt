@@ -232,12 +232,20 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         // L-13. The first event and heat this connection sees are a baseline.
         var changed = false
         frame.currentEvent?.let { ev ->
-            if (lastEvent == null) lastEvent = ev
-            else if (ev != lastEvent) { lastEvent = ev; changed = true }
+            if (lastEvent == null) {
+                lastEvent = ev
+            } else if (ev != lastEvent) {
+                lastEvent = ev
+                changed = true
+            }
         }
         frame.currentHeat?.let { ht ->
-            if (lastHeat == null) lastHeat = ht
-            else if (ht != lastHeat) { lastHeat = ht; changed = true }
+            if (lastHeat == null) {
+                lastHeat = ht
+            } else if (ht != lastHeat) {
+                lastHeat = ht
+                changed = true
+            }
         }
         val anyRunningNow = lanes.any { it.running }
         // A lane running on this frame outranks everything; a lane running on the previous
@@ -253,7 +261,11 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
     private fun intro() {
         for (i in lanes.indices) {
             lanes[i] = lanes[i].copy(
-                time = "", deltaSeconds = null, deltaBetter = null, place = "", timeStyle = TimeStyle.NORMAL,
+                time = "",
+                deltaSeconds = null,
+                deltaBetter = null,
+                place = "",
+                timeStyle = TimeStyle.NORMAL,
                 // L-23's cell empties with the rest of the row. Every decoder blanks
                 // `lane_splits<i>` in its own reset and the zeros land in this very frame, so in
                 // practice this changes nothing — but the board already refuses to take a

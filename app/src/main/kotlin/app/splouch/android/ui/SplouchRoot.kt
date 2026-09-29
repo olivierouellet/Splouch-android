@@ -29,8 +29,8 @@ import app.splouch.android.ui.picker.ServerInviteDialog
 import app.splouch.android.ui.shell.MeetShell
 import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.android.ui.theme.SplouchTheme
-import app.splouch.core.session.Appearance
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.Appearance
 
 /**
  * The two halves of the app, and the line between them (`parity.md` T-01).
@@ -49,11 +49,17 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
 
     // P-14: once per handshake, where the server name shows; never blocks anything.
     LaunchedEffect(state.contractNotice) {
-        state.contractNotice?.let { snackbar.showSnackbar(it); model.dismissNotice() }
+        state.contractNotice?.let {
+            snackbar.showSnackbar(it)
+            model.dismissNotice()
+        }
     }
     // A-09: the meet went away; the picker is already back on screen.
     LaunchedEffect(state.meetGone) {
-        if (state.meetGone) { snackbar.showSnackbar(meetGone); model.dismissMeetGone() }
+        if (state.meetGone) {
+            snackbar.showSnackbar(meetGone)
+            model.dismissMeetGone()
+        }
     }
 
     val meet = state.meet
@@ -69,7 +75,11 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
     SystemBarAppearance(dark = dark)
 
     val theme: @Composable (@Composable () -> Unit) -> Unit =
-        if (meet != null) ({ content -> BoardTheme(dark, meet.theme) { content() } }) else ({ content -> SplouchTheme(dark) { content() } })
+        if (meet != null) {
+            { content -> BoardTheme(dark, meet.theme) { content() } }
+        } else {
+            { content -> SplouchTheme(dark) { content() } }
+        }
 
     theme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -84,16 +94,19 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
                     val forward = targetState
                     val enter = { full: Int -> if (forward) full / 4 else -full / 4 }
                     val exit = { full: Int -> if (forward) -full / 4 else full / 4 }
-                    (slideInHorizontally(tween(DurationMs), enter) + fadeIn(tween(DurationMs)))
-                        .togetherWith(slideOutHorizontally(tween(DurationMs), exit) + fadeOut(tween(DurationMs)))
+                    (slideInHorizontally(tween(DURATION_MS), enter) + fadeIn(tween(DURATION_MS)))
+                        .togetherWith(slideOutHorizontally(tween(DURATION_MS), exit) + fadeOut(tween(DURATION_MS)))
                 },
                 label = "meet",
             ) { inMeet ->
                 // Read the meet off `state` rather than closing over it, so the outgoing
                 // page keeps rendering the one it was showing for the length of the slide.
                 val shown = state.meet
-                if (inMeet && shown != null) MeetShell(model, state, shown, snackbar)
-                else PickerScreen(model, state, images, snackbar)
+                if (inMeet && shown != null) {
+                    MeetShell(model, state, shown, snackbar)
+                } else {
+                    PickerScreen(model, state, images, snackbar)
+                }
             }
         }
         // P-16: a QR code named a server. It is asked over whichever half is on screen —
@@ -105,7 +118,7 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
     }
 }
 
-private const val DurationMs = 280
+private const val DURATION_MS = 280
 
 /** Light glyphs over a dark screen and dark glyphs over a light one, in both system bars. */
 @Composable

@@ -21,7 +21,8 @@ class PrefsVidStore(context: Context) : VidStore {
     private val prefs = context.getSharedPreferences("splouch.vid", Context.MODE_PRIVATE)
 
     override fun vid(origin: String): String = synchronized(this) {
-        prefs.getString(origin, null)?.takeIf { it.isNotEmpty() } ?: VidStore.fresh().also { prefs.edit().putString(origin, it).apply() }
+        prefs.getString(origin, null)?.takeIf { it.isNotEmpty() }
+            ?: VidStore.fresh().also { prefs.edit().putString(origin, it).apply() }
     }
 }
 
@@ -75,7 +76,9 @@ class FileBundleCache(context: Context) : BundleCache {
     private val dir = File(context.filesDir, "i18n").apply { mkdirs() }
 
     private fun base(origin: String, lang: String): String {
-        val h = MessageDigest.getInstance("SHA-1").digest(origin.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+        val h = MessageDigest.getInstance("SHA-1").digest(origin.toByteArray()).joinToString("") {
+            "%02x".format(it)
+        }.take(16)
         return "${h}_${lang.filter { it.isLetterOrDigit() || it == '-' }}"
     }
 

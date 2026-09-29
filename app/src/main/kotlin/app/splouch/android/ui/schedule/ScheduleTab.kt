@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,10 +27,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -50,8 +50,8 @@ import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.VisibleHeat
 import app.splouch.core.session.MeetState
-import app.splouch.core.wire.ScheduleLane
 import app.splouch.core.strings.EventName
+import app.splouch.core.wire.ScheduleLane
 
 /**
  * The start list, filterable (app.md §5). Filters live only for the session (S-20) and
@@ -67,8 +67,20 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
     val t = meet.strings
     val current by meet.session.currentHeat.collectAsStateWithLifecycle()
     val heats = meet.schedule
-    val visible = remember(heats, filter, current) { if (heats == null) emptyList() else ScheduleFilter.visible(heats, filter, current) }
-    val empty = remember(heats, visible, filter) { if (heats == null) ScheduleEmptyState.NONE else ScheduleFilter.emptyState(heats, visible, filter) }
+    val visible = remember(heats, filter, current) {
+        if (heats == null) {
+            emptyList()
+        } else {
+            ScheduleFilter.visible(heats, filter, current)
+        }
+    }
+    val empty = remember(heats, visible, filter) {
+        if (heats == null) {
+            ScheduleEmptyState.NONE
+        } else {
+            ScheduleFilter.emptyState(heats, visible, filter)
+        }
+    }
     // The short pair (`EV`/`HT`), not the board's long words: it repeats once per card and
     // the long form costs the event name its width. The board's own column headers keep
     // the long forms (`T-04`).
@@ -83,11 +95,17 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
     // S-06: scroll to the current heat once per appearance, re-armed on returning to the foreground.
     val listState = rememberLazyListState()
     var needsScroll by remember { mutableStateOf(true) }
-    LifecycleResumeEffect(Unit) { needsScroll = true; onPauseOrDispose { } }
+    LifecycleResumeEffect(Unit) {
+        needsScroll = true
+        onPauseOrDispose { }
+    }
     LaunchedEffect(visible, needsScroll) {
         if (!needsScroll) return@LaunchedEffect
         val idx = visible.indexOfFirst { it.isCurrent }
-        if (idx >= 0) { listState.animateScrollToItem(idx); needsScroll = false }
+        if (idx >= 0) {
+            listState.animateScrollToItem(idx)
+            needsScroll = false
+        }
     }
 
     Box(Modifier.fillMaxSize().background(LocalBoardColors.current.bg)) {
@@ -95,7 +113,10 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
             // A start list that would not load is a network fault, not an empty meet;
             // A-05's pull-to-refresh is the way back, and it works on an empty tab.
             heats == null && meet.scheduleError ->
-                EmptyState(icon = painterResource(R.drawable.ic_cloud_off), title = stringResource(R.string.server_unreachable))
+                EmptyState(
+                    icon = painterResource(R.drawable.ic_cloud_off),
+                    title = stringResource(R.string.server_unreachable),
+                )
             heats == null -> Unit
             // S-07: loaded, no schedule yet.
             empty == ScheduleEmptyState.NO_SCHEDULE ->
@@ -117,7 +138,13 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
 }
 
 @Composable
-private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<String, String>, vocab: Map<String, String>, seedTemplate: String) {
+private fun HeatCard(
+    v: VisibleHeat,
+    labels: Map<String, String>,
+    spoken: Map<String, String>,
+    vocab: Map<String, String>,
+    seedTemplate: String,
+) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val h = v.heat
@@ -147,16 +174,23 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
             val name = EventName.display(h.eventName, h.eventNameParts, vocab)
             val heading: @Composable (Int) -> Unit = { lines ->
                 Text(
-                    eventHeat, color = colors.scheduleEvent,
+                    eventHeat,
+                    color = colors.scheduleEvent,
                     style = MaterialTheme.typography.titleMedium,
-                    fontFamily = fonts.family, fontWeight = FontWeight.SemiBold, maxLines = lines,
+                    fontFamily = fonts.family,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = lines,
                 )
             }
             val eventName: @Composable (Modifier, Int) -> Unit = { m, lines ->
                 if (name.isNotEmpty()) {
                     Text(
-                        name, color = colors.rowText, style = MaterialTheme.typography.bodyLarge,
-                        fontFamily = fonts.family, maxLines = lines, overflow = TextOverflow.Ellipsis,
+                        name,
+                        color = colors.rowText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = fonts.family,
+                        maxLines = lines,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = m,
                     )
                 }
@@ -168,9 +202,12 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
             // a time, so the name runs to the edge of the card when there is not.
             val scheduledTime: @Composable () -> Unit = {
                 Text(
-                    h.time, color = colors.scheduleTime,
+                    h.time,
+                    color = colors.scheduleTime,
                     style = MaterialTheme.typography.titleSmall,
-                    fontFamily = fonts.timing, maxLines = 1, softWrap = false,
+                    fontFamily = fonts.timing,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
             // One heading, spoken once and in full, rather than three or four fragments a
@@ -181,7 +218,12 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
                 name,
                 h.time,
             ).filter { it.isNotEmpty() }.joinToString(", ")
-            Column(Modifier.fillMaxWidth().clearAndSetSemantics { heading(); contentDescription = headingSpoken }) {
+            Column(
+                Modifier.fillMaxWidth().clearAndSetSemantics {
+                    heading()
+                    contentDescription = headingSpoken
+                },
+            ) {
                 if (roomy) {
                     Row(
                         Modifier.fillMaxWidth(),
@@ -220,17 +262,30 @@ private fun HeatCard(v: VisibleHeat, labels: Map<String, String>, spoken: Map<St
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        lane.lane?.toString() ?: "", color = colors.thText,
-                        style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.family,
-                        textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 24.dp),
+                        lane.lane?.toString() ?: "",
+                        color = colors.thText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = fonts.family,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(min = 24.dp),
                     )
                     Text(
-                        ScheduleFilter.displayName(lane), color = colors.scheduleName,
-                        style = MaterialTheme.typography.bodyLarge, fontFamily = fonts.family,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        ScheduleFilter.displayName(lane),
+                        color = colors.scheduleName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = fonts.family,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
                     if (lane.club.isNotEmpty()) {
-                        Text(lane.club, color = colors.scheduleClub, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.family, maxLines = 1)
+                        Text(
+                            lane.club,
+                            color = colors.scheduleClub,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = fonts.family,
+                            maxLines = 1,
+                        )
                     }
                     TimingCell(lane.seedTime, seedTemplate)
                 }
@@ -269,13 +324,20 @@ private fun TimingCell(value: String, seedTemplate: String) {
     val fonts = LocalBoardFonts.current
     Box(contentAlignment = Alignment.CenterEnd) {
         Text(
-            seedTemplate, style = MaterialTheme.typography.bodyMedium, fontFamily = fonts.timing,
-            maxLines = 1, softWrap = false,
+            seedTemplate,
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = fonts.timing,
+            maxLines = 1,
+            softWrap = false,
             modifier = Modifier.alpha(0f).clearAndSetSemantics { },
         )
         Text(
-            value, color = colors.scheduleTime, style = MaterialTheme.typography.bodyMedium,
-            fontFamily = fonts.timing, maxLines = 1, softWrap = false,
+            value,
+            color = colors.scheduleTime,
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = fonts.timing,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }

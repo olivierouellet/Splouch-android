@@ -33,7 +33,11 @@ object SearchFold {
     fun fold(s: String): String = buildString(s.length) {
         for (c in Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)) {
             val e = EXPANSIONS[c]
-            if (e != null) append(e) else if (c.code <= 0x7F) append(c)
+            if (e != null) {
+                append(e)
+            } else if (c.code <= 0x7F) {
+                append(c)
+            }
         }
     }
 }

@@ -30,7 +30,11 @@ class PayloadTests {
     }
 
     @Test fun `scoreboard frame is partial and event heat read as trimmed strings`() {
-        val f = ScoreboardFrame.fromJson(j("""{"current_event":" 3","current_heat":1,"lane_running4":true,"lane_running5":"false","lane_time4":"25.61","lane_delta_seconds4":-0.46,"lane_delta_better4":true,"lane_name_alt4":"A · B"}"""))!!
+        val f = ScoreboardFrame.fromJson(
+            j(
+                """{"current_event":" 3","current_heat":1,"lane_running4":true,"lane_running5":"false","lane_time4":"25.61","lane_delta_seconds4":-0.46,"lane_delta_better4":true,"lane_name_alt4":"A · B"}""",
+            ),
+        )!!
         assertEquals("3", f.currentEvent)
         assertEquals("1", f.currentHeat)
         assertEquals(mapOf(4 to true, 5 to false), f.runningEdges())
@@ -46,12 +50,20 @@ class PayloadTests {
         val f = ScoreboardFrame.fromJson(j("""{"event_name_parts":null}"""))!!
         assertTrue(f.hasEventNameParts)
         assertNull(f.eventNameParts)
-        val g = ScoreboardFrame.fromJson(j("""{"event_name_parts":{"dist":"200","stroke":"backstroke","relay":false,"gender":"girls","age":"< 12"}}"""))!!
+        val g = ScoreboardFrame.fromJson(
+            j(
+                """{"event_name_parts":{"dist":"200","stroke":"backstroke","relay":false,"gender":"girls","age":"< 12"}}""",
+            ),
+        )!!
         assertEquals("backstroke", g.eventNameParts!!.stroke)
     }
 
     @Test fun `results snapshot, sort absent`() {
-        val s = ResultsSnapshot.fromJson(j("""{"event":3,"heat":"1 ","event_name":"x","lanes":[{"channel":4,"place":"1","time":"2:20.92","name":"n","club":"c","alt":"","delta_seconds":null,"delta_better":null}]}"""))!!
+        val s = ResultsSnapshot.fromJson(
+            j(
+                """{"event":3,"heat":"1 ","event_name":"x","lanes":[{"channel":4,"place":"1","time":"2:20.92","name":"n","club":"c","alt":"","delta_seconds":null,"delta_better":null}]}""",
+            ),
+        )!!
         assertEquals("3", s.event)
         assertEquals("1", s.heat)
         assertNull(s.sort)
@@ -62,7 +74,11 @@ class PayloadTests {
     }
 
     @Test fun `schedule heats normalise integers to strings and tolerate empty`() {
-        val heats = ScheduleHeat.listFromJson(j("""{"heats":[{"event":3,"heat":1,"event_name":"e","time":"10:42","lanes":[{"lane":4,"name":"Relay A","club":"C","seed_time":"1:00.00","swimmers":[{"name":"Ann Lee","first":"Ann"},{"name":"Bo Xu"}]}]}]}"""))!!
+        val heats = ScheduleHeat.listFromJson(
+            j(
+                """{"heats":[{"event":3,"heat":1,"event_name":"e","time":"10:42","lanes":[{"lane":4,"name":"Relay A","club":"C","seed_time":"1:00.00","swimmers":[{"name":"Ann Lee","first":"Ann"},{"name":"Bo Xu"}]}]}]}""",
+            ),
+        )!!
         assertEquals("3", heats[0].event)
         assertEquals("1", heats[0].heat)
         assertEquals("Ann", heats[0].lanes[0].swimmers[0].display)
@@ -72,7 +88,11 @@ class PayloadTests {
     }
 
     @Test fun `meet config from cloud and from pi`() {
-        val c = MeetConfig.fromCloudJson(j("""{"name":"Meet","app_window_title":"","live":false,"settings":{"num_lanes":"10","show_club":false,"locale":"fr","labels":{"event":"ÉP"},"label_style":"long","theme_colors":{"bg":"#000"}}}"""))!!
+        val c = MeetConfig.fromCloudJson(
+            j(
+                """{"name":"Meet","app_window_title":"","live":false,"settings":{"num_lanes":"10","show_club":false,"locale":"fr","labels":{"event":"ÉP"},"label_style":"long","theme_colors":{"bg":"#000"}}}""",
+            ),
+        )!!
         assertEquals("Meet", c.title)
         assertEquals(false, c.live)
         assertEquals(10, c.settings.numLanes)
@@ -80,7 +100,11 @@ class PayloadTests {
         assertTrue(c.settings.showName)
         assertEquals("fr", c.settings.locale)
         assertEquals("long", c.settings.labelStyle)
-        val p = MeetConfig.fromPiJson(j("""{"meet_title":"Pool","num_lanes":6,"labels":{"event":"EV"},"locale":"en","theme_fonts":{"digits":"DSEG14Classic"}}"""))!!
+        val p = MeetConfig.fromPiJson(
+            j(
+                """{"meet_title":"Pool","num_lanes":6,"labels":{"event":"EV"},"locale":"en","theme_fonts":{"digits":"DSEG14Classic"}}""",
+            ),
+        )!!
         assertEquals("Pool", p.title)
         assertNull(p.live)
         assertEquals(6, p.settings.numLanes)
@@ -114,21 +138,31 @@ class PayloadTests {
 
         // The key is never the test. A local plugin driven by hand loses the tab although
         // its key is not "manual"; one named "manual_backup" that times keeps it.
-        assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE),
-            MeetTab.of(cloud("""{"console":{"key":"club_plugin","timed":false}}""")))
+        assertEquals(
+            listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE),
+            MeetTab.of(cloud("""{"console":{"key":"club_plugin","timed":false}}""")),
+        )
         assertEquals(3, MeetTab.of(cloud("""{"console":{"key":"manual_backup","timed":true}}""")).size)
 
         // Absent, empty, malformed, or a type nobody promised — all of it reads as timed,
         // because the tab is only ever taken away on the server saying so in as many words.
-        listOf("""{"num_lanes":8}""", """{"console":{}}""", """{"console":null}""",
-               """{"console":"manual"}""", """{"console":[]}""", """{"console":{"timed":"maybe"}}""")
+        listOf(
+            """{"num_lanes":8}""",
+            """{"console":{}}""",
+            """{"console":null}""",
+            """{"console":"manual"}""",
+            """{"console":[]}""",
+            """{"console":{"timed":"maybe"}}""",
+        )
             .forEach { assertTrue(cloud(it).settings.console.timed, "expected timed for $it") }
 
         // "false" as a string is what a lenient server sends, and it still means false.
         assertFalse(cloud("""{"console":{"key":"manual","timed":"false"}}""").settings.console.timed)
 
         // The Pi carries the same block one level up (api.md §6).
-        val pi = MeetConfig.fromPiJson(j("""{"meet_title":"Pool","num_lanes":6,"console":{"key":"manual","timed":false}}"""))!!
+        val pi = MeetConfig.fromPiJson(
+            j("""{"meet_title":"Pool","num_lanes":6,"console":{"key":"manual","timed":false}}"""),
+        )!!
         assertEquals(listOf(MeetTab.SCOREBOARD, MeetTab.SCHEDULE), MeetTab.of(pi))
         assertTrue(MeetConfig.fromPiJson(j("""{"meet_title":"Pool"}"""))!!.settings.console.timed)
     }
@@ -141,16 +175,24 @@ class PayloadTests {
         assertNull(MeetTab.parse(""))
         // Schedule is page 2 of a timed meet and page 1 of an untimed one; the identity is
         // what survives the change, which is the whole reason it is stored as one.
-        val untimed = MeetConfig.fromCloudJson(j("""{"name":"M","settings":{"console":{"key":"manual","timed":false}}}"""))!!
+        val untimed = MeetConfig.fromCloudJson(
+            j("""{"name":"M","settings":{"console":{"key":"manual","timed":false}}}"""),
+        )!!
         assertEquals(1, MeetTab.of(untimed).indexOf(MeetTab.SCHEDULE))
         assertEquals(-1, MeetTab.of(untimed).indexOf(MeetTab.RESULTS))
     }
 
     @Test fun `meet list, i18n`() {
-        val m = MeetSummary.listFromJson(j("""{"meets":[{"id":"a1","name":"M","offline":true,"has_picker_image":false},{"name":"no id"}]}"""))
+        val m = MeetSummary.listFromJson(
+            j("""{"meets":[{"id":"a1","name":"M","offline":true,"has_picker_image":false},{"name":"no id"}]}"""),
+        )
         assertEquals(1, m.size)
         assertTrue(m[0].offline)
-        val b = I18nBundle.fromJson(j("""{"lang":"fr","mobile":{"scoreboard":"Tableau"},"display":{},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}"""))!!
+        val b = I18nBundle.fromJson(
+            j(
+                """{"lang":"fr","mobile":{"scoreboard":"Tableau"},"display":{},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}""",
+            ),
+        )!!
         assertEquals("Tableau", b.mobile["scoreboard"])
         assertEquals("ÉPREUVE", b.labels["long"]!!["event"])
     }
@@ -164,8 +206,12 @@ class PayloadTests {
 
         // `"up"`, an unrecognised word, an absent field and a server older than any of it all
         // count up: it is the direction that needs nothing but the console.
-        listOf("""{"show_laps":true,"lap_direction":"up"}""", """{"show_laps":true,"lap_direction":"sideways"}""",
-               """{"show_laps":true,"lap_direction":""}""", """{"show_laps":true}""")
+        listOf(
+            """{"show_laps":true,"lap_direction":"up"}""",
+            """{"show_laps":true,"lap_direction":"sideways"}""",
+            """{"show_laps":true,"lap_direction":""}""",
+            """{"show_laps":true}""",
+        )
             .forEach { assertEquals(LapDirection.UP, LapSettings.from(cloud(it)).direction, "expected up for $it") }
 
         // And a direction without the flag draws nothing at all — the flag is the only gate,
@@ -179,7 +225,9 @@ class PayloadTests {
     }
 
     @Test fun `L-23 the frame's venue numbers and lane counts decode tolerantly`() {
-        val f = ScoreboardFrame.fromJson(j("""{"expected_splits":"8","split_step":2.0,"lane_splits1":6,"lane_splits2":"x","lane_splits3":-2}"""))!!
+        val f = ScoreboardFrame.fromJson(
+            j("""{"expected_splits":"8","split_step":2.0,"lane_splits1":6,"lane_splits2":"x","lane_splits3":-2}"""),
+        )!!
         assertEquals(8, f.expectedSplits)
         assertEquals(2, f.splitStep)
         assertEquals(6, f.laneSplits(1))

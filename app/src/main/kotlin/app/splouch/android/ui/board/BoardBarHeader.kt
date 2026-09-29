@@ -7,9 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.core.session.MeetState
 import app.splouch.core.strings.EventName
-import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 
 /**
  * The board's header where the app bar carries it (landscape). The shell cannot ask the
@@ -30,11 +30,17 @@ fun BoardBarHeader(meet: MeetState, results: Boolean, landscape: Boolean, server
     val clock = if (landscape) wallClock() else null
     if (results) {
         val view by meet.session.resultsView.collectAsStateWithLifecycle()
-        val name = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
+        val name =
+            remember(view.eventName, view.eventNameParts, vocab) {
+                EventName.display(view.eventName, view.eventNameParts, vocab)
+            }
         BoardBarHeaderRow(label("event"), view.event, label("heat"), view.heat, name, clock, server)
     } else {
         val view by meet.session.scoreboard.collectAsStateWithLifecycle()
-        val name = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
+        val name =
+            remember(view.eventName, view.eventNameParts, vocab) {
+                EventName.display(view.eventName, view.eventNameParts, vocab)
+            }
         BoardBarHeaderRow(label("event"), view.currentEvent, label("heat"), view.currentHeat, name, clock, server)
     }
 }

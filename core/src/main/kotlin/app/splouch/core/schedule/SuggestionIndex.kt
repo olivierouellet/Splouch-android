@@ -49,12 +49,14 @@ data class SuggestionIndex(private val entries: List<Entry>) {
             // Name → club, in schedule order: a later lane's club wins for the same name.
             val names = LinkedHashMap<String, String>()
             val clubs = LinkedHashSet<String>()
-            for (h in heats) for (l in h.lanes) {
-                // The lane's own name too, relay teams included: a spectator may know the
-                // team and not one swimmer on it.
-                if (l.name.isNotEmpty()) names[l.name] = l.club
-                for (s in l.swimmers) if (s.name.isNotEmpty()) names[s.name] = l.club
-                if (l.club.isNotEmpty()) clubs += l.club
+            for (h in heats) {
+                for (l in h.lanes) {
+                    // The lane's own name too, relay teams included: a spectator may know the
+                    // team and not one swimmer on it.
+                    if (l.name.isNotEmpty()) names[l.name] = l.club
+                    for (s in l.swimmers) if (s.name.isNotEmpty()) names[s.name] = l.club
+                    if (l.club.isNotEmpty()) clubs += l.club
+                }
             }
             val swimmers = names.map { (name, club) -> entry(SuggestionType.SWIMMER, name, club) }
             val byClub = clubs.map { entry(SuggestionType.CLUB, it, "") }

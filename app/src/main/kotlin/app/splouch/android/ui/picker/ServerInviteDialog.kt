@@ -47,14 +47,18 @@ fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
         onDismissRequest = { if (!invite.checking) model.dismissInvite() },
         icon = { Icon(painterResource(R.drawable.ic_server), null) },
         title = {
-            Text(stringResource(when {
-                // A link with nothing in it is a refusal, not an invitation with a red
-                // line under it, so it does not borrow the list's "Add a server" header.
-                address == null -> R.string.cannot_add_server
-                invite.standing == ServerInvite.Standing.IN_USE -> R.string.already_on_server
-                invite.standing == ServerInvite.Standing.LISTED -> R.string.switch_server_question
-                else -> R.string.add_server_question
-            }))
+            Text(
+                stringResource(
+                    when {
+                        // A link with nothing in it is a refusal, not an invitation with a red
+                        // line under it, so it does not borrow the list's "Add a server" header.
+                        address == null -> R.string.cannot_add_server
+                        invite.standing == ServerInvite.Standing.IN_USE -> R.string.already_on_server
+                        invite.standing == ServerInvite.Standing.LISTED -> R.string.switch_server_question
+                        else -> R.string.add_server_question
+                    },
+                ),
+            )
         },
         text = {
             Column {
@@ -76,17 +80,33 @@ fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
                 TextButton(onClick = { model.acceptInvite() }, enabled = !invite.checking) {
                     // The spinner takes the label's place rather than sitting beside it, so
                     // the dialog's buttons do not move under a finger that is already there.
-                    if (invite.checking) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(
-                        if (invite.standing == ServerInvite.Standing.LISTED) R.string.switch_to else R.string.add))
+                    if (invite.checking) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            stringResource(
+                                if (invite.standing == ServerInvite.Standing.LISTED) {
+                                    R.string.switch_to
+                                } else {
+                                    R.string.add
+                                },
+                            ),
+                        )
+                    }
                 }
             }
         },
-        dismissButton = if (nothingToDo) null else ({
-            TextButton(onClick = { model.dismissInvite() }, enabled = !invite.checking) {
-                Text(stringResource(R.string.cancel))
-            }
-        }),
+        dismissButton = if (nothingToDo) {
+            null
+        } else {
+            (
+                {
+                    TextButton(onClick = { model.dismissInvite() }, enabled = !invite.checking) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+                )
+        },
     )
 }
 

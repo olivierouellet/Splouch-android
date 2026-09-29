@@ -30,7 +30,10 @@ fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, he
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
     val vocab = meet.strings.eventVocab
-    val eventName = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
+    val eventName =
+        remember(view.eventName, view.eventNameParts, vocab) {
+            EventName.display(view.eventName, view.eventNameParts, vocab)
+        }
     // L-23. The lap is decided in the core, off merged state alone, and the two venue numbers
     // it reads are part of that state — so a phone that joins mid-heat gets the same answer
     // from the cached snapshot as one that watched every frame arrive.
@@ -47,7 +50,15 @@ fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, he
         // The app bar hands this back when it is drawing the row itself — always in
         // landscape, and in portrait only when the lanes need the height (`L-15`).
         if (!headerInBar) {
-            BoardHeader(label("event"), view.currentEvent, label("heat"), view.currentHeat, eventName, wallClock(), metrics)
+            BoardHeader(
+                label("event"),
+                view.currentEvent,
+                label("heat"),
+                view.currentHeat,
+                eventName,
+                wallClock(),
+                metrics,
+            )
         }
         BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar, laps = laps)
     }

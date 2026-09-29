@@ -8,15 +8,16 @@ enum class LapDirection {
     UP,
 
     /** What is left of the race: `expected_splits` minus the count. */
-    DOWN;
+    DOWN,
+
+    ;
 
     companion object {
         /**
          * Anything the wire does not recognise — including a server older than the field —
          * counts up, which is the count that needs nothing but the console.
          */
-        fun of(raw: String?): LapDirection =
-            if (raw?.trim()?.lowercase() == "down") DOWN else UP
+        fun of(raw: String?): LapDirection = if (raw?.trim()?.lowercase() == "down") DOWN else UP
     }
 }
 

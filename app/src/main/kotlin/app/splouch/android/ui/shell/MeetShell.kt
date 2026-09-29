@@ -30,12 +30,12 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
@@ -44,7 +44,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlin.coroutines.cancellation.CancellationException
 import app.splouch.android.R
 import app.splouch.android.ui.board.BoardBarHeader
 import app.splouch.android.ui.board.BoardMetrics
@@ -59,6 +58,7 @@ import app.splouch.core.session.AppModel
 import app.splouch.core.session.MeetState
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.UiState
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
 
 private fun MeetTab.icon(): Int = when (this) {
@@ -223,7 +223,8 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                             Text(
                                 meet.config.title,
                                 style = MaterialTheme.typography.titleMedium,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             // P-11: a user who switched servers can always see which one this is.
                             if (!state.isDefaultServer) {
@@ -231,7 +232,8 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                                     state.server.display,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -294,7 +296,9 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                                 // in view, so neither draws its own band.
                                 MeetTab.SCOREBOARD -> ScoreboardTab(meet, landscape, metrics, headerInBar)
                                 MeetTab.RESULTS -> ResultsTab(meet, landscape, metrics, headerInBar)
-                                MeetTab.SCHEDULE -> ScheduleTab(meet, filter, onResetFilters = { filter = filter.reset() })
+                                MeetTab.SCHEDULE -> ScheduleTab(meet, filter, onResetFilters = {
+                                    filter = filter.reset()
+                                })
                             }
                         }
                     }

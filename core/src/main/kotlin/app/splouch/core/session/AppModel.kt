@@ -15,6 +15,7 @@ import app.splouch.core.wire.PickerConfig
 import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ServerInfo
 import app.splouch.core.wire.ServerKind
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -23,7 +24,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.TimeSource
 
 /** What [AppModel.removeServer] took away, so [AppModel.restoreServer] can put it back exactly. */
 data class RemovedServer(val origin: String, val index: Int, val wasSelected: Boolean)
@@ -111,8 +111,10 @@ data class ServerInvite(
     enum class Standing {
         /** Offered nowhere yet: the prompt asks to **add** it. */
         NEW,
+
         /** Already in the list, but not the one in use: the prompt asks to **switch**. */
         LISTED,
+
         /**
          * Already the server in use, and answering. There is nothing to do, so the prompt
          * says so and offers one button — no handshake, which is the point: asking
@@ -171,7 +173,14 @@ class AppModel(
     fun start() {
         val prefs = prefsStore.load()
         val server = prefs.server?.let { ServerAddress.parseOrNull(it) } ?: defaultServer
-        _state.update { it.copy(prefs = prefs, server = server, isDefaultServer = server == defaultServer, pickerStrings = pickerTable(prefs)) }
+        _state.update {
+            it.copy(
+                prefs = prefs,
+                server = server,
+                isDefaultServer = server == defaultServer,
+                pickerStrings = pickerTable(prefs),
+            )
+        }
         rebuildServers()
         connectServer()
     }
@@ -182,7 +191,16 @@ class AppModel(
         if (address == current.server && current.serverInfo != null) return
         closeMeet()
         savePrefs(current.prefs.copy(server = address.origin.takeIf { address != defaultServer }))
-        _state.update { it.copy(server = address, isDefaultServer = address == defaultServer, serverInfo = null, serverError = null, picker = PickerState(), contractNotice = null) }
+        _state.update {
+            it.copy(
+                server = address,
+                isDefaultServer = address == defaultServer,
+                serverInfo = null,
+                serverError = null,
+                picker = PickerState(),
+                contractNotice = null,
+            )
+        }
         directory = emptyList()
         rebuildServers()
         connectServer()
@@ -254,11 +272,14 @@ class AppModel(
      */
     fun openServerLink(url: String) {
         val invite = when (val r = ServerLink.parse(url, defaultServer.host)) {
-            is ServerLink.Result.Ok -> ServerInvite(r.address, standing = when {
-                r.address == current.server && current.serverInfo != null -> ServerInvite.Standing.IN_USE
-                current.servers.any { it.address == r.address } -> ServerInvite.Standing.LISTED
-                else -> ServerInvite.Standing.NEW
-            })
+            is ServerLink.Result.Ok -> ServerInvite(
+                r.address,
+                standing = when {
+                    r.address == current.server && current.serverInfo != null -> ServerInvite.Standing.IN_USE
+                    current.servers.any { it.address == r.address } -> ServerInvite.Standing.LISTED
+                    else -> ServerInvite.Standing.NEW
+                },
+            )
             ServerLink.Result.CleartextNotLocal -> ServerInvite(null, failure = InviteFailure.CLEARTEXT_NOT_LOCAL)
             ServerLink.Result.Invalid -> ServerInvite(null, failure = InviteFailure.BAD_LINK)
         }
@@ -308,9 +329,21 @@ class AppModel(
     private fun rebuildServers() {
         val seen = HashSet<String>()
         val out = ArrayList<KnownServer>()
-        fun add(k: KnownServer) { if (seen.add(k.address.origin)) out += k }
-        add(KnownServer(defaultServer, current.serverInfo?.takeIf { current.server == defaultServer }?.name?.ifEmpty { null } ?: defaultServer.display, null, KnownServer.Source.DEFAULT))
-        current.prefs.servers.mapNotNull { ServerAddress.parseOrNull(it) }.forEach { add(KnownServer(it, it.display, null, KnownServer.Source.SAVED)) }
+        fun add(k: KnownServer) {
+            if (seen.add(k.address.origin)) out += k
+        }
+        add(
+            KnownServer(
+                defaultServer,
+                current.serverInfo?.takeIf { current.server == defaultServer }?.name?.ifEmpty { null }
+                    ?: defaultServer.display,
+                null,
+                KnownServer.Source.DEFAULT,
+            ),
+        )
+        current.prefs.servers.mapNotNull {
+            ServerAddress.parseOrNull(it)
+        }.forEach { add(KnownServer(it, it.display, null, KnownServer.Source.SAVED)) }
         directory.forEach(::add)
         discovered.forEach(::add)
         _state.update { it.copy(servers = out) }
@@ -326,7 +359,13 @@ class AppModel(
             if (gen != generation) return@launch
             when (r) {
                 is ApiResult.Ok -> {
-                    _state.update { it.copy(checkingServer = false, serverInfo = r.value, contractNotice = Contract.mismatchNotice(r.value.contract)) }
+                    _state.update {
+                        it.copy(
+                            checkingServer = false,
+                            serverInfo = r.value,
+                            contractNotice = Contract.mismatchNotice(r.value.contract),
+                        )
+                    }
                     rebuildServers()
                     if (r.value.kind == ServerKind.PI) {
                         openMeet(null)
@@ -379,13 +418,19 @@ class AppModel(
             if (gen != generation) return@launch
             _state.update { s ->
                 val ok = meets is ApiResult.Ok
-                s.copy(picker = s.picker.copy(
-                    loading = false,
-                    loaded = s.picker.loaded || ok,
-                    meets = (meets as? ApiResult.Ok)?.value ?: s.picker.meets,
-                    config = (config as? ApiResult.Ok)?.value ?: s.picker.config,
-                    error = when (meets) { is ApiResult.Ok -> null; ApiResult.NotFound -> "HTTP 404"; is ApiResult.Failure -> meets.reason },
-                ))
+                s.copy(
+                    picker = s.picker.copy(
+                        loading = false,
+                        loaded = s.picker.loaded || ok,
+                        meets = (meets as? ApiResult.Ok)?.value ?: s.picker.meets,
+                        config = (config as? ApiResult.Ok)?.value ?: s.picker.config,
+                        error = when (meets) {
+                            is ApiResult.Ok -> null
+                            ApiResult.NotFound -> "HTTP 404"
+                            is ApiResult.Failure -> meets.reason
+                        },
+                    ),
+                )
             }
         }
     }
@@ -400,8 +445,13 @@ class AppModel(
         scope.launch {
             when (val r = api.meetConfig(context)) {
                 is ApiResult.Ok -> if (gen == generation) startMeet(context, r.value)
-                ApiResult.NotFound -> if (gen == generation) { _state.update { it.copy(meetGone = true) }; refreshPicker() }
-                is ApiResult.Failure -> if (gen == generation) _state.update { it.copy(picker = it.picker.copy(error = r.reason)) }
+                ApiResult.NotFound -> if (gen == generation) {
+                    _state.update { it.copy(meetGone = true) }
+                    refreshPicker()
+                }
+                is ApiResult.Failure -> if (gen == generation) {
+                    _state.update { it.copy(picker = it.picker.copy(error = r.reason)) }
+                }
             }
         }
     }
@@ -413,10 +463,18 @@ class AppModel(
         val strings = table(context.server, lang)
         val session = MeetSession(context, transport, vidStore, scope, config.settings.numLanes, timing, timeSource)
         _state.update {
-            it.copy(meet = MeetState(context, config, session, lang, strings,
-                Labels.resolve(config.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
-                Labels.resolve(config.settings, prefs.lang, Labels.SHORT, strings),
-                Theme.from(config.settings)))
+            it.copy(
+                meet = MeetState(
+                    context,
+                    config,
+                    session,
+                    lang,
+                    strings,
+                    Labels.resolve(config.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
+                    Labels.resolve(config.settings, prefs.lang, Labels.SHORT, strings),
+                    Theme.from(config.settings),
+                ),
+            )
         }
         session.start()
         if (inForeground) session.startTicker()
@@ -462,17 +520,30 @@ class AppModel(
                     val prefs = s.prefs
                     val lang = prefs.lang ?: r.value.settings.locale ?: deviceLang
                     val strings = if (lang == m.lang) m.strings else table(m.context.server, lang)
-                    s.copy(meet = m.copy(config = r.value, lang = lang, strings = strings,
-                        labels = Labels.resolve(r.value.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
-                        shortLabels = Labels.resolve(r.value.settings, prefs.lang, Labels.SHORT, strings),
-                        theme = Theme.from(r.value.settings), refreshing = false))
+                    s.copy(
+                        meet = m.copy(
+                            config = r.value,
+                            lang = lang,
+                            strings = strings,
+                            labels = Labels.resolve(r.value.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
+                            shortLabels = Labels.resolve(r.value.settings, prefs.lang, Labels.SHORT, strings),
+                            theme = Theme.from(r.value.settings),
+                            refreshing = false,
+                        ),
+                    )
                 }
                 ApiResult.NotFound -> if (meet.context.kind == ServerKind.CLOUD) {
                     closeMeet()
                     _state.update { it.copy(meetGone = true) }
                     refreshPicker()
-                } else if (clearRefreshing) _state.update { it.copy(meet = it.meet?.copy(refreshing = false)) }
-                is ApiResult.Failure -> if (clearRefreshing) _state.update { it.copy(meet = it.meet?.copy(refreshing = false)) }
+                } else if (clearRefreshing) {
+                    _state.update { it.copy(meet = it.meet?.copy(refreshing = false)) }
+                }
+                is ApiResult.Failure -> if (clearRefreshing) {
+                    _state.update {
+                        it.copy(meet = it.meet?.copy(refreshing = false))
+                    }
+                }
             }
         }
     }
@@ -486,8 +557,13 @@ class AppModel(
             _state.update { s ->
                 val m = s.meet ?: return@update s
                 when (r) {
-                    is ApiResult.Ok -> s.copy(meet = m.copy(
-                        schedule = r.value, suggestions = SuggestionIndex.from(r.value), scheduleError = false))
+                    is ApiResult.Ok -> s.copy(
+                        meet = m.copy(
+                            schedule = r.value,
+                            suggestions = SuggestionIndex.from(r.value),
+                            scheduleError = false,
+                        ),
+                    )
                     else -> s.copy(meet = m.copy(scheduleError = true))
                 }
             }
@@ -504,9 +580,16 @@ class AppModel(
         current.meet?.let { m ->
             val newLang = current.prefs.lang ?: m.config.settings.locale ?: deviceLang
             val strings = table(m.context.server, newLang)
-            _state.update { s -> s.copy(meet = s.meet?.copy(lang = newLang, strings = strings,
-                labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, strings),
-                shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, strings))) }
+            _state.update { s ->
+                s.copy(
+                    meet = s.meet?.copy(
+                        lang = newLang,
+                        strings = strings,
+                        labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, strings),
+                        shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, strings),
+                    ),
+                )
+            }
             refreshStrings(m.context.server, newLang, forPicker = false)
         }
     }
@@ -522,9 +605,21 @@ class AppModel(
     /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */
     fun setLabelStyle(style: String) {
         savePrefs(current.prefs.copy(labelStyle = if (style == Labels.SHORT) Labels.SHORT else Labels.LONG))
-        _state.update { s -> s.copy(meet = s.meet?.let { m -> m.copy(
-            labels = Labels.resolve(m.config.settings, s.prefs.lang, s.prefs.effectiveLabelStyle, m.strings),
-            shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, m.strings)) }) }
+        _state.update { s ->
+            s.copy(
+                meet = s.meet?.let { m ->
+                    m.copy(
+                        labels = Labels.resolve(
+                            m.config.settings,
+                            s.prefs.lang,
+                            s.prefs.effectiveLabelStyle,
+                            m.strings,
+                        ),
+                        shortLabels = Labels.resolve(m.config.settings, s.prefs.lang, Labels.SHORT, m.strings),
+                    )
+                },
+            )
+        }
     }
 
     /** A-04: the selected tab survives a relaunch — as a choice, not as a page number (A-11). */
@@ -548,13 +643,26 @@ class AppModel(
             bundleCache.write(server.origin, lang, r.text, r.etag)
             _state.update { s ->
                 var out = s
-                if (forPicker && (s.prefs.lang ?: deviceLang) == lang) out = out.copy(pickerStrings = table(server, lang))
+                if (forPicker &&
+                    (s.prefs.lang ?: deviceLang) == lang
+                ) {
+                    out = out.copy(pickerStrings = table(server, lang))
+                }
                 val m = out.meet
                 if (m != null && m.lang == lang && m.context.server == server) {
                     val strings = table(server, lang)
-                    out = out.copy(meet = m.copy(strings = strings,
-                        labels = Labels.resolve(m.config.settings, out.prefs.lang, out.prefs.effectiveLabelStyle, strings),
-                        shortLabels = Labels.resolve(m.config.settings, out.prefs.lang, Labels.SHORT, strings)))
+                    out = out.copy(
+                        meet = m.copy(
+                            strings = strings,
+                            labels = Labels.resolve(
+                                m.config.settings,
+                                out.prefs.lang,
+                                out.prefs.effectiveLabelStyle,
+                                strings,
+                            ),
+                            shortLabels = Labels.resolve(m.config.settings, out.prefs.lang, Labels.SHORT, strings),
+                        ),
+                    )
                 }
                 out
             }

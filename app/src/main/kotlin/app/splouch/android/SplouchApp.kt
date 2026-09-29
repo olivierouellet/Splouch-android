@@ -15,10 +15,10 @@ import app.splouch.android.platform.PrefsPreferencesStore
 import app.splouch.android.platform.PrefsVidStore
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.ServerAddress
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import java.util.Locale
 
 /**
  * Owns the one [AppModel] for the process, so a rotation or a recreated Activity never
@@ -51,8 +51,14 @@ class SplouchApp : Application() {
         nsd = NsdBrowser(this) { model.setDiscovered(it) }
         NetworkWatcher(this) { model.networkRestored() }.start()
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) { model.foreground(); nsd.start() }
-            override fun onStop(owner: LifecycleOwner) { model.background(); nsd.stop() }
+            override fun onStart(owner: LifecycleOwner) {
+                model.foreground()
+                nsd.start()
+            }
+            override fun onStop(owner: LifecycleOwner) {
+                model.background()
+                nsd.stop()
+            }
         })
         model.start()
     }
@@ -70,8 +76,14 @@ class ImageCache(private val transport: OkHttpTransport) {
     suspend fun load(url: String): Bitmap? {
         cache.get(url)?.let { return it }
         if (url in failed) return null
-        val bytes = transport.bytes(url) ?: run { failed += url; return null }
-        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: run { failed += url; return null }
+        val bytes = transport.bytes(url) ?: run {
+            failed += url
+            return null
+        }
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: run {
+            failed += url
+            return null
+        }
         cache.put(url, bmp)
         return bmp
     }

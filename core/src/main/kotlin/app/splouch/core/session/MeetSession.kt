@@ -58,14 +58,17 @@ class MeetSession(
     val currentHeat: StateFlow<HeatRef?> = _currentHeat
 
     private val scheduleChannel = Channel<Unit>(Channel.CONFLATED)
+
     /** S-21: the start list changed; re-fetch it. */
     val scheduleUpdates: Flow<Unit> = scheduleChannel.receiveAsFlow()
 
     private val reloadChannel = Channel<Unit>(Channel.CONFLATED)
+
     /** C-08: settings or theme changed; re-fetch config and redraw. */
     val reloads: Flow<Unit> = reloadChannel.receiveAsFlow()
 
     private val reconnectChannel = Channel<Unit>(Channel.CONFLATED)
+
     /** A-09: a socket reconnected; the owner re-fetches config to learn whether the meet is gone. */
     val reconnects: Flow<Unit> = reconnectChannel.receiveAsFlow()
 

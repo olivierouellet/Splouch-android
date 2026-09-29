@@ -6,7 +6,9 @@ import kotlinx.serialization.json.JsonObject
 // ── GET /server (api.md §5.10) ────────────────────────────────────────────────
 
 enum class ServerKind(val wire: String) {
-    PI("pi"), CLOUD("cloud");
+    PI("pi"),
+    CLOUD("cloud"),
+    ;
 
     companion object {
         fun fromWire(s: String?): ServerKind? = entries.firstOrNull { it.wire == s?.trim()?.lowercase() }
@@ -284,9 +286,13 @@ data class EventNameParts(
             val o = e.asObjectOrNull() ?: return null
             fun s(k: String) = o[k].asStringOrNull()?.trim().orEmpty()
             return EventNameParts(
-                raw = s("raw"), dist = s("dist"), stroke = s("stroke"),
+                raw = s("raw"),
+                dist = s("dist"),
+                stroke = s("stroke"),
                 relay = o["relay"].asBoolOrNull() ?: false,
-                gender = s("gender"), age = s("age"), ageKey = s("age_key"),
+                gender = s("gender"),
+                age = s("age"),
+                ageKey = s("age_key"),
             )
         }
     }
@@ -490,12 +496,11 @@ data class ScheduleHeat(
 
 data class LocaleEntry(val code: String, val name: String) {
     companion object {
-        fun listFromJson(e: JsonElement?): List<LocaleEntry> =
-            e.asArrayOrNull()?.mapNotNull { item ->
-                val o = item.asObjectOrNull() ?: return@mapNotNull null
-                val code = o["code"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-                LocaleEntry(code, o["name"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: code)
-            } ?: emptyList()
+        fun listFromJson(e: JsonElement?): List<LocaleEntry> = e.asArrayOrNull()?.mapNotNull { item ->
+            val o = item.asObjectOrNull() ?: return@mapNotNull null
+            val code = o["code"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            LocaleEntry(code, o["name"].asStringOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: code)
+        } ?: emptyList()
     }
 }
 

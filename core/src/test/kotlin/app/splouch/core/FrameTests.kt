@@ -1,12 +1,12 @@
 package app.splouch.core
 
 import app.splouch.core.wire.Frame
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class FrameTests {
     @Test fun `decodes the envelope`() {
@@ -30,6 +30,9 @@ class FrameTests {
 
     @Test fun `ping encodes without a data key, join_meet with the two fields`() {
         assertEquals("""{"event":"ping"}""", Frame.ping().encode())
-        assertEquals("""{"event":"join_meet","data":{"meet_id":"aBc","vid":"u-1"}}""", Frame.joinMeet("aBc", "u-1").encode())
+        assertEquals(
+            """{"event":"join_meet","data":{"meet_id":"aBc","vid":"u-1"}}""",
+            Frame.joinMeet("aBc", "u-1").encode(),
+        )
     }
 }

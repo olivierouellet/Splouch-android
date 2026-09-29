@@ -23,13 +23,28 @@ class FakeConnection(val url: String, private val listener: WebSocketTransport.L
         return true
     }
 
-    override fun close() { closed = true; open = false }
-    override fun abort() { aborted = true; open = false }
+    override fun close() {
+        closed = true
+        open = false
+    }
+    override fun abort() {
+        aborted = true
+        open = false
+    }
 
-    fun serverOpen() { open = true; listener.onOpen() }
+    fun serverOpen() {
+        open = true
+        listener.onOpen()
+    }
     fun serverSend(text: String) = listener.onMessage(text)
-    fun serverClose() { open = false; listener.onClosed() }
-    fun fail() { open = false; listener.onFailure(RuntimeException("boom")) }
+    fun serverClose() {
+        open = false
+        listener.onClosed()
+    }
+    fun fail() {
+        open = false
+        listener.onFailure(RuntimeException("boom"))
+    }
 
     fun sentEvents(): List<String> = sent.mapNotNull { app.splouch.core.wire.Frame.decode(it)?.event }
 }

@@ -23,7 +23,8 @@ data class ServerAddress private constructor(val scheme: String, val host: Strin
     val isCleartext: Boolean get() = scheme == "http"
 
     fun httpUrl(path: String): String = origin + path
-    fun wsUrl(path: String): String = (if (scheme == "https") "wss" else "ws") + "://" + host + (if (port > 0) ":$port" else "") + path
+    fun wsUrl(path: String): String =
+        (if (scheme == "https") "wss" else "ws") + "://" + host + (if (port > 0) ":$port" else "") + path
 
     /** For the header: host and port, without the scheme (P-11's "show the server" rule). */
     val display: String get() = host + if (port > 0) ":$port" else ""
@@ -33,6 +34,7 @@ data class ServerAddress private constructor(val scheme: String, val host: Strin
     sealed interface Result {
         data class Ok(val address: ServerAddress) : Result
         data object Invalid : Result
+
         /** `http` to a host that is not on the local network. */
         data object CleartextNotLocal : Result
     }
@@ -44,7 +46,11 @@ data class ServerAddress private constructor(val scheme: String, val host: Strin
             var s = text.trim()
             if (s.isEmpty()) return Result.Invalid
             if (!s.contains("://")) s = "https://$s"
-            val uri = try { URI(s) } catch (_: Exception) { return Result.Invalid }
+            val uri = try {
+                URI(s)
+            } catch (_: Exception) {
+                return Result.Invalid
+            }
             val scheme = uri.scheme?.lowercase() ?: return Result.Invalid
             if (scheme != "http" && scheme != "https") return Result.Invalid
             val host = uri.host?.lowercase()?.trim()?.takeIf { it.isNotEmpty() } ?: return Result.Invalid

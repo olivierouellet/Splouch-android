@@ -53,7 +53,8 @@ fun EmptyState(
             // Not spoken: the title underneath already says what it means, and a glyph
             // that repeats the sentence beside it is noise to a screen reader.
             icon != null -> Icon(
-                icon, null,
+                icon,
+                null,
                 Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

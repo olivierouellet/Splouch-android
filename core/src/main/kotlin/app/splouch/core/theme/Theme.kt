@@ -67,12 +67,19 @@ data class Theme(val colors: Map<String, String>, val fonts: Map<String, String>
         fun palette(dark: Boolean): Map<String, String> = if (dark) DEFAULT_COLORS else LIGHT_COLORS
 
         val DEFAULT_FONTS: Map<String, String> = mapOf(
-            "family" to "Overpass Mono", "digits" to "DSEG7Classic", "timing" to "Overpass Mono",
+            "family" to "Overpass Mono",
+            "digits" to "DSEG7Classic",
+            "timing" to "Overpass Mono",
         )
 
         /** The six bundled faces (app.md T-03); anything else falls back to a system monospace. */
         val BUNDLED_FONTS = listOf(
-            "Overpass Mono", "DSEG7Classic", "DSEG14Classic", "Share Tech Mono", "Orbitron", "Roboto Mono",
+            "Overpass Mono",
+            "DSEG7Classic",
+            "DSEG14Classic",
+            "Share Tech Mono",
+            "Orbitron",
+            "Roboto Mono",
         )
 
         val DEFAULT = Theme(emptyMap(), emptyMap())

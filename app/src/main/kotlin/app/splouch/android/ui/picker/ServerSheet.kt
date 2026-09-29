@@ -3,9 +3,9 @@ package app.splouch.android.ui.picker
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -28,9 +28,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -40,9 +40,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -93,77 +93,108 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
 
     fun add() {
         if (busy || text.isBlank()) return
-        busy = true; error = null
+        busy = true
+        error = null
         scope.launch {
             when (val r = model.addServer(text)) {
-                is AddServerResult.Ok -> { text = ""; onDismiss() }
+                is AddServerResult.Ok -> {
+                    text = ""
+                    onDismiss()
+                }
                 AddServerResult.InvalidAddress -> error = invalidAddress
                 AddServerResult.CleartextNotLocal -> error = cleartextNotLocal
-                is AddServerResult.Unreachable -> error = if (r.reason == AppModel.NOT_SPLOUCH) notSplouch else unreachable
+                is AddServerResult.Unreachable ->
+                    error =
+                        if (r.reason == AppModel.NOT_SPLOUCH) notSplouch else unreachable
             }
             busy = false
         }
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-      Box {
-        Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            SectionHeader(stringResource(R.string.server))
-            val nearby = state.servers.filter { it.source == KnownServer.Source.DISCOVERED }
-            val others = state.servers.filter { it.source != KnownServer.Source.DISCOVERED }
-            // Keyed by server, not by position: a row's swipe state is left dismissed once it
-            // fires, and unkeyed, the row that moves up into a removed one's slot would
-            // inherit it — drawn swiped away, and removed in turn.
-            others.forEach {
-                key(it.address.origin) {
-                    ServerRow(it, it.address == state.server, removeLabel,
-                        onSelect = { model.selectServer(it.address); onDismiss() },
-                        onRemove = if (it.source == KnownServer.Source.SAVED) ({ removeWithUndo(it.address) }) else null)
-                }
-            }
-            if (nearby.isNotEmpty()) {
-                SectionHeader(stringResource(R.string.nearby))
-                nearby.forEach {
+        Box {
+            Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
+                SectionHeader(stringResource(R.string.server))
+                val nearby = state.servers.filter { it.source == KnownServer.Source.DISCOVERED }
+                val others = state.servers.filter { it.source != KnownServer.Source.DISCOVERED }
+                // Keyed by server, not by position: a row's swipe state is left dismissed once it
+                // fires, and unkeyed, the row that moves up into a removed one's slot would
+                // inherit it — drawn swiped away, and removed in turn.
+                others.forEach {
                     key(it.address.origin) {
-                        ServerRow(it, it.address == state.server, removeLabel,
-                            onSelect = { model.selectServer(it.address); onDismiss() }, onRemove = null)
+                        ServerRow(
+                            it,
+                            it.address == state.server,
+                            removeLabel,
+                            onSelect = {
+                                model.selectServer(it.address)
+                                onDismiss()
+                            },
+                            onRemove = if (it.source == KnownServer.Source.SAVED) {
+                                ({ removeWithUndo(it.address) })
+                            } else {
+                                null
+                            },
+                        )
                     }
                 }
-            }
-            SectionHeader(stringResource(R.string.add_server))
-            // P-13: one row, not three. The section header above already said what this is,
-            // so the field submits itself — the return key, or the arrow that appears once
-            // there is something to send — and the footer under it carries progress and error.
-            OutlinedTextField(
-                value = text, onValueChange = { text = it; error = null },
-                placeholder = { Text(stringResource(R.string.server_placeholder), maxLines = 1) },
-                singleLine = true, isError = error != null, enabled = !busy,
-                supportingText = when {
-                    error != null -> ({ Text(error!!) })
-                    busy -> ({ Text(stringResource(R.string.checking)) })
-                    else -> null
-                },
-                trailingIcon = {
-                    when {
-                        busy -> CircularProgressIndicator(Modifier.padding(12.dp))
-                        text.isNotBlank() -> IconButton(onClick = { add() }) {
-                            Icon(painterResource(R.drawable.ic_check), stringResource(R.string.add_server))
+                if (nearby.isNotEmpty()) {
+                    SectionHeader(stringResource(R.string.nearby))
+                    nearby.forEach {
+                        key(it.address.origin) {
+                            ServerRow(
+                                it,
+                                it.address == state.server,
+                                removeLabel,
+                                onSelect = {
+                                    model.selectServer(it.address)
+                                    onDismiss()
+                                },
+                                onRemove = null,
+                            )
                         }
-                        else -> Unit
                     }
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { add() }),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
+                }
+                SectionHeader(stringResource(R.string.add_server))
+                // P-13: one row, not three. The section header above already said what this is,
+                // so the field submits itself — the return key, or the arrow that appears once
+                // there is something to send — and the footer under it carries progress and error.
+                OutlinedTextField(
+                    value = text, onValueChange = {
+                        text = it
+                        error = null
+                    },
+                    placeholder = { Text(stringResource(R.string.server_placeholder), maxLines = 1) },
+                    singleLine = true, isError = error != null, enabled = !busy,
+                    supportingText = when {
+                        error != null -> ({ Text(error!!) })
+                        busy -> ({ Text(stringResource(R.string.checking)) })
+                        else -> null
+                    },
+                    trailingIcon = {
+                        when {
+                            busy -> CircularProgressIndicator(Modifier.padding(12.dp))
+                            text.isNotBlank() -> IconButton(onClick = { add() }) {
+                                Icon(painterResource(R.drawable.ic_check), stringResource(R.string.add_server))
+                            }
+                            else -> Unit
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { add() }),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                )
+            }
+            SnackbarHost(sheetSnackbar, Modifier.align(Alignment.BottomCenter).padding(8.dp))
         }
-        SnackbarHost(sheetSnackbar, Modifier.align(Alignment.BottomCenter).padding(8.dp))
-      }
     }
 }
 
 @Composable
-internal fun SectionHeader(text: String, modifier: Modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
+internal fun SectionHeader(
+    text: String,
+    modifier: Modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+) {
     Text(
         text,
         style = MaterialTheme.typography.titleSmall,
@@ -174,7 +205,13 @@ internal fun SectionHeader(text: String, modifier: Modifier = Modifier.padding(s
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, onSelect: () -> Unit, onRemove: (() -> Unit)?) {
+private fun ServerRow(
+    s: KnownServer,
+    selected: Boolean,
+    removeLabel: String,
+    onSelect: () -> Unit,
+    onRemove: (() -> Unit)?,
+) {
     val row = @Composable {
         ListItem(
             // `selectable` is what carries the selected state to the screen reader: the radio
@@ -209,7 +246,8 @@ private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, on
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
-                    painterResource(R.drawable.ic_delete), removeLabel,
+                    painterResource(R.drawable.ic_delete),
+                    removeLabel,
                     tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }

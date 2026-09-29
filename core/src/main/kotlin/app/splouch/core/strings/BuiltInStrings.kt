@@ -14,7 +14,8 @@ object BuiltInStrings {
 
     fun english(): I18nBundle? = load(StringTable.ENGLISH)
 
-    fun locales(): List<LocaleEntry> = read("/i18n/locales.json")?.let { LocaleEntry.listFromJson(parseJsonOrNull(it)) } ?: emptyList()
+    fun locales(): List<LocaleEntry> =
+        read("/i18n/locales.json")?.let { LocaleEntry.listFromJson(parseJsonOrNull(it)) } ?: emptyList()
 
     /** A table for [lang] from the built-in layers only — what a first launch draws with. */
     fun table(lang: String, cached: I18nBundle? = null): StringTable {

@@ -27,10 +27,14 @@ fun ResultsTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, heade
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
     val vocab = meet.strings.eventVocab
-    val eventName = remember(view.eventName, view.eventNameParts, vocab) { EventName.display(view.eventName, view.eventNameParts, vocab) }
+    val eventName =
+        remember(view.eventName, view.eventNameParts, vocab) {
+            EventName.display(view.eventName, view.eventNameParts, vocab)
+        }
     val rows = remember(view.rows) {
         view.rows.map { r ->
-            GridRow(r.laneLabel, false, r.name, r.alt, r.club, r.time, if (r.locked) TimeStyle.LOCKED else TimeStyle.NORMAL, 0, r.deltaSeconds, r.deltaBetter, r.place)
+            val style = if (r.locked) TimeStyle.LOCKED else TimeStyle.NORMAL
+            GridRow(r.laneLabel, false, r.name, r.alt, r.club, r.time, style, 0, r.deltaSeconds, r.deltaBetter, r.place)
         }
     }
     Column(Modifier.fillMaxSize()) {
