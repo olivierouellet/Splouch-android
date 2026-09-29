@@ -1,11 +1,10 @@
 {
   // ── The important one ──────────────────────────────────────────────────────
-  // There is no ktlint, spotless or detekt in this repo on purpose. Running a formatter
-  // rewrites hand-aligned declarations and wrapped argument lists that are laid out to be
-  // read — the same decision the server repo made about `ruff format`. Format-on-save
-  // would do that silently on your first edit, so it is off, and organize-imports is off
-  // with it. See CONTRIBUTING.md → Conventions. (Android Studio needs the same treatment:
-  // keep Reformat Code off the file you are editing.)
+  // ktlint owns Kotlin layout and import order, run through Gradle:
+  // `./gradlew spotlessApply`. The Kotlin extension's own formatter is ktfmt, which
+  // disagrees with ktlint on most wrapped lines, so format-on-save stays off here and
+  // organize-imports with it — either would leave a diff `spotlessCheck` then rejects.
+  // See CONTRIBUTING.md → Conventions.
   "[kotlin]": {
     "editor.formatOnSave": false,
     "editor.codeActionsOnSave": {

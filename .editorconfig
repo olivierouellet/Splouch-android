@@ -1,0 +1,26 @@
+# Kotlin layout, read by ktlint (through Spotless: `./gradlew spotlessApply`) and by
+# Android Studio, so Studio's Reformat Code and the CI check agree. Kotlin only: the
+# Markdown has its own rules in .markdownlint.json.
+root = true
+
+[*.{kt,kts}]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+# Android Studio's Kotlin style, so a contributor working in Studio is not fighting it.
+ktlint_code_style = android_studio
+max_line_length = 120
+# Trailing commas where a list is wrapped, declarations and calls alike, as the tree
+# already writes them. Android Studio's own default is off.
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+# Composables are named like types (`Board`, `LaneRow`), which is the Compose convention.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Test names are sentences in backticks, and read better unwrapped.
+ktlint_ignore_back_ticked_identifier = true
+# A blank line between every branch of a `when` once one branch wraps — that spreads a
+# lookup table over twice its height.
+ktlint_standard_blank-line-between-when-conditions = disabled

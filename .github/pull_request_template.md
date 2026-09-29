@@ -11,17 +11,18 @@ behind the ones that look arbitrary: https://github.com/olivierouellet/Splouch-a
 ## Checks
 
 ```sh
+./gradlew spotlessCheck
 ./gradlew :core:test
 ./gradlew :app:assembleDebug
 ```
 
-- [ ] Both green. (`:core:test` never compiles `:app` — assemble it too, or a Compose change can pass without being built.)
+- [ ] All green. (`:core:test` never compiles `:app` — assemble it too, or a Compose change can pass without being built.)
 - [ ] `LiveServerTests` run against a real server, if this touches `SplouchApi`, `SplouchSocket` or `MeetSession`. They return early and report green without `SPLOUCH_LIVE_SERVER`.
 - [ ] `parity.md` updated — the rows this touches say `done`, `deferred` or `diverges`, and a `diverges` row says what the app does instead and why.
 - [ ] No wire field invented: every payload key read here is in `api.md`.
 - [ ] No `android.*`, Compose or OkHttp import added to `:core`.
 - [ ] Any new dependency is in `gradle/libs.versions.toml`, and the PR says why it earns its place.
-- [ ] No formatter run over the tree.
+- [ ] Formatted with `./gradlew spotlessApply`.
 
 ## Seen on a screen
 

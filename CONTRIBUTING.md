@@ -75,10 +75,12 @@ frames without a timing console.
 ## Before you open a pull request
 
 ```sh
+./gradlew spotlessApply     # format; `spotlessCheck` is what CI runs
 ./gradlew :core:test
 ```
 
-Green on `main`, and expected to stay that way. Two things about that run are worth
+Green on `main`, and expected to stay that way. The format step needs no SDK and covers
+`app/` too — see [Conventions](#conventions). Two things about the test run are worth
 knowing, because both of them let a green result mean less than it looks:
 
 **`LiveServerTests` returns early unless `SPLOUCH_LIVE_SERVER` is set.** Each test exits
@@ -101,10 +103,10 @@ and the resources are built by `:app:assembleDebug` and nothing else, so a chang
 Both modules compile with warnings as errors. A warning is fixed, or suppressed at the
 line with a comment saying why.
 
-CI runs both of those on every push and pull request, in two jobs that exist because
+CI runs all of those on every push and pull request, in two jobs that exist because
 each proves something the other cannot see. One has **no Android SDK at all** and asserts
-`:app` really is out of the build — the README's claim, checked rather than trusted — and
-runs the suite with a floor under the test count, because a test task that discovers
+`:app` really is out of the build — the README's claim, checked rather than trusted —
+checks the format of every Kotlin file, `app/` included, and runs the suite with a floor under the test count, because a test task that discovers
 nothing still succeeds. A failing test prints its name and full stack trace into the log,
 and the HTML and XML reports are uploaded as an artifact on that run only. The other job
 has the SDK, builds the APK, and then checks what no test reads: that the six fonts are
@@ -138,8 +140,9 @@ presence.
 
 | Language | Where | Linter | Formatter | Types / schema | Tests | Coverage | Editor (VS Code) | Gated in CI |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Kotlin — contract layer** | `core/` | — (compiler warnings are errors) | — ([on purpose](#conventions)) | `kotlinc`, warnings as errors; `:core` has no Android dependency, so an `android.*` import does not compile | JUnit 4, with a floor under the count so a suite that discovers nothing fails; `LiveServerTests` only with `SPLOUCH_LIVE_SERVER` | Kover, lines — printed in the CI log, never gated | Kotlin (fwcd), Gradle | Yes, compile and tests |
-| **Kotlin — app** | `app/src/main/kotlin/` | Android Lint, against `app/lint-baseline.xml` | — (on purpose) | `kotlinc`, warnings as errors | — (installed and looked at on a device or AVD) | — | Kotlin (fwcd) for reading; Android Studio for the screens | Yes, build and Lint |
+| **Kotlin — contract layer** | `core/` | ktlint's rules that cannot fix themselves (naming, line length); compiler warnings are errors | ktlint 1.8, through Spotless (`spotlessApply`), rules in `.editorconfig` | `kotlinc`, warnings as errors; `:core` has no Android dependency, so an `android.*` import does not compile | JUnit 4, with a floor under the count so a suite that discovers nothing fails; `LiveServerTests` only with `SPLOUCH_LIVE_SERVER` | Kover, lines — printed in the CI log, never gated | Kotlin (fwcd), Gradle | Yes, format, compile and tests |
+| **Kotlin — app** | `app/src/main/kotlin/` | Android Lint, against `app/lint-baseline.xml`; ktlint as above | ktlint, as above — checked in the JDK-only job, no SDK needed | `kotlinc`, warnings as errors | — (installed and looked at on a device or AVD) | — | Kotlin (fwcd) for reading; Android Studio for the screens | Yes, format, build and Lint |
+| **Gradle build scripts** | `*.gradle.kts` | ktlint | ktlint, as above | `kotlinc`, when Gradle configures | — | — | Kotlin (fwcd), Gradle | Yes, format |
 | **Android resources** | `app/src/*/res/`, the manifest | Android Lint | — | `aapt2` at build | Asserted on the packaged APK: six fonts, the network config, no dev hosts in the release rule. `SnapshotCoverageTests` checks the served-string snapshot covers every key the app asks for | — | Red Hat XML | Yes, build, Lint and the APK checks |
 | **Shell** | `scripts/` | ShellCheck (`-S warning`, the bash script only — ShellCheck cannot read zsh) | — | — | `bash -n` / `zsh -n`, chosen by each script's shebang | — | — | Yes, both |
 | **YAML** | `.github/` | actionlint for the workflow, and zizmor (security: permissions, credentials, pinning) | — | actionlint covers the workflow; the Red Hat YAML extension in the editor | — | — | Red Hat YAML | Yes, actionlint and zizmor |
@@ -177,11 +180,20 @@ dynamic colour, system light and dark — and dresses everything outside a meet;
 scheme that sheets and dialogs drawn over the board use. The picker has no meet and so no
 palette. Read `parity.md` → *The native-UI pass* before reaching for a hex literal.
 
-**Don't format the tree.** There is no ktlint, spotless or detekt here on purpose, and
-running a formatter over it rewrites hand-aligned declarations and wrapped argument lists
-that are laid out to be read — the same decision the server repo made about `ruff format`.
-The settings in `.vscode/` turn format-on-save off for Kotlin for exactly this reason; if
-you work in Android Studio, keep Reformat Code off the file you are editing.
+**ktlint owns layout and import order.** Kotlin is formatted by
+[ktlint](https://pinterest.github.io/ktlint/) through Spotless — `./gradlew spotlessApply`
+to fix, `spotlessCheck` to check — the way the server repo leaves layout to `ruff format`.
+Don't hand-align declarations or hand-wrap argument lists: the formatter undoes it. The
+style is Android Studio's at 120 columns, with trailing commas and Compose-style names for
+composables, all set in `.editorconfig` with a comment on each departure from the default.
+A line ktlint cannot shorten (a JSON fixture, say) is suppressed on its declaration with
+`@Suppress("ktlint:standard:max-line-length")` and a comment saying why, like any warning.
+
+Android Studio reads the same `.editorconfig`, so Reformat Code comes close, but Gradle is
+the arbiter; run `spotlessApply` before you commit. In VS Code, format-on-save stays off
+for Kotlin: the extension's formatter is ktfmt, which disagrees with ktlint. A change to
+`.editorconfig` reformats the tree — do that in a commit of its own, never mixed with a
+behaviour change.
 
 **Type that is sized carries its own `lineHeight`.** Material's inherited `24.sp`
 `lineHeight` will overflow a row that was measured at a `dp`-derived size, and it does it

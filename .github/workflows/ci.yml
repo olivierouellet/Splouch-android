@@ -66,6 +66,12 @@ jobs:
             && { echo "::error::':app' was included; this job is meant to run without an SDK"; exit 1; }
           echo "no SDK, ':core' only — as intended"
 
+      - name: Format
+        # ktlint, through Spotless, over every Kotlin file in the tree — `:app`'s included:
+        # the task runs from the root project and reads sources as files, so it needs no
+        # SDK. Rules are in .editorconfig. `./gradlew spotlessApply` fixes what it flags.
+        run: ./gradlew spotlessCheck
+
       - name: Tests
         # LiveServerTests returns early here by design: its checks need a real server at
         # SPLOUCH_LIVE_SERVER and there is none on a runner. Everything else uses the HTTP
