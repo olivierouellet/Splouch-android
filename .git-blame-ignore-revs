@@ -1,0 +1,5 @@
+# Commits git blame skips: formatting only, no behaviour. GitHub reads this file
+# on its own; locally, `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
+
+# [Build] The tree is formatted by ktlint
+919d1415c7ca0e722fff60e80ec8f0410fb084a2
