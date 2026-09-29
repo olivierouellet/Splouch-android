@@ -39,7 +39,27 @@ data class PickerState(
     val meets: List<MeetSummary> = emptyList(),
     val config: PickerConfig? = null,
     val error: String? = null,
-)
+    /**
+     * P-17: the app bar is in search mode, and what is typed in it. Held here rather than in
+     * the screen so both outlive the picker leaving composition: a meet opened and closed
+     * (A-02), or a refresh (P-09), comes back to the same filtered list. A new server starts
+     * a fresh [PickerState].
+     */
+    val searching: Boolean = false,
+    val query: String = "",
+) {
+    /** The search action is offered at all: only once there are enough meets to be worth searching. */
+    val canSearch: Boolean get() = MeetSearch.shows(meets.size)
+
+    /** The app bar is the search field. Not once a refresh has left too few meets to search. */
+    val searchOpen: Boolean get() = searching && canSearch
+
+    /**
+     * The cards to draw, in the server's order. A query is ignored once the field is gone,
+     * or it would hide meets with nothing on screen to say why.
+     */
+    val shownMeets: List<MeetSummary> get() = if (searchOpen) MeetSearch.filter(meets, query) else meets
+}
 
 /** One open meet and everything its tabs render from. */
 data class MeetState(
@@ -434,6 +454,13 @@ class AppModel(
             }
         }
     }
+
+    fun openPickerSearch() = _state.update { it.copy(picker = it.picker.copy(searching = true)) }
+
+    fun setPickerQuery(query: String) = _state.update { it.copy(picker = it.picker.copy(query = query)) }
+
+    /** Leaving search mode shows every meet again, so the query goes with it. */
+    fun closePickerSearch() = _state.update { it.copy(picker = it.picker.copy(searching = false, query = "")) }
 
     // ── meet (P-08, A-*, C-08, A-09) ──────────────────────────────────────────
 

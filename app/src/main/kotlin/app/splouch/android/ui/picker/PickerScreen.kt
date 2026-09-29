@@ -1,6 +1,7 @@
 package app.splouch.android.ui.picker
 
 import android.graphics.Bitmap
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -24,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -40,10 +43,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -53,10 +59,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -66,6 +75,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.splouch.android.ImageCache
@@ -100,59 +111,87 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
     // does over a long list, and comes back the moment the finger goes the other way.
     val barScroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
+    // P-17: search is the app bar's own mode, the way an Android list screen does it — a
+    // magnifier among the actions, and the bar becomes the field. Back leaves the mode.
+    val picker = state.picker
+    val searchLabel = cfg?.strings?.get("meet_search") ?: t.mobile("meet_search")
+    // Only a tap on the magnifier raises the keyboard; coming back from a meet to a search
+    // left open shows the filtered list without pushing a keyboard over it.
+    var focusSearch by remember { mutableStateOf(false) }
+    BackHandler(enabled = picker.searchOpen) { model.closePickerSearch() }
+
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                scrollBehavior = barScroll,
-                colors = TopAppBarDefaults.topAppBarColors(),
-                title = {
-                    // P-11 asks for the server in the header when it is not the default. It
-                    // is here whatever it is: a bar holding two actions and no title reads
-                    // as unfinished, and the operator's own title is already the branding
-                    // block below (P-05), so repeating it there would be the one thing
-                    // worse than an empty bar.
-                    Text(state.server.display, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                },
-                actions = {
-                    // One overflow rather than a row of glyphs. Two of these open a list the
-                    // server serves and the third is three fixed choices the app owns, so the
-                    // Appearance rows sit inline with a check on the current one — a menu
-                    // inside a menu is not something Material does, and the iOS twin's
-                    // `Picker(.menu)` reads the same way.
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(painterResource(R.drawable.ic_more), stringResource(R.string.more_options))
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.server)) },
-                            leadingIcon = { Icon(painterResource(R.drawable.ic_server), null) },
-                            onClick = {
-                                showMenu = false
-                                showServers = true
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(t.mobile("language")) },
-                            leadingIcon = { Icon(painterResource(R.drawable.ic_language), null) },
-                            onClick = {
-                                showMenu = false
-                                showPrefs = true
-                            },
-                        )
-                        HorizontalDivider()
-                        // A menu item is padded 12dp, not the sheet's 16.
-                        SectionHeader(
-                            stringResource(R.string.appearance),
-                            Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
-                        )
-                        AppearanceChoice(R.string.appearance_dark, Appearance.DARK, state, model) { showMenu = false }
-                        AppearanceChoice(R.string.appearance_light, Appearance.LIGHT, state, model) { showMenu = false }
-                        AppearanceChoice(R.string.appearance_auto, Appearance.AUTO, state, model) { showMenu = false }
-                    }
-                },
-            )
+            if (picker.searchOpen) {
+                SearchAppBar(
+                    query = picker.query,
+                    label = searchLabel,
+                    focus = focusSearch,
+                    onChange = model::setPickerQuery,
+                    onClose = { model.closePickerSearch() },
+                )
+            } else {
+                TopAppBar(
+                    scrollBehavior = barScroll,
+                    colors = TopAppBarDefaults.topAppBarColors(),
+                    title = {
+                        // P-11 asks for the server in the header when it is not the default. It
+                        // is here whatever it is: a bar holding two actions and no title reads
+                        // as unfinished, and the operator's own title is already the branding
+                        // block below (P-05), so repeating it there would be the one thing
+                        // worse than an empty bar.
+                        Text(state.server.display, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                    },
+                    actions = {
+                        if (picker.canSearch) {
+                            IconButton(onClick = {
+                                focusSearch = true
+                                model.openPickerSearch()
+                            }) {
+                                Icon(painterResource(R.drawable.ic_search), searchLabel)
+                            }
+                        }
+                        // One overflow rather than a row of glyphs. Two of these open a list the
+                        // server serves and the third is three fixed choices the app owns, so the
+                        // Appearance rows sit inline with a check on the current one — a menu
+                        // inside a menu is not something Material does, and the iOS twin's
+                        // `Picker(.menu)` reads the same way.
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(painterResource(R.drawable.ic_more), stringResource(R.string.more_options))
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.server)) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_server), null) },
+                                onClick = {
+                                    showMenu = false
+                                    showServers = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(t.mobile("language")) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_language), null) },
+                                onClick = {
+                                    showMenu = false
+                                    showPrefs = true
+                                },
+                            )
+                            HorizontalDivider()
+                            val closeMenu = { showMenu = false }
+                            // A menu item is padded 12dp, not the sheet's 16.
+                            SectionHeader(
+                                stringResource(R.string.appearance),
+                                Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+                            )
+                            AppearanceChoice(R.string.appearance_dark, Appearance.DARK, state, model, closeMenu)
+                            AppearanceChoice(R.string.appearance_light, Appearance.LIGHT, state, model, closeMenu)
+                            AppearanceChoice(R.string.appearance_auto, Appearance.AUTO, state, model, closeMenu)
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         PullToRefreshBox(
@@ -199,6 +238,7 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                     }
                     else -> {
                         val meets = state.picker.meets
+                        val shown = state.picker.shownMeets
                         if (meets.isEmpty() && state.picker.loaded) {
                             item {
                                 EmptyState(
@@ -207,10 +247,20 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                                 )
                             }
                         }
+                        // Not `no_meets`: the server has meets, the query hid them.
+                        if (meets.isNotEmpty() && shown.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    icon = painterResource(R.drawable.ic_search_off),
+                                    title = cfg?.strings?.get("no_meets_match") ?: t.mobile("no_meets_match"),
+                                )
+                            }
+                        }
                         // P-02: reserve the image slot across the list when any meet has one, so
-                        // the names line up instead of stepping in and out by 56dp.
+                        // the names line up instead of stepping in and out by 56dp. Taken over
+                        // every meet, not the shown ones, so typing does not shift the names.
                         val anyImage = meets.any { it.hasPickerImage }
-                        items(meets, key = { it.id }) { m ->
+                        items(shown, key = { it.id }) { m ->
                             val img = if (m.hasPickerImage) state.server.httpUrl("/picker_image/${m.id}") else null
                             MeetCard(
                                 name = m.name.ifBlank { cfg?.strings?.get("unnamed_meet") ?: t.mobile("unnamed_meet") },
@@ -318,6 +368,63 @@ private fun Footer(disclaimer: String, privacy: String?) {
 private fun remoteBitmap(images: ImageCache, url: String): Bitmap? {
     val bmp by produceState<Bitmap?>(null, url) { value = images.load(url) }
     return bmp
+}
+
+/**
+ * P-17's search mode: the app bar holding a back arrow and the field. Every keystroke
+ * filters (the list is already on the device, so there is nothing to debounce), and the
+ * keyboard's search key only puts the keyboard away. Pinned, not scrolled away with the
+ * list, so the query stays in view while the reader looks through what it found.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchAppBar(
+    query: String,
+    label: String,
+    focus: Boolean,
+    onChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (focus) focusRequester.requestFocus() }
+    TopAppBar(
+        navigationIcon = {
+            IconButton(onClick = onClose) {
+                Icon(painterResource(R.drawable.ic_back), stringResource(R.string.close_search))
+            }
+        },
+        title = {
+            TextField(
+                value = query,
+                onValueChange = onChange,
+                singleLine = true,
+                placeholder = { Text(label, maxLines = 1) },
+                // The bar is the field's container, so the field draws none of its own.
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+                // Matched folded, so the keyboard has no business capitalising it.
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    imeAction = ImeAction.Search,
+                ),
+                keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
+                    .semantics { contentDescription = label },
+            )
+        },
+        actions = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onChange("") }) {
+                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear))
+                }
+            }
+        },
+    )
 }
 
 /** P-01: one meet, as a card the platform draws — container, ripple, press state and all. */

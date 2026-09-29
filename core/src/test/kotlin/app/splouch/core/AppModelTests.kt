@@ -406,4 +406,24 @@ class AppModelTests {
         r.model.setTab(MeetTab.SCHEDULE)
         assertEquals(MeetTab.SCHEDULE, r.prefsStore.load().tab)
     }
+
+    @Test fun `the picker's search survives a meet and a refresh, and closing it clears the query`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        r.model.openPickerSearch()
+        r.model.setPickerQuery("meet")
+        r.model.openMeet("m1")
+        runCurrent()
+        assertNotNull(r.model.current.meet)
+        r.model.closeMeet()
+        r.model.refreshPicker()
+        runCurrent()
+        assertTrue(r.model.current.picker.searching)
+        assertEquals("meet", r.model.current.picker.query)
+        r.model.closePickerSearch()
+        assertFalse(r.model.current.picker.searching)
+        assertEquals("", r.model.current.picker.query)
+    }
 }

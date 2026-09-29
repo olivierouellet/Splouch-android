@@ -26,6 +26,7 @@
     <string name="ok">OK</string>
     <string name="retry">Reintentar</string>
     <string name="clear">Borrar</string>
+    <string name="close_search">Cerrar la búsqueda</string>
     <string name="close">Cerrar</string>
     <string name="undo">Deshacer</string>
     <string name="server_removed">Servidor eliminado</string>
