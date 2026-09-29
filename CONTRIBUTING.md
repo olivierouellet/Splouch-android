@@ -51,7 +51,7 @@ what it does instead and why, and say in the PR that `app.md` needs the matching
 ```
 
 That first line is the whole inner loop for most work. `:core` is plain Kotlin with no
-Android types, so its 92 tests run on any machine with a JDK 17 — and
+Android types, so its 95 tests run on any machine with a JDK 17 — and
 `settings.gradle.kts` includes `:app` **only when an SDK is found** (`local.properties`
 `sdk.dir`, or `ANDROID_HOME`). Without one you get `:core` and a warning, not a failure.
 That is deliberate: a clone with no Android SDK is still a working checkout of the
@@ -92,7 +92,14 @@ SPLOUCH_LIVE_SERVER=http://127.0.0.1:5056 ./gradlew :core:test --tests '*LiveSer
 
 **`:core:test` never compiles `:app`.** The Compose screens, the OkHttp and NSD adapters
 and the resources are built by `:app:assembleDebug` and nothing else, so a change in
-`app/` can be green locally and not compile. Assemble it before you push.
+`app/` can be green locally and not compile. Assemble it, and lint it, before you push:
+
+```sh
+./gradlew :app:assembleDebug :app:lintDebug
+```
+
+Both modules compile with warnings as errors. A warning is fixed, or suppressed at the
+line with a comment saying why — `ServerSheet.kt` has one waiting on a device test.
 
 CI runs both of those on every push and pull request, in two jobs that exist because
 each proves something the other cannot see. One has **no Android SDK at all** and asserts
@@ -102,14 +109,47 @@ nothing still succeeds. A failing test prints its name and full stack trace into
 and the HTML and XML reports are uploaded as an artifact on that run only. The other job
 has the SDK, builds the APK, and then checks what no test reads: that the six fonts are
 in it, that the network config is, and that no loopback or emulator address has drifted
-out of the debug overlay into the release rule. Android Lint runs there too and **gates
-nothing** — its six current errors are all deliberate, so read the report for what is new
-beside them.
+out of the debug overlay into the release rule. Android Lint runs there too, against
+`app/lint-baseline.xml`: the six errors recorded in it are all deliberate (the Lint step
+in `ci.yml` says why each one is), and any error that is not in it fails the job. If a new
+one is also a decision, `./gradlew :app:updateLintBaseline` and say why in the commit.
+
+A third job checks what isn't Kotlin: the scripts, the workflow and the Markdown. If you
+touched those, the same checks run locally through [uv](https://docs.astral.sh/uv/) at the
+versions pinned in `ci.yml`:
+
+```sh
+uvx --from shellcheck-py shellcheck -S warning scripts/render-play-icon.sh
+uvx --from actionlint-py --with shellcheck-py actionlint
+uvx zizmor --offline .github/workflows/
+uvx rumdl check .          # `uvx rumdl fmt .` fixes what it flags
+```
 
 Anything touching a screen also gets installed and looked at, in both orientations if the
 layout moved. Say in the PR which device or AVD and what you saw — `parity.md` is written
 that way for a reason, and a claim about the UI that nobody looked at is how this tree
 gets its worst bugs. §8's two font-scale bugs were both invisible to the suite.
+
+### Tooling by language
+
+What checks each kind of file, and whether CI fails on it. The fonts and the captured
+string snapshot are copies of the server repo's and checked by nothing here beyond their
+presence.
+
+| Language | Where | Linter | Formatter | Types / schema | Tests | Coverage | Editor (VS Code) | Gated in CI |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Kotlin — contract layer** | `core/` | — (compiler warnings are errors) | — ([on purpose](#conventions)) | `kotlinc`, warnings as errors; `:core` has no Android dependency, so an `android.*` import does not compile | JUnit 4, with a floor under the count so a suite that discovers nothing fails; `LiveServerTests` only with `SPLOUCH_LIVE_SERVER` | Kover, lines — printed in the CI log, never gated | Kotlin (fwcd), Gradle | Yes, compile and tests |
+| **Kotlin — app** | `app/src/main/kotlin/` | Android Lint, against `app/lint-baseline.xml` | — (on purpose) | `kotlinc`, warnings as errors | — (installed and looked at on a device or AVD) | — | Kotlin (fwcd) for reading; Android Studio for the screens | Yes, build and Lint |
+| **Android resources** | `app/src/*/res/`, the manifest | Android Lint | — | `aapt2` at build | Asserted on the packaged APK: six fonts, the network config, no dev hosts in the release rule. `SnapshotCoverageTests` checks the served-string snapshot covers every key the app asks for | — | Red Hat XML | Yes, build, Lint and the APK checks |
+| **Shell** | `scripts/` | ShellCheck (`-S warning`, the bash script only — ShellCheck cannot read zsh) | — | — | `bash -n` / `zsh -n`, chosen by each script's shebang | — | — | Yes, both |
+| **YAML** | `.github/` | actionlint for the workflow, and zizmor (security: permissions, credentials, pinning) | — | actionlint covers the workflow; the Red Hat YAML extension in the editor | — | — | Red Hat YAML | Yes, actionlint and zizmor |
+| **Markdown** | `*.md` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | — | markdownlint | Yes, rumdl |
+| **Dependencies** | `gradle/libs.versions.toml`, the Gradle wrapper, the actions in `ci.yml` | Every action is pinned to a commit (zizmor rejects a tag); `setup-gradle` validates the wrapper's checksum | — | — | A catalog bump is proven by both CI jobs building on its PR | — | — | Yes |
+
+How each set is kept current: Dependabot opens pull requests monthly for the Gradle catalog
+and wrapper and for the actions (see the comment at the top of `.github/dependabot.yml`).
+The four PyPI tools in the scripts job are pinned in `ci.yml` and moved by hand, to the
+versions the server repo's `uv.lock` has.
 
 ---
 
