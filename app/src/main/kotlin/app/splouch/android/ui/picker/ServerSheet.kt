@@ -28,12 +28,12 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -111,16 +111,23 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
             SectionHeader(stringResource(R.string.server))
             val nearby = state.servers.filter { it.source == KnownServer.Source.DISCOVERED }
             val others = state.servers.filter { it.source != KnownServer.Source.DISCOVERED }
+            // Keyed by server, not by position: a row's swipe state is left dismissed once it
+            // fires, and unkeyed, the row that moves up into a removed one's slot would
+            // inherit it — drawn swiped away, and removed in turn.
             others.forEach {
-                ServerRow(it, it.address == state.server, removeLabel,
-                    onSelect = { model.selectServer(it.address); onDismiss() },
-                    onRemove = if (it.source == KnownServer.Source.SAVED) ({ removeWithUndo(it.address) }) else null)
+                key(it.address.origin) {
+                    ServerRow(it, it.address == state.server, removeLabel,
+                        onSelect = { model.selectServer(it.address); onDismiss() },
+                        onRemove = if (it.source == KnownServer.Source.SAVED) ({ removeWithUndo(it.address) }) else null)
+                }
             }
             if (nearby.isNotEmpty()) {
                 SectionHeader(stringResource(R.string.nearby))
                 nearby.forEach {
-                    ServerRow(it, it.address == state.server, removeLabel,
-                        onSelect = { model.selectServer(it.address); onDismiss() }, onRemove = null)
+                    key(it.address.origin) {
+                        ServerRow(it, it.address == state.server, removeLabel,
+                            onSelect = { model.selectServer(it.address); onDismiss() }, onRemove = null)
+                    }
                 }
             }
             SectionHeader(stringResource(R.string.add_server))
@@ -184,24 +191,16 @@ private fun ServerRow(s: KnownServer, selected: Boolean, removeLabel: String, on
         return
     }
     val haptics = LocalHapticFeedback.current
-    // `confirmValueChange` is deprecated in Material3 1.4 in favour of `SwipeToDismissBox`'s
-    // own `onDismiss`. Moving changes when the row settles and when it is removed, which
-    // is a thing to try on a device, not to slip in with a build change.
-    @Suppress("DEPRECATION")
-    val dismiss = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                onRemove()
-                true
-            } else {
-                false
-            }
-        },
-    )
+    val dismiss = rememberSwipeToDismissBoxState()
     SwipeToDismissBox(
         state = dismiss,
         enableDismissFromStartToEnd = false,
+        // Called once the row has settled off-screen, and the state stays there — so the
+        // caller keys each row by server. End-to-start is the only direction enabled.
+        onDismiss = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onRemove()
+        },
         backgroundContent = {
             Box(
                 Modifier.fillMaxSize()

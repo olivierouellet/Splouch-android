@@ -99,7 +99,7 @@ and the resources are built by `:app:assembleDebug` and nothing else, so a chang
 ```
 
 Both modules compile with warnings as errors. A warning is fixed, or suppressed at the
-line with a comment saying why — `ServerSheet.kt` has one waiting on a device test.
+line with a comment saying why.
 
 CI runs both of those on every push and pull request, in two jobs that exist because
 each proves something the other cannot see. One has **no Android SDK at all** and asserts
