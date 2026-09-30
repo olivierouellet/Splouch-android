@@ -24,6 +24,9 @@ class StringTable(
     /** The app's own chrome — tab names, empty states, filter UI (T-05). */
     fun mobile(key: String): String = resolve(key) { it.mobile }
 
+    /** [mobile], but null rather than the bare key when no layer has it — for a caller with its own fallback. */
+    fun mobileOrNull(key: String): String? = layers.firstNotNullOfOrNull { it.mobile[key] }
+
     fun display(key: String): String = resolve(key) { it.display }
 
     /** One label table (`short` or `long`), layered per key across the three sources. */

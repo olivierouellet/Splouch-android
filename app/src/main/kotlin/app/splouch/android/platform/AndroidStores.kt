@@ -1,8 +1,11 @@
 package app.splouch.android.platform
 
 import android.content.Context
+import androidx.core.content.edit
 import app.splouch.core.session.Appearance
 import app.splouch.core.session.MeetTab
+import app.splouch.core.session.NoticeStore
+import app.splouch.core.session.PickerNotice
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.PreferencesStore
 import app.splouch.core.session.VidStore
@@ -23,6 +26,24 @@ class PrefsVidStore(context: Context) : VidStore {
     override fun vid(origin: String): String = synchronized(this) {
         prefs.getString(origin, null)?.takeIf { it.isNotEmpty() }
             ?: VidStore.fresh().also { prefs.edit().putString(origin, it).apply() }
+    }
+}
+
+/**
+ * P-06/P-07: the text each notice was folded at, per server origin and per notice. The
+ * words themselves, not a flag, so a reworded notice shows in full once.
+ */
+class PrefsNoticeStore(context: Context) : NoticeStore {
+    private val prefs = context.getSharedPreferences("splouch.notices", Context.MODE_PRIVATE)
+
+    // An origin holds no space, so the pair cannot collide with another server's.
+    private fun key(origin: String, notice: PickerNotice) = "$origin ${notice.name}"
+
+    override fun folded(origin: String, notice: PickerNotice): String? = prefs.getString(key(origin, notice), null)
+
+    override fun setFolded(origin: String, notice: PickerNotice, text: String?) {
+        val key = key(origin, notice)
+        prefs.edit { if (text == null) remove(key) else putString(key, text) }
     }
 }
 

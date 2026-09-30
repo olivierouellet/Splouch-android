@@ -2,10 +2,14 @@ package app.splouch.core
 
 import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.InMemoryNoticeStore
 import app.splouch.core.session.InMemoryPreferencesStore
 import app.splouch.core.session.InMemoryVidStore
 import app.splouch.core.session.InviteFailure
 import app.splouch.core.session.MeetTab
+import app.splouch.core.session.PickerNotice
+import app.splouch.core.session.PickerNotice.PRIVACY_NOTE
+import app.splouch.core.session.PickerNotice.RESULTS_DISCLAIMER
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.ServerInvite
@@ -30,12 +34,16 @@ class AppModelTests {
     private val cloud = "https://c.example"
     private val pi = "http://pi.local:5000"
 
-    private class Rig(scope: TestScope, prefs: Preferences = Preferences()) {
+    private class Rig(
+        scope: TestScope,
+        prefs: Preferences = Preferences(),
+        val notices: InMemoryNoticeStore = InMemoryNoticeStore(),
+    ) {
         val http = StubHttp()
         val transport = FakeTransport()
         val prefsStore = InMemoryPreferencesStore(prefs)
         val model = AppModel(
-            ServerAddress.parseOrNull("https://c.example")!!, http, transport, InMemoryVidStore(), prefsStore,
+            ServerAddress.parseOrNull("https://c.example")!!, http, transport, InMemoryVidStore(), notices, prefsStore,
             InMemoryBundleCache(), scope.backgroundScope, deviceLang = "fr",
             timeSource = scope.testScheduler.timeSource,
         )
@@ -425,5 +433,98 @@ class AppModelTests {
         r.model.closePickerSearch()
         assertFalse(r.model.current.picker.searching)
         assertEquals("", r.model.current.picker.query)
+    }
+
+    // ── P-06/P-07 folds ──────────────────────────────────────────────────────
+
+    private fun AppModel.notice(n: PickerNotice) = current.pickerNotices.single { it.notice == n }
+
+    @Test fun `a notice starts folded only when the stored text is the text the server just sent`() = runTest {
+        val notices = InMemoryNoticeStore()
+        notices.setFolded(cloud, RESULTS_DISCLAIMER, "D")
+        notices.setFolded(cloud, PRIVACY_NOTE, "An older wording of P")
+        val r = Rig(this, notices = notices)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
+        // Reworded, or the same note in another language: in full, once.
+        assertFalse(r.model.notice(PRIVACY_NOTE).folded)
+        assertEquals("P", r.model.notice(PRIVACY_NOTE).text)
+    }
+
+    @Test fun `folding stores the exact words, and opening again forgets them`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        assertFalse(r.model.notice(RESULTS_DISCLAIMER).folded)
+        r.model.foldNotice(RESULTS_DISCLAIMER)
+        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
+        assertEquals("D", r.notices.folded(cloud, RESULTS_DISCLAIMER))
+        assertNull(r.notices.folded(cloud, PRIVACY_NOTE))
+        // A refresh reads the fold back rather than losing it.
+        r.model.refreshPicker()
+        runCurrent()
+        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
+        r.model.unfoldNotice(RESULTS_DISCLAIMER)
+        assertFalse(r.model.notice(RESULTS_DISCLAIMER).folded)
+        assertNull(r.notices.folded(cloud, RESULTS_DISCLAIMER))
+    }
+
+    @Suppress("ktlint:standard:max-line-length")
+    @Test
+    fun `counting off forgets P-07's fold, so counting back on shows it in full`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        r.model.foldNotice(PRIVACY_NOTE)
+        r.model.foldNotice(RESULTS_DISCLAIMER)
+        r.http.on(
+            "$cloud/picker/config?lang=fr",
+            body = """{"title":"Splouch","lang":"fr","analytics_enabled":false,"strings":{"results_disclaimer":"D","privacy_note":"P"}}""",
+        )
+        r.model.refreshPicker()
+        runCurrent()
+        assertEquals(listOf(RESULTS_DISCLAIMER), r.model.current.pickerNotices.map { it.notice })
+        assertNull(r.notices.folded(cloud, PRIVACY_NOTE))
+        // P-06's fold is not counting's to forget.
+        assertEquals("D", r.notices.folded(cloud, RESULTS_DISCLAIMER))
+        r.http.cloudRoutes()
+        r.model.refreshPicker()
+        runCurrent()
+        assertFalse(r.model.notice(PRIVACY_NOTE).folded)
+    }
+
+    @Test fun `a fold on one server leaves another server's notices alone`() = runTest {
+        val other = "https://x.example"
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.cloudRoutes(other)
+        r.model.start()
+        runCurrent()
+        r.model.foldNotice(RESULTS_DISCLAIMER)
+        r.model.selectServer(ServerAddress.parseOrNull(other)!!)
+        runCurrent()
+        // The same words, but another server: in full.
+        assertEquals("D", r.model.notice(RESULTS_DISCLAIMER).text)
+        assertFalse(r.model.notice(RESULTS_DISCLAIMER).folded)
+        assertNull(r.notices.folded(other, RESULTS_DISCLAIMER))
+        r.model.foldNotice(PRIVACY_NOTE)
+        r.model.selectServer(ServerAddress.parseOrNull(cloud)!!)
+        runCurrent()
+        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
+        assertFalse(r.model.notice(PRIVACY_NOTE).folded)
+    }
+
+    @Test fun `an older server's missing pill words and X name fall back to English, never to the key`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        assertEquals("Unofficial results", r.model.notice(RESULTS_DISCLAIMER).short)
+        assertEquals("Attendance counting", r.model.notice(PRIVACY_NOTE).short)
+        assertEquals("Collapse", r.model.current.noticeCollapseLabel)
     }
 }

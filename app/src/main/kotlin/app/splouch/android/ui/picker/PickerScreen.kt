@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -51,10 +55,12 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -85,6 +91,8 @@ import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.Appearance
+import app.splouch.core.session.PickerNotice
+import app.splouch.core.session.ShownNotice
 import app.splouch.core.session.UiState
 import app.splouch.core.wire.ServerKind
 
@@ -237,6 +245,16 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                         ) { model.openMeet(null) }
                     }
                     else -> {
+                        // P-06/P-07 above the list, over whatever it holds: below it, a season
+                        // of meets pushed them out of sight.
+                        item(key = "notices") {
+                            Notices(
+                                state.pickerNotices,
+                                state.noticeCollapseLabel,
+                                onFold = model::foldNotice,
+                                onUnfold = model::unfoldNotice,
+                            )
+                        }
                         val meets = state.picker.meets
                         val shown = state.picker.shownMeets
                         if (meets.isEmpty() && state.picker.loaded) {
@@ -269,16 +287,6 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                                 image = img?.let { url -> remoteBitmap(images, url) },
                                 reserveImage = anyImage,
                             ) { model.openMeet(m.id) }
-                        }
-                        item {
-                            Footer(
-                                cfg?.strings?.get("results_disclaimer") ?: t.mobile("results_disclaimer"),
-                                if (cfg?.analyticsEnabled == true) {
-                                    (cfg.strings["privacy_note"] ?: t.mobile("privacy_note"))
-                                } else {
-                                    null
-                                },
-                            )
                         }
                     }
                 }
@@ -328,40 +336,121 @@ private fun Logo(bmp: Bitmap?) {
 }
 
 /**
- * P-06 and P-07. Both were grey fine print trailing off the bottom of the list — the
- * wrong end of the page for the one line standing between a live feed and a spectator
- * treating it as a result. The disclaimer gets a surface of its own and full contrast;
- * the privacy note stays smaller but stays readable.
+ * P-06 and P-07. Each shows its full text with an X; the X folds it to a pill and the pill
+ * opens it again, so a notice never goes away. One flowing row, in order: an open notice
+ * takes the whole line, and folded pills share one, centred — the web picker's layout.
+ *
+ * Not a dialog and not a consent, so there is no Accept: counting is not the reader's to
+ * refuse (C-10), and a button would promise a choice there is none of.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Footer(disclaimer: String, privacy: String?) {
-    Column(
-        Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+private fun Notices(
+    notices: List<ShownNotice>,
+    collapseLabel: String,
+    onFold: (PickerNotice) -> Unit,
+    onUnfold: (PickerNotice) -> Unit,
+) {
+    // Where focus goes once the notice has redrawn: the pill after a fold, the X after an
+    // opening, so a screen reader or a keyboard is not left on a control that has vanished.
+    var focusAfter by remember { mutableStateOf<PickerNotice?>(null) }
+    FlowRow(
+        Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                disclaimer,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(16.dp),
-            )
-        }
-        if (privacy != null) {
-            Text(
-                privacy,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 16.dp),
-            )
+        for (n in notices) {
+            key(n.notice) {
+                val takeFocus = focusAfter == n.notice
+                val focused = { focusAfter = null }
+                if (n.folded) {
+                    NoticePill(n, takeFocus, focused) {
+                        focusAfter = n.notice
+                        onUnfold(n.notice)
+                    }
+                } else {
+                    NoticeFull(n, collapseLabel, takeFocus, focused) {
+                        focusAfter = n.notice
+                        onFold(n.notice)
+                    }
+                }
+            }
         }
     }
+}
+
+/**
+ * A requester that takes focus once, as the control it is on first appears, when [take]
+ * says so. It waits two frames first: the control the reader was on has just left the
+ * tree, and TalkBack re-homes its own focus when that happens — a request made in the
+ * same frame is overtaken, and TalkBack lands on the first X on the screen.
+ */
+@Composable
+private fun focusOnArrival(take: Boolean, onTaken: () -> Unit): FocusRequester {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (take) {
+            withFrameNanos { }
+            withFrameNanos { }
+            focus.requestFocus()
+            onTaken()
+        }
+    }
+    return focus
+}
+
+/** An open notice: the server's words in full, and the X that folds them. */
+@Composable
+private fun NoticeFull(
+    notice: ShownNotice,
+    collapseLabel: String,
+    takeFocus: Boolean,
+    onFocused: () -> Unit,
+    onFold: () -> Unit,
+) {
+    val focus = focusOnArrival(takeFocus, onFocused)
+    // The disclaimer at full contrast; the privacy note a step quieter, as it always was.
+    val disclaimer = notice.notice == PickerNotice.RESULTS_DISCLAIMER
+    val type = MaterialTheme.typography
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            Text(
+                notice.text,
+                style = if (disclaimer) type.bodyMedium else type.bodySmall,
+                color = if (disclaimer) colors.onSurface else colors.onSurfaceVariant,
+                modifier = Modifier.weight(1f).padding(start = 16.dp, top = 14.dp, bottom = 14.dp),
+            )
+            // An IconButton is 48dp, the touch target, and sits in the top end corner
+            // however many lines the text wraps to at a large font scale.
+            IconButton(onClick = onFold, modifier = Modifier.focusRequester(focus)) {
+                Icon(painterResource(R.drawable.ic_close), collapseLabel, Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+/** A folded notice: a chip with its icon and short label. The label is the button's name. */
+@Composable
+private fun NoticePill(notice: ShownNotice, takeFocus: Boolean, onFocused: () -> Unit, onUnfold: () -> Unit) {
+    val focus = focusOnArrival(takeFocus, onFocused)
+    // Hourglass: pending validation, not an error. Two people: the visitors being counted.
+    // Never a shield, which reads as a privacy setting, and there is none.
+    val icon = when (notice.notice) {
+        PickerNotice.RESULTS_DISCLAIMER -> R.drawable.ic_hourglass_top
+        PickerNotice.PRIVACY_NOTE -> R.drawable.ic_group
+    }
+    // An AssistChip is a button to TalkBack and pads itself to a 48dp target around its 32dp.
+    AssistChip(
+        onClick = onUnfold,
+        label = { Text(notice.short) },
+        leadingIcon = { Icon(painterResource(icon), null, Modifier.size(AssistChipDefaults.IconSize)) },
+        modifier = Modifier.focusRequester(focus),
+    )
 }
 
 @Composable

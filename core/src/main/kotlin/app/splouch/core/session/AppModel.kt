@@ -47,6 +47,12 @@ data class PickerState(
      */
     val searching: Boolean = false,
     val query: String = "",
+    /**
+     * P-06/P-07: the text each notice was folded at on this server, read from the
+     * [NoticeStore] whenever the config arrives. A notice starts folded only against the
+     * same words ([UiState.pickerNotices]).
+     */
+    val folds: Map<PickerNotice, String> = emptyMap(),
 ) {
     /** The search action is offered at all: only once there are enough meets to be worth searching. */
     val canSearch: Boolean get() = MeetSearch.shows(meets.size)
@@ -109,6 +115,12 @@ data class UiState(
     val locales: List<LocaleEntry> = emptyList(),
 ) {
     val kind: ServerKind? get() = serverInfo?.kind
+
+    /** P-06, then P-07 while counting is on, each with its words and whether it starts folded. */
+    val pickerNotices: List<ShownNotice> get() = pickerNotices(picker.config, pickerStrings, picker.folds)
+
+    /** The notices' X, by name. */
+    val noticeCollapseLabel: String get() = noticeCollapseLabel(picker.config, pickerStrings)
 }
 
 /**
@@ -171,6 +183,7 @@ class AppModel(
     private val http: HttpClient,
     private val transport: WebSocketTransport,
     private val vidStore: VidStore,
+    private val noticeStore: NoticeStore,
     private val prefsStore: PreferencesStore,
     private val bundleCache: BundleCache,
     private val scope: CoroutineScope,
@@ -436,6 +449,7 @@ class AppModel(
                 m.await() to c.await()
             }
             if (gen != generation) return@launch
+            val folds = loadFolds((config as? ApiResult.Ok)?.value)
             _state.update { s ->
                 val ok = meets is ApiResult.Ok
                 s.copy(
@@ -444,6 +458,7 @@ class AppModel(
                         loaded = s.picker.loaded || ok,
                         meets = (meets as? ApiResult.Ok)?.value ?: s.picker.meets,
                         config = (config as? ApiResult.Ok)?.value ?: s.picker.config,
+                        folds = folds,
                         error = when (meets) {
                             is ApiResult.Ok -> null
                             ApiResult.NotFound -> "HTTP 404"
@@ -453,6 +468,29 @@ class AppModel(
                 )
             }
         }
+    }
+
+    /**
+     * P-07's fold is forgotten whenever the server reports counting off, so a server that
+     * turns it back on says so in full. A config that failed to arrive reports nothing.
+     */
+    private fun loadFolds(config: PickerConfig?): Map<PickerNotice, String> {
+        val origin = current.server.origin
+        if (config != null && !config.analyticsEnabled) noticeStore.setFolded(origin, PickerNotice.PRIVACY_NOTE, null)
+        return PickerNotice.entries.mapNotNull { n -> noticeStore.folded(origin, n)?.let { n to it } }.toMap()
+    }
+
+    /** P-06/P-07's X: remember the exact words folded, for this server. */
+    fun foldNotice(notice: PickerNotice) {
+        val text = current.pickerNotices.firstOrNull { it.notice == notice }?.text ?: return
+        noticeStore.setFolded(current.server.origin, notice, text)
+        _state.update { it.copy(picker = it.picker.copy(folds = it.picker.folds + (notice to text))) }
+    }
+
+    /** The pill: open the notice again and forget the fold. */
+    fun unfoldNotice(notice: PickerNotice) {
+        noticeStore.setFolded(current.server.origin, notice, null)
+        _state.update { it.copy(picker = it.picker.copy(folds = it.picker.folds - notice)) }
     }
 
     fun openPickerSearch() = _state.update { it.copy(picker = it.picker.copy(searching = true)) }

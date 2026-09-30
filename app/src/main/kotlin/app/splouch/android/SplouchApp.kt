@@ -11,6 +11,7 @@ import app.splouch.android.platform.FileBundleCache
 import app.splouch.android.platform.NetworkWatcher
 import app.splouch.android.platform.NsdBrowser
 import app.splouch.android.platform.OkHttpTransport
+import app.splouch.android.platform.PrefsNoticeStore
 import app.splouch.android.platform.PrefsPreferencesStore
 import app.splouch.android.platform.PrefsVidStore
 import app.splouch.core.session.AppModel
@@ -43,6 +44,7 @@ class SplouchApp : Application() {
             http = transport,
             transport = transport,
             vidStore = PrefsVidStore(this),
+            noticeStore = PrefsNoticeStore(this),
             prefsStore = PrefsPreferencesStore(this),
             bundleCache = FileBundleCache(this),
             scope = scope,
