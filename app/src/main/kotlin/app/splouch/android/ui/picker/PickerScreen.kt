@@ -282,7 +282,15 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                             val img = if (m.hasPickerImage) state.server.httpUrl("/picker_image/${m.id}") else null
                             MeetCard(
                                 name = m.name.ifBlank { cfg?.strings?.get("unnamed_meet") ?: t.mobile("unnamed_meet") },
-                                meta = listOf(m.meetDate, m.location, m.sport).filter { it.isNotBlank() },
+                                // P-03: a retained meet says so in words, the server's (`mobile.offline`),
+                                // as on iOS — the dot alone is colour, and colour says nothing out loud.
+                                meta = listOf(
+                                    m.meetDate,
+                                    m.location,
+                                    m.sport,
+                                    if (m.offline) t.mobile("offline") else "",
+                                )
+                                    .filter { it.isNotBlank() },
                                 live = !m.offline,
                                 image = img?.let { url -> remoteBitmap(images, url) },
                                 reserveImage = anyImage,
@@ -565,15 +573,17 @@ private fun MeetCard(
     }
 }
 
-/** P-03: a live meet glows; a retained one keeps its place with a dimmed, hollow dot. */
+/**
+ * P-03: a live meet glows; a retained one keeps its place with a dimmed, hollow dot.
+ * Silent to TalkBack, as on iOS: a retained meet's word is in the row's details line, in the
+ * reader's language, and a live meet is the ordinary case and needs none.
+ */
 @Composable
 private fun StatusDot(live: Boolean) {
-    val label = if (live) "live" else "offline"
     if (!live) {
         Box(
             Modifier.size(10.dp).alpha(0.4f)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
-                .semantics { contentDescription = label },
+                .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
         )
         return
     }
@@ -584,8 +594,7 @@ private fun StatusDot(live: Boolean) {
     val alpha by pulse.animateFloat(1f, 0.45f, infiniteRepeatable(tween(1000), RepeatMode.Reverse), label = "alpha")
     Box(
         Modifier.size(10.dp).alpha(if (still) 1f else alpha)
-            .background(LiveGreen, CircleShape)
-            .semantics { contentDescription = label },
+            .background(LiveGreen, CircleShape),
     )
 }
 
