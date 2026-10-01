@@ -42,9 +42,11 @@ as it opens during heat 2.
 
 1. Run a Pi server with its own data folder, so a dev `~/SplouchData` is left alone,
    and name it — that name is the board's title:
+
    ```sh
    cd ../Splouch/server && HOME=/tmp/shots uv run uvicorn app:app --host 0.0.0.0 --port 5057
    ```
+
    Set `"meet_title": "Coupe Splouch 2026"` in `/tmp/shots/SplouchData/settings.json`
    and restart it.
 2. Copy `store-shots.lxf` into `/tmp/shots/SplouchData/recorded/`, beside a copy of
