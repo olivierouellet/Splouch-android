@@ -98,6 +98,11 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     val t = meet.strings
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val rail = useNavigationRail()
+    // L-15 / L-16: the board's layout follows the window's width, not its orientation — the
+    // full table from `Medium` (600dp), the two-line row on `Compact`. The same line as the
+    // rail's, and the web's, so a tablet held upright gets the table. `landscape` above still
+    // decides the app bar: a phone on its side is short, which is about height.
+    val wide = rail
     // A-11: the tab row is the meet's, not the app's. Recomputed rather than remembered,
     // so the config re-fetches of A-05, C-08, reconnect and foreground each land here.
     val tabs = MeetTab.of(meet.config)
@@ -294,8 +299,8 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                                 // Both board tabs answer the same question, the way they
                                 // already did in landscape: the bar carries whichever one is
                                 // in view, so neither draws its own band.
-                                MeetTab.SCOREBOARD -> ScoreboardTab(meet, landscape, metrics, headerInBar)
-                                MeetTab.RESULTS -> ResultsTab(meet, landscape, metrics, headerInBar)
+                                MeetTab.SCOREBOARD -> ScoreboardTab(meet, wide, metrics, headerInBar)
+                                MeetTab.RESULTS -> ResultsTab(meet, wide, metrics, headerInBar)
                                 MeetTab.SCHEDULE -> ScheduleTab(meet, filter, onResetFilters = {
                                     filter = filter.reset()
                                 })

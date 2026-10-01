@@ -219,6 +219,34 @@ class StringsThemeScheduleTests {
     }
 
     /**
+     * `api.md` §6.1, copied by hand: a hand-copied palette drifts — `header_label` sat at
+     * white instead of the accent blue — so every key this app carries is held to the
+     * published table.
+     */
+    @Test fun `both palettes match the published table`() {
+        val dark = mapOf(
+            "bg" to "#0d0d0d", "header_bg" to "#1a1a1a", "header_border" to "#2e2e2e",
+            "header_label" to "#3b9eff", "header_value" to "#e0e0e0", "th_text" to "#666666",
+            "th_bg" to "#1a1a1a", "row_odd" to "#141414", "row_even" to "#202020",
+            "row_text" to "#e0e0e0", "time" to "#FFD700", "delta_better" to "#4CAF50",
+            "delta_worse" to "#808080", "podium_gold" to "#545454", "podium_silver" to "#424242",
+            "podium_bronze" to "#343434", "schedule_event" to "#3b9eff",
+            "schedule_time" to "#FFD700", "schedule_name" to "#e0e0e0", "schedule_club" to "#666666",
+        )
+        val light = mapOf(
+            "bg" to "#f8f8f8", "header_bg" to "#ffffff", "header_border" to "#dddddd",
+            "header_label" to "#333333", "header_value" to "#111111", "th_text" to "#888888",
+            "th_bg" to "#f0f0f0", "row_odd" to "#f5f5f5", "row_even" to "#ffffff",
+            "row_text" to "#111111", "time" to "#0055aa", "delta_better" to "#2e7d32",
+            "delta_worse" to "#757575", "podium_gold" to "#d0d0d0", "podium_silver" to "#dcdcdc",
+            "podium_bronze" to "#e8e8e8", "schedule_event" to "#0055cc",
+            "schedule_time" to "#0055aa", "schedule_name" to "#111111", "schedule_club" to "#888888",
+        )
+        Theme.DEFAULT_COLORS.forEach { (key, value) -> assertEquals(dark[key], value, "dark $key") }
+        Theme.LIGHT_COLORS.forEach { (key, value) -> assertEquals(light[key], value, "light $key") }
+    }
+
+    /**
      * P-15: a device whose preferences were written before the key existed was seeing a
      * pinned-dark app, so that is what it keeps.
      */

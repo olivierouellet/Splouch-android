@@ -85,7 +85,8 @@ fun BoardGrid(
     rows: List<GridRow>,
     settings: MeetSettings,
     labels: Map<String, String>,
-    landscape: Boolean,
+    /** `L-15` / `L-16`: the window's width class, not its orientation. */
+    wide: Boolean,
     metrics: BoardMetrics,
     /** Whether the app bar is already carrying the `EVENT`/`HEAT` row (`L-15`, `L-16`). */
     headerInBar: Boolean,
@@ -98,7 +99,7 @@ fun BoardGrid(
     laps: LapSettings = LapSettings.OFF,
 ) {
     BoardType {
-        if (landscape) {
+        if (wide) {
             LandscapeGrid(rows, settings, labels, laps, modifier)
         } else {
             PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)

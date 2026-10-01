@@ -53,7 +53,7 @@ class SessionTests {
     }
 
     @Test fun `contract mismatch is a notice, never a refusal`() {
-        assertNull(Contract.mismatchNotice(ContractVersions("v2", "v1")))
+        assertNull(Contract.mismatchNotice(ContractVersions("v2", "v2")))
         val n = Contract.mismatchNotice(ContractVersions("v1", "v1"))!!
         assertTrue(n.contains("v1") && n.contains("v2"))
     }
@@ -85,7 +85,7 @@ class SessionTests {
         val api = SplouchApi(http, s)
         http.on(
             "https://c.example/server",
-            body = """{"kind":"cloud","name":"Splouch","contract":{"api":"v2","app":"v1"}}""",
+            body = """{"kind":"cloud","name":"Splouch","contract":{"api":"v2","app":"v2"}}""",
         )
         assertEquals(ServerKind.CLOUD, (api.serverInfo() as ApiResult.Ok).value.kind)
         http.on("https://c.example/meet/gone/config", status = 404, body = "{}")

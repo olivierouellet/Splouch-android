@@ -22,7 +22,7 @@ class PayloadTests {
     private fun j(s: String) = parseJsonOrNull(s)
 
     @Test fun `server handshake`() {
-        val s = ServerInfo.fromJson(j("""{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v1"}}"""))!!
+        val s = ServerInfo.fromJson(j("""{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}"""))!!
         assertEquals(ServerKind.PI, s.kind)
         assertEquals("v2", s.contract.api)
         assertNull(ServerInfo.fromJson(j("""{"kind":"tv"}""")))

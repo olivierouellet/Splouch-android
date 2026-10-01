@@ -25,7 +25,7 @@ import app.splouch.core.strings.EventName
  * whole page rather than sharing it with a second band of chrome.
  */
 @Composable
-fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
+fun ScoreboardTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
     val view by meet.session.scoreboard.collectAsStateWithLifecycle()
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
@@ -60,6 +60,6 @@ fun ScoreboardTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, he
                 metrics,
             )
         }
-        BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar, laps = laps)
+        BoardGrid(rows, meet.config.settings, labels, wide, metrics, headerInBar, laps = laps)
     }
 }

@@ -52,7 +52,7 @@ class AppModelTests {
     // Each payload stays on one line, as the server sends it, so a fixture reads against the wire.
     @Suppress("ktlint:standard:max-line-length")
     private fun StubHttp.cloudRoutes(base: String = "https://c.example") {
-        on("$base/server", body = """{"kind":"cloud","name":"Cloud","contract":{"api":"v2","app":"v1"}}""")
+        on("$base/server", body = """{"kind":"cloud","name":"Cloud","contract":{"api":"v2","app":"v2"}}""")
         on(
             "$base/meets",
             body = """{"meets":[{"id":"m1","name":"Meet One","offline":false},{"id":"m2","name":"Old","offline":true}]}""",
@@ -201,7 +201,7 @@ class AppModelTests {
 
     @Test fun `a pi goes straight to the board, joins nothing, and shows a contract notice once`() = runTest {
         val r = Rig(this, Preferences(server = pi))
-        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v1","app":"v1"}}""")
+        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v1","app":"v2"}}""")
         r.http.on(
             "$pi/config",
             body = """{"meet_title":"Pool Meet","num_lanes":8,"locale":"fr","labels":{"event":"ÉP"}}""",
@@ -233,7 +233,7 @@ class AppModelTests {
         assertEquals(AddServerResult.CleartextNotLocal, r.model.addServer("http://192.168.1.10:5000"))
         assertIs<AddServerResult.Unreachable>(r.model.addServer("https://nowhere.example"))
         assertEquals(emptyList(), r.prefsStore.load().servers)
-        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v1"}}""")
+        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
         r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
         r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
         val ok = r.model.addServer(pi)
@@ -299,7 +299,7 @@ class AppModelTests {
         r.http.cloudRoutes()
         r.model.start()
         runCurrent()
-        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v1"}}""")
+        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
         r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
         r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
 

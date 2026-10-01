@@ -22,7 +22,7 @@ import app.splouch.core.strings.EventName
 
 /** The last confirmed heat, held still (app.md §4). */
 @Composable
-fun ResultsTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
+fun ResultsTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
     val view by meet.session.resultsView.collectAsStateWithLifecycle()
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
@@ -50,7 +50,7 @@ fun ResultsTab(meet: MeetState, landscape: Boolean, metrics: BoardMetrics, heade
             // page, and a spectator reads nothing from it the line does not already say.
             EmptyState(icon = painterResource(R.drawable.ic_waiting), title = meet.strings.mobile("waiting_results"))
         } else {
-            BoardGrid(rows, meet.config.settings, labels, landscape, metrics, headerInBar)
+            BoardGrid(rows, meet.config.settings, labels, wide, metrics, headerInBar)
         }
     }
 }

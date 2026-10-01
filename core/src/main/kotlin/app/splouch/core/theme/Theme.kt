@@ -26,17 +26,14 @@ data class Theme(val colors: Map<String, String>, val fonts: Map<String, String>
 
     companion object {
         /**
-         * The dark board: `DEFAULT_THEME_COLORS` in `server/state.py`.
-         *
-         * One key differs on purpose. The server has `header_label` at `#3b9eff`, the same
-         * blue as `schedule_event`; this app and its iOS twin have carried `#ffffff` since
-         * before the palette was pinned, and every dark board anyone has seen on a phone
-         * has had white EVENT and HEAT words over it. Changing it now would restyle the
-         * board to fix a number nobody is reading.
+         * The dark board: the table `app.md` `P-15` points at, `api.md` §6.1, copied key for
+         * key. `header_label` is the accent blue `#3b9eff`, the same as `schedule_event` —
+         * it was `#ffffff` here and in the iOS twin, a transcription slip that also left
+         * `L-23`'s lap count nearly the row's own colour.
          */
         val DEFAULT_COLORS: Map<String, String> = mapOf(
             "bg" to "#0d0d0d", "header_bg" to "#1a1a1a", "header_border" to "#2e2e2e",
-            "header_label" to "#ffffff", "header_value" to "#e0e0e0",
+            "header_label" to "#3b9eff", "header_value" to "#e0e0e0",
             "th_text" to "#666666", "th_bg" to "#1a1a1a",
             "row_odd" to "#141414", "row_even" to "#202020", "row_text" to "#e0e0e0",
             "time" to "#FFD700", "delta_better" to "#4CAF50", "delta_worse" to "#808080",

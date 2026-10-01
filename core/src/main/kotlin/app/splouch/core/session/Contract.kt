@@ -8,7 +8,7 @@ import app.splouch.core.wire.ContractVersions
  * checkout is present.
  */
 object Contract {
-    val BUILT = ContractVersions(api = "v2", app = "v1")
+    val BUILT = ContractVersions(api = "v2", app = "v2")
 
     /**
      * P-14: a one-line notice naming both sides when either version differs; null when
