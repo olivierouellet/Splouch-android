@@ -18,12 +18,11 @@ tablets (Android 8.0 or later).
 
 | Scoreboard | Results | Schedule |
 | --- | --- | --- |
-| <img src="screenshots/en/dark/1-scoreboard.png" alt="Live scoreboard at the finish" width="200"> | <img src="screenshots/en/dark/2-results.png" alt="Heat results" width="200"> | <img src="screenshots/en/dark/3-schedule.png" alt="Meet schedule" width="200"> |
-| <img src="screenshots/fr/light/1-scoreboard.png" alt="Tableau en direct à l'arrivée" width="200"> | <img src="screenshots/fr/light/2-results.png" alt="Résultats de la série" width="200"> | <img src="screenshots/fr/light/3-schedule.png" alt="Horaire de la compétition" width="200"> |
+| <img src="Screenshots/phone/en/dark/1-scoreboard.png" alt="Live scoreboard at the finish" width="200"> | <img src="Screenshots/phone/en/dark/2-results.png" alt="Heat results" width="200"> | <img src="Screenshots/phone/en/dark/3-schedule.png" alt="Meet schedule" width="200"> |
+| <img src="Screenshots/phone/fr/light/1-scoreboard.png" alt="Tableau en direct à l'arrivée" width="200"> | <img src="Screenshots/phone/fr/light/2-results.png" alt="Résultats de la série" width="200"> | <img src="Screenshots/phone/fr/light/3-schedule.png" alt="Horaire de la compétition" width="200"> |
 
 Swimmers, clubs and times are fictional (a bundled test recording). Every screen
-in English and French, light and dark, is in [`screenshots/`](screenshots/); the
-Play Store set is in [`store/`](store/).
+in English and French, light and dark, is in [`Screenshots/`](Screenshots/).
 
 ---
 
@@ -43,8 +42,7 @@ Play Store set is in [`store/`](store/).
 | [Development](docs/development.md) | The contracts, code layout, building and testing, local servers, strings |
 | [Emulator](emulator.md) | Booting, installing, launching against a local server, driving and capturing |
 | [Parity ledger](parity.md) | One row per feature ID: built here or not, and why |
-| [Screenshots](screenshots/README.md) | What is captured, recapturing |
-| [Store graphics](store/README.md) | The Play Store set: feature graphic and framed screenshots |
+| [Screenshots](Screenshots/README.md) | What is captured, the Play Store set, recapturing |
 
 ---
 

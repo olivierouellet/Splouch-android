@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Renders the Google Play listing graphics from the screenshots in screenshots/ and the
-# icon SVG, per language:
+# Renders the Google Play listing graphics from the screenshots in Screenshots/phone/ and
+# the icon SVG, per listing locale:
 #
-#   store/<lang>/feature-graphic.png   1024x500, the banner above the listing
-#   store/<lang>/phone-<n>.png         1080x1920, a captioned screenshot
+#   Screenshots/PlayStore/<locale>/feature-graphic.png   1024x500, the banner above the listing
+#   Screenshots/PlayStore/<locale>/phone/<n>.png         1080x1920, a captioned screenshot
 #
 # The raw captures are 1080x2400 (20:9). Play refuses a screenshot whose long side is
 # more than twice its short side, so they are set into a 9:16 frame with a caption
-# rather than uploaded as they are. See store/README.md.
+# rather than uploaded as they are. See Screenshots/README.md.
 #
 # Usage: scripts/render-store-images.sh
 set -euo pipefail
@@ -41,8 +41,12 @@ fr|2|light/2-results|Les résultats dès la fin de la série
 fr|3|dark/3-schedule|Toutes les séries de la compétition
 fr|4|light/1-scoreboard|Clair ou sombre, à vous de choisir'
 
+store="$root/Screenshots/PlayStore"
+locale() { case "$1" in en) echo en-CA ;; fr) echo fr-CA ;; esac; }
+
 while IFS='|' read -r lang n shot caption; do
-  mkdir -p "$root/store/$lang"
+  out="$store/$(locale "$lang")/phone"
+  mkdir -p "$out"
   page="$tmp/$lang-$n.html"
   cat > "$page" <<HTML
 <!doctype html><meta charset="utf-8"><style>$style
@@ -51,9 +55,9 @@ while IFS='|' read -r lang n shot caption; do
   font-size:66px;font-weight:700;line-height:1.15;letter-spacing:-0.5px;text-wrap:balance}
 img{position:absolute;top:300px;left:50%;transform:translateX(-50%);height:1560px;
   border-radius:44px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
-</style><div class="cap">$caption</div><img src="file://$root/screenshots/$lang/$shot.png">
+</style><div class="cap">$caption</div><img src="file://$root/Screenshots/phone/$lang/$shot.png">
 HTML
-  render "$page" 1080 1920 "$root/store/$lang/phone-$n.png"
+  render "$page" 1080 1920 "$out/$n.png"
 done <<< "$shots"
 
 # lang | tagline
@@ -70,10 +74,10 @@ h1{margin:0;font-size:104px;font-weight:800;letter-spacing:-2px}
 p{margin:12px 0 0;font-size:40px;font-weight:500;line-height:1.2;opacity:.95;text-wrap:balance}
 </style>$(cat "$tmp/icon.svg")<div><h1>Splouch</h1><p>$tagline</p></div>
 HTML
-  render "$page" 1024 500 "$root/store/$lang/feature-graphic.png"
+  render "$page" 1024 500 "$store/$(locale "$lang")/feature-graphic.png"
 done <<< "$banners"
 
-for f in "$root"/store/*/*.png; do
+for f in "$store"/*/*.png "$store"/*/phone/*.png; do
   printf '%s  ' "${f#$root/}"
   sips -g pixelWidth -g pixelHeight "$f" | tail -2 | awk '{printf "%s ", $2}'; echo
 done

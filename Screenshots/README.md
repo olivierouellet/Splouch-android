@@ -1,15 +1,32 @@
 # Screenshots
 
-The app on a Pixel-8-sized AVD (1080×2400, `Medium_Phone` in [`emulator.md`](../emulator.md)),
-in both languages and both appearances:
+Every screen in English and French, light and dark, on a Pixel-8-sized phone
+(1080 × 2400, the `Medium_Phone` AVD in [`emulator.md`](../emulator.md)), and the
+Google Play set made from them.
 
-| | Light | Dark |
-| --- | --- | --- |
-| English | [`en/light/`](en/light) | [`en/dark/`](en/dark) |
-| Français | [`fr/light/`](fr/light) | [`fr/dark/`](fr/dark) |
+```text
+phone/<lang>/<light|dark>/1-scoreboard.png
+                          2-results.png
+                          3-schedule.png
+PlayStore/<en-CA|fr-CA>/feature-graphic.png    1024 × 500
+PlayStore/<en-CA|fr-CA>/phone/1.png … 4.png    1080 × 1920, framed and captioned
+```
 
-Each folder holds `1-scoreboard.png`, `2-results.png` and `3-schedule.png`. The Play
-listing's framed versions are made from these — see [`../store/`](../store).
+## The Play Store set
+
+Rendered by [`scripts/render-store-images.sh`](../scripts/render-store-images.sh) from
+`phone/` and the icon SVG — never edited by hand. It needs Chrome. Captions and
+taglines live in the script. The listing icon is not here: it is
+[`app/icon/play-store-512.png`](../app/icon/play-store-512.png), see
+[`app/icon/README.md`](../app/icon/README.md).
+
+**Why the Play screenshots are framed.** Play rejects a screenshot whose long side is
+more than twice its short side, and the raw captures are 20:9 (2400/1080 = 2.22). They
+are set into 9:16 with a caption instead of being cropped, which would cut off the tab
+bar.
+
+**No alpha.** Play's feature graphic and screenshots must be JPEG or 24-bit PNG; Chrome
+writes 24-bit for an opaque page. Tablet screenshots are optional and not made.
 
 ## What is on them
 
@@ -21,7 +38,7 @@ retake these against a real meet: the people on a start list are mostly minors.
 The scoreboard is the finish of event 3 heat 1, results that heat, schedule the screen
 as it opens during heat 2.
 
-## Retaking them
+## Recapturing
 
 1. Run a Pi server with its own data folder, so a dev `~/SplouchData` is left alone,
    and name it — that name is the board's title:
