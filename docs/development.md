@@ -1,7 +1,7 @@
 # Development
 
-How this repo is put together, how to build and test it, and where its words come from.
-It follows two contracts that live in the sibling `Splouch` repo and are never copied here:
+The app follows two contracts that live in the sibling `Splouch` repo and are
+never copied here:
 
 - `../Splouch/docs/app.md` — what a spectator sees and does (v1)
 - `../Splouch/docs/api.md` — sockets, events, payloads (v2)
