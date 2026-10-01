@@ -7,22 +7,21 @@ import app.splouch.core.wire.PickerConfig
  * P-06 and P-07, the two notices above the meet list. Each shows in full until the reader
  * folds it with its X to a pill, and the pill opens it again; neither ever goes away.
  *
- * The keys are the wire's (api.md §5.7 `strings`). The full texts are compliance text and
- * are the server's alone. The three keys added with the fold — the two pill labels and the
- * X's name — are missing from an older server's reply, and only for those does the app
- * carry an English word of its own, so a pill is never an empty button.
+ * The keys are the wire's (api.md §5.7 `strings`), and every word is the server's. The three
+ * keys added with the fold — the two pill labels and the X's name — are missing from an older
+ * server's reply; those come from the strings snapshot behind it, in the reader's language,
+ * so a pill is never an empty button and never English beside a French notice.
  */
-enum class PickerNotice(val textKey: String, val shortKey: String, val shortFallback: String) {
+enum class PickerNotice(val textKey: String, val shortKey: String) {
     /** P-06: live, unofficial results pending validation. Always shown. */
-    RESULTS_DISCLAIMER("results_disclaimer", "results_disclaimer_short", "Unofficial results"),
+    RESULTS_DISCLAIMER("results_disclaimer", "results_disclaimer_short"),
 
     /** P-07: attendance counting, shown only while the server reports it on. */
-    PRIVACY_NOTE("privacy_note", "privacy_note_short", "Attendance counting"),
+    PRIVACY_NOTE("privacy_note", "privacy_note_short"),
     ;
 
     companion object {
         const val COLLAPSE_KEY = "notice_collapse"
-        const val COLLAPSE_FALLBACK = "Collapse"
     }
 }
 
@@ -63,13 +62,15 @@ fun pickerNotices(config: PickerConfig?, table: StringTable, folds: Map<PickerNo
         if (config?.analyticsEnabled == true) add(PickerNotice.PRIVACY_NOTE)
     }
     return shown.map { n ->
-        val text = config?.strings?.get(n.textKey) ?: table.mobile(n.textKey)
-        val short = config?.strings?.get(n.shortKey) ?: table.mobileOrNull(n.shortKey) ?: n.shortFallback
+        val text = served(config, n.textKey) ?: table.mobile(n.textKey)
+        val short = served(config, n.shortKey) ?: table.mobile(n.shortKey)
         ShownNotice(n, text, short, folded = folds[n] == text)
     }
 }
 
-/** The X's accessible name: the server's word, else the snapshot's, else the app's English. */
+/** The X's accessible name: the server's word, else the snapshot's. */
 fun noticeCollapseLabel(config: PickerConfig?, table: StringTable): String =
-    config?.strings?.get(PickerNotice.COLLAPSE_KEY) ?: table.mobileOrNull(PickerNotice.COLLAPSE_KEY)
-        ?: PickerNotice.COLLAPSE_FALLBACK
+    served(config, PickerNotice.COLLAPSE_KEY) ?: table.mobile(PickerNotice.COLLAPSE_KEY)
+
+/** A word from `GET /picker/config` → `strings`; empty counts as absent, as in [StringTable]. */
+private fun served(config: PickerConfig?, key: String): String? = config?.strings?.get(key)?.takeIf(String::isNotEmpty)

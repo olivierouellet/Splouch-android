@@ -134,9 +134,10 @@ gets its worst bugs. §8's two font-scale bugs were both invisible to the suite.
 
 ### Tooling by language
 
-What checks each kind of file, and whether CI fails on it. The fonts and the captured
-string snapshot are copies of the server repo's and checked by nothing here beyond their
-presence.
+What checks each kind of file, and whether CI fails on it. The fonts are a copy of the
+server repo's and checked by nothing here beyond their presence. The captured string
+snapshot is compared with the default cloud by `.github/workflows/strings.yml`, on every
+push and weekly.
 
 | Language | Where | Linter | Formatter | Types / schema | Tests | Coverage | Editor (VS Code) | Gated in CI |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

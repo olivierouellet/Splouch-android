@@ -22,7 +22,6 @@
     <string name="bad_server_link">Ce lien ne contient pas d\'adresse de serveur</string>
 
     <string name="cancel">Annuler</string>
-    <string name="done">Terminé</string>
     <string name="ok">OK</string>
     <string name="retry">Réessayer</string>
     <string name="clear">Effacer</string>
@@ -38,6 +37,4 @@
     <string name="language">Langue</string>
     <string name="language_auto">Automatique</string>
     <string name="more_options">Plus d\'options</string>
-
-    <string name="laps">longueurs</string>
 </resources>

@@ -518,13 +518,14 @@ class AppModelTests {
         assertFalse(r.model.notice(PRIVACY_NOTE).folded)
     }
 
-    @Test fun `an older server's missing pill words and X name fall back to English, never to the key`() = runTest {
+    @Test fun `an older server's missing pill words and X name come from the snapshot, never the key`() = runTest {
         val r = Rig(this)
         r.http.cloudRoutes()
         r.model.start()
         runCurrent()
-        assertEquals("Unofficial results", r.model.notice(RESULTS_DISCLAIMER).short)
-        assertEquals("Attendance counting", r.model.notice(PRIVACY_NOTE).short)
-        assertEquals("Collapse", r.model.current.noticeCollapseLabel)
+        // In the reader's language, from the snapshot — not English beside a French notice.
+        assertEquals("Résultats non officiels", r.model.notice(RESULTS_DISCLAIMER).short)
+        assertEquals("Comptage de l'assistance", r.model.notice(PRIVACY_NOTE).short)
+        assertEquals("Réduire", r.model.current.noticeCollapseLabel)
     }
 }

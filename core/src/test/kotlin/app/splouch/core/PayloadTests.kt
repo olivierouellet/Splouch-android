@@ -190,7 +190,7 @@ class PayloadTests {
         assertTrue(m[0].offline)
         val b = I18nBundle.fromJson(
             j(
-                """{"lang":"fr","mobile":{"scoreboard":"Tableau"},"display":{},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}""",
+                """{"lang":"fr","mobile":{"scoreboard":"Tableau"},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}""",
             ),
         )!!
         assertEquals("Tableau", b.mobile["scoreboard"])

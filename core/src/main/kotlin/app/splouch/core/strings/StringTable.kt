@@ -25,9 +25,7 @@ class StringTable(
     fun mobile(key: String): String = resolve(key) { it.mobile }
 
     /** [mobile], but null rather than the bare key when no layer has it — for a caller with its own fallback. */
-    fun mobileOrNull(key: String): String? = layers.firstNotNullOfOrNull { it.mobile[key] }
-
-    fun display(key: String): String = resolve(key) { it.display }
+    fun mobileOrNull(key: String): String? = layers.firstNotNullOfOrNull { it.mobile[key]?.takeIf(String::isNotEmpty) }
 
     /** One label table (`short` or `long`), layered per key across the three sources. */
     fun labels(style: String): Map<String, String> = merged { it.labels[style] ?: emptyMap() }
@@ -35,14 +33,16 @@ class StringTable(
     /** The vocabulary an `event_name_parts` composes against (T-11). */
     val eventVocab: Map<String, String> get() = merged { it.eventName }
 
+    // An empty value is a gap, not a word: it falls through to the next layer, as on iOS,
+    // so a blank key in a cached or older bundle never renders as a blank control.
     private fun resolve(key: String, section: (I18nBundle) -> Map<String, String>): String {
-        for (layer in layers) section(layer)[key]?.let { return it }
+        for (layer in layers) section(layer)[key]?.takeIf(String::isNotEmpty)?.let { return it }
         return key
     }
 
     private fun merged(section: (I18nBundle) -> Map<String, String>): Map<String, String> {
         val out = HashMap<String, String>()
-        for (layer in layers.asReversed()) out.putAll(section(layer))
+        for (layer in layers.asReversed()) out.putAll(section(layer).filterValues(String::isNotEmpty))
         return out
     }
 

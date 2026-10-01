@@ -50,7 +50,15 @@ fun ResultsTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBa
             // page, and a spectator reads nothing from it the line does not already say.
             EmptyState(icon = painterResource(R.drawable.ic_waiting), title = meet.strings.mobile("waiting_results"))
         } else {
-            BoardGrid(rows, meet.config.settings, labels, wide, metrics, headerInBar)
+            BoardGrid(
+                rows,
+                meet.config.settings,
+                labels,
+                wide,
+                metrics,
+                headerInBar,
+                lapsWord = meet.strings.mobile("spoken_laps"),
+            )
         }
     }
 }

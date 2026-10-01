@@ -29,7 +29,6 @@ class StringsThemeScheduleTests {
             "results" to "Results",
             "only_en" to "English only",
         ),
-        emptyMap(),
         mapOf(
             "short" to mapOf("event" to "EV", "heat" to "HT", "lane" to "LN"),
             "long" to mapOf("event" to "EVENT", "heat" to "HEAT", "lane" to "LN"),
@@ -46,14 +45,22 @@ class StringsThemeScheduleTests {
         I18nBundle(
             "fr",
             mapOf("scoreboard" to "Tableau (built-in)", "results" to "Résultats"),
-            emptyMap(),
             mapOf(
                 "short" to mapOf("event" to "ÉP", "heat" to "SÉR", "lane" to "CL"),
                 "long" to mapOf("event" to "ÉPREUVE", "heat" to "SÉRIE", "lane" to "CL"),
             ),
             mapOf("unit" to "m", "separator" to "  —  ", "backstroke" to "dos", "girls" to "Filles"),
         )
-    private val frCached = I18nBundle("fr", mapOf("scoreboard" to "Tableau"), emptyMap(), emptyMap(), emptyMap())
+    private val frCached = I18nBundle("fr", mapOf("scoreboard" to "Tableau"), emptyMap(), emptyMap())
+
+    @Test fun `an empty value is a gap and falls through to the next layer`() {
+        val blank = I18nBundle("fr", mapOf("scoreboard" to "", "results" to ""), emptyMap(), emptyMap())
+        val t = StringTable("fr", blank, frBuiltIn, en)
+        assertEquals("Tableau (built-in)", t.mobile("scoreboard"))
+        assertEquals("Tableau (built-in)", t.mobileOrNull("scoreboard"))
+        val noBuiltIn = StringTable("fr", blank, null, en)
+        assertEquals("Results", noBuiltIn.mobile("results"))
+    }
 
     @Test fun `resolution order - cached, built-in, built-in English, the key`() {
         val t = StringTable("fr", frCached, frBuiltIn, en)

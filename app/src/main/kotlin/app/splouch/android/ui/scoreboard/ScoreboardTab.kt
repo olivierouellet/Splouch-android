@@ -60,6 +60,15 @@ fun ScoreboardTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerI
                 metrics,
             )
         }
-        BoardGrid(rows, meet.config.settings, labels, wide, metrics, headerInBar, laps = laps)
+        BoardGrid(
+            rows,
+            meet.config.settings,
+            labels,
+            wide,
+            metrics,
+            headerInBar,
+            laps = laps,
+            lapsWord = meet.strings.mobile("spoken_laps"),
+        )
     }
 }

@@ -511,7 +511,6 @@ data class LocaleEntry(val code: String, val name: String) {
 data class I18nBundle(
     val lang: String,
     val mobile: Map<String, String>,
-    val display: Map<String, String>,
     /** `short` and `long` tables, each key → word. */
     val labels: Map<String, Map<String, String>>,
     val eventName: Map<String, String>,
@@ -523,7 +522,6 @@ data class I18nBundle(
             return I18nBundle(
                 lang = lang,
                 mobile = o["mobile"].asObjectOrNull().stringMap(),
-                display = o["display"].asObjectOrNull().stringMap(),
                 labels = o["labels"].asObjectOrNull()?.entries
                     ?.mapNotNull { (style, words) -> words.asObjectOrNull()?.let { style to it.stringMap() } }
                     ?.toMap() ?: emptyMap(),

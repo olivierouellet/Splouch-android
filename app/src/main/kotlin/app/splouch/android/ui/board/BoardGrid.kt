@@ -35,7 +35,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
@@ -46,7 +45,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.splouch.android.R
 import app.splouch.android.ui.theme.AutoSizeText
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
@@ -97,12 +95,14 @@ fun BoardGrid(
      * the cell only ever holds a delta, so `R-04`'s header keeps its word.
      */
     laps: LapSettings = LapSettings.OFF,
+    /** `X-01`: the word a lap count is spoken with — `[mobile] spoken_laps`, the server's (`T-05`). */
+    lapsWord: String,
 ) {
     BoardType {
         if (wide) {
-            LandscapeGrid(rows, settings, labels, laps, modifier)
+            LandscapeGrid(rows, settings, labels, laps, lapsWord, modifier)
         } else {
-            PortraitGrid(rows, settings, labels, metrics, headerInBar, modifier)
+            PortraitGrid(rows, settings, labels, metrics, headerInBar, lapsWord, modifier)
         }
     }
 }
@@ -148,10 +148,8 @@ private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, Strin
     ) {
         parts += "${word("delta")} ${DeltaFormat.text(r.deltaSeconds)}".trim()
     }
-    // The wire has no spectator word for a lap — `GET /i18n/{lang}`'s `labels` names the six
-    // columns and stops — so this one comes from the app's own strings, in the app's languages
-    // rather than the meet's. The single place on the board where `T-04` does not hold, taken
-    // over reading a bare integer after the time.
+    // No column names a lap, so its word is `[mobile] spoken_laps` (`X-01`), the one the web
+    // board speaks too — not a bare integer heard as a second time.
     if (settings.showDelta && r.lap != null) parts += "$lapsWord ${r.lap.text}".trim()
     if (settings.showPosition && r.place.isNotBlank()) parts += "${word("place")} ${r.place}".trim()
     return parts.joinToString(", ")
@@ -166,11 +164,11 @@ private fun PortraitGrid(
     labels: Map<String, String>,
     metrics: BoardMetrics,
     headerInBar: Boolean,
+    lapsWord: String,
     modifier: Modifier,
 ) {
     val colors = LocalBoardColors.current
     val density = LocalDensity.current
-    val lapsWord = stringResource(R.string.laps)
     BoxWithConstraints(modifier.fillMaxSize()) {
         val count = rows.size.coerceAtLeast(1)
         // The lanes share the whole height, equally, and there is no floor under a row: the
@@ -378,12 +376,12 @@ private fun LandscapeGrid(
     settings: MeetSettings,
     labels: Map<String, String>,
     laps: LapSettings,
+    lapsWord: String,
     modifier: Modifier,
 ) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val density = LocalDensity.current
-    val lapsWord = stringResource(R.string.laps)
     // L-23: the delta title goes entirely while the lap count is on. For most of a heat that
     // column holds lengths, and a `Δ` over a column of small integers reads as a claim about
     // them. It stays gone through the results too — a header that appeared at the finish would

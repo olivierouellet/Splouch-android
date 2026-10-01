@@ -102,7 +102,9 @@ scripts/update-strings.sh https://splouch.ca
 
 `SnapshotCoverageTests` fails the build when the app asks for a `mobile` key the
 snapshot does not carry. The fix is on the server, then a recapture — not a word
-added here.
+added here. The other direction is CI's: `.github/workflows/strings.yml` runs the
+script with `--check` against `https://splouch.ca` on every push and weekly, and fails
+with the keys that differ when the server has moved on.
 
 ## Community
 

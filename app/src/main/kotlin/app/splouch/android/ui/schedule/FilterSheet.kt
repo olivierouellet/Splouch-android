@@ -101,7 +101,7 @@ fun FilterSheet(
                     title = { Text(t.mobile("filter"), style = MaterialTheme.typography.titleLarge, maxLines = 1) },
                     actions = {
                         IconButton(onClick = onDismiss) {
-                            Icon(painterResource(R.drawable.ic_check), stringResource(R.string.done))
+                            Icon(painterResource(R.drawable.ic_check), t.mobile("filter_done"))
                         }
                     },
                 )
