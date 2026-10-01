@@ -41,7 +41,7 @@ behind the ones that look arbitrary: https://github.com/olivierouellet/Splouch-a
 
 ## Also
 
-- [ ] `README.md` / `emulator.md` updated, if this changes something a developer runs.
+- [ ] `docs/development.md` / `emulator.md` updated, if this changes something a developer runs.
 - [ ] Commits read `[Area] What changed`, one topic each.
 - [ ] Accessibility held up: font scale at 2.0×, and TalkBack order and labels, for any screen this touches.
 

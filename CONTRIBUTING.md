@@ -67,7 +67,7 @@ adb shell am start -n app.splouch.android/.MainActivity --es server http://10.0.
 ```
 
 `--es server` points a debug build at one dev server for this launch without touching
-stored preferences. The [README](README.md) has the two dev servers and how to push live
+stored preferences. [`docs/development.md`](docs/development.md) has the two dev servers and how to push live
 frames without a timing console.
 
 ---
@@ -105,7 +105,7 @@ line with a comment saying why.
 
 CI runs all of those on every push and pull request, in two jobs that exist because
 each proves something the other cannot see. One has **no Android SDK at all** and asserts
-`:app` really is out of the build — the README's claim, checked rather than trusted —
+`:app` really is out of the build — `docs/development.md`'s claim, checked rather than trusted —
 checks the format of every Kotlin file, `app/` included, and runs the suite with a floor under the test count, because a test task that discovers
 nothing still succeeds. A failing test prints its name and full stack trace into the log,
 and the HTML and XML reports are uploaded as an artifact on that run only. The other job

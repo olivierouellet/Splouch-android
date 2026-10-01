@@ -6,7 +6,7 @@
 # a working checkout of the contract layer — but it is also the one thing on this repo
 # that can turn a green tick into a lie: a job whose SDK setup quietly broke would run
 # `:core:test`, build nothing else, and pass. So one job asserts `:app` is **absent** and
-# runs the suite on a bare JDK, which is the claim the README makes; the other asserts it
+# runs the suite on a bare JDK, which is the claim docs/development.md makes; the other asserts it
 # is **present** and builds it. Neither trusts the warning to be read.
 #
 # `:core:test` never compiles `:app` either way: the Compose screens, the OkHttp and NSD

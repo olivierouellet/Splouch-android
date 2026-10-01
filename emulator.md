@@ -57,7 +57,7 @@ address. Only `.local` names, `localhost`, `127.0.0.1` and `10.0.2.2` may be dia
 over plain HTTP — see `app/src/main/res/xml/network_security_config.xml` and app.md
 `P-12`.
 
-Dev servers, per the README. Note the Pi cannot have port 5000 on macOS: ControlCenter
+Dev servers, per [`docs/development.md`](docs/development.md). Note the Pi cannot have port 5000 on macOS: ControlCenter
 (AirPlay Receiver) listens there, so pass an explicit port.
 
 ```sh

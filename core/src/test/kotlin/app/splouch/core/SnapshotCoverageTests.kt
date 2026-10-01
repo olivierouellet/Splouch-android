@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  *
  * A failure here is a **server-side** gap: the word belongs in the server's
  * `shared/locales` table, and the fix is to add it there and re-run
- * `scripts/update-strings.sh` (task C in this repo's README). Never satisfy
+ * `scripts/update-strings.sh` (see `docs/development.md` → Strings). Never satisfy
  * this test by adding a word to the app — a word the app owns is a native string
  * resource and does not go through [app.splouch.core.strings.StringTable.mobile] at all.
  */
