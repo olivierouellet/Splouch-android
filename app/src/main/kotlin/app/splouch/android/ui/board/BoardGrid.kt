@@ -779,7 +779,8 @@ fun BoardHeader(
             if (clock != null) {
                 Text(
                     clock,
-                    color = colors.headerValue,
+                    // The accent blue, like the EVENT/HEAT words, as on every board.
+                    color = colors.headerLabel,
                     fontSize = t.value,
                     fontFamily = fonts.digits,
                     maxLines = 1,
@@ -864,7 +865,8 @@ fun BoardBarHeaderRow(
             if (clock != null) {
                 Text(
                     clock,
-                    color = colors.headerValue,
+                    // The accent blue, like the EVENT/HEAT words, as on every board.
+                    color = colors.headerLabel,
                     fontSize = t.value,
                     fontFamily = fonts.digits,
                     maxLines = 1,
