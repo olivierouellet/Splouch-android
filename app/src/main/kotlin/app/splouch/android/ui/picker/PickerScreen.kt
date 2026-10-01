@@ -179,7 +179,7 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(t.mobile("language")) },
+                                text = { Text(stringResource(R.string.language)) },
                                 leadingIcon = { Icon(painterResource(R.drawable.ic_language), null) },
                                 onClick = {
                                     showMenu = false

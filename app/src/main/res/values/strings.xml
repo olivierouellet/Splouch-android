@@ -49,6 +49,8 @@
     <string name="appearance_dark">Dark</string>
     <string name="appearance_light">Light</string>
     <string name="appearance_auto">Automatic</string>
+    <string name="language">Language</string>
+    <string name="language_auto">Automatic</string>
     <string name="more_options">More options</string>
 
     <!-- L-23, the screen reader only: what the number in the delta cell is while a lane is

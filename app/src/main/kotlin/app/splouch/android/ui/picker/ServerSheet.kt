@@ -267,12 +267,11 @@ private fun ServerRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
-    val t = state.pickerStrings
     val locales = state.locales.ifEmpty { BuiltInStrings.locales() }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            SectionHeader(t.mobile("language"))
-            ChoiceRow(t.mobile("language_auto"), state.prefs.lang == null) { model.setLang(null) }
+            SectionHeader(stringResource(R.string.language))
+            ChoiceRow(stringResource(R.string.language_auto), state.prefs.lang == null) { model.setLang(null) }
             locales.forEach { l -> ChoiceRow(l.name, state.prefs.lang == l.code) { model.setLang(l.code) } }
         }
     }
