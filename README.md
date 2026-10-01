@@ -12,6 +12,14 @@ sibling `Splouch` repo and are never copied here:
 [`parity.md`](parity.md) is this repo's ledger: one row per feature ID, whether it
 is built here and why not.
 
+<p>
+  <img src="screenshots/en/dark/1-scoreboard.png" width="200" alt="Scoreboard, dark">
+  <img src="screenshots/en/light/2-results.png" width="200" alt="Results, light">
+  <img src="screenshots/fr/dark/3-schedule.png" width="200" alt="Horaire, sombre">
+</p>
+
+More in [`screenshots/`](screenshots); the Play listing graphics are in [`store/`](store).
+
 ## Layout
 
 - `core/` — plain Kotlin (JVM), no Android types: the contract layer, testable with a JDK alone.
