@@ -328,7 +328,7 @@ that will never send one that `A-11` takes the tab away instead of rewording it.
 | `T-08` | A language control, per device, applying to every meet opened afterwards | should | `done` | `PrefsSheet` on the picker, `GET /locales`; `ListItem` rows made `selectable`, and no Done button — a `ModalBottomSheet` closes on a swipe, the scrim or back, and the choice applies as it is made |
 | `T-09` | The board's EVENT and HEAT headers read long; a short/long control is optional | should | `done` | No control, and the labels are always long, which `app.md` v2 makes the rule on every client. Withdrawn from `PrefsSheet` on 2026-09-15, not deleted: `Preferences.effectiveLabelStyle` returns `Labels.LONG` and reads *over* the stored `labelStyle`, so a user who had chosen short keeps that choice if the control returns. `Labels.resolve`, `AppModel.setLabelStyle`, the decode path and the store are untouched and tested |
 | `T-10` | A built-in snapshot of the strings is the floor: compiled into the app, refreshed from the server, cached to disk | must | `done` | `core/src/main/resources/i18n/*.json` captured by `scripts/update-strings.sh`; `FileBundleCache` with ETag revalidation |
-| `T-11` | The event name follows the chosen language, composed from parts the server sends | should | `done` | `EventName.compose` (tests) |
+| `T-11` | The event name follows the chosen language, composed from parts the server sends | should | `done` | `EventName.compose` (tests), `round` included — its word after a second separator, the operator's phone choice already applied by the server |
 
 ## 8. Accessibility
 

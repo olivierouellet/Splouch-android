@@ -280,6 +280,8 @@ data class EventNameParts(
     val gender: String = "",
     val age: String = "",
     val ageKey: String = "",
+    /** Lenex round key (`final`, `prelims`, …) or `""`; already filtered by the operator's phone setting (api.md §5.1). */
+    val round: String = "",
 ) {
     companion object {
         fun fromJson(e: JsonElement?): EventNameParts? {
@@ -293,6 +295,7 @@ data class EventNameParts(
                 gender = s("gender"),
                 age = s("age"),
                 ageKey = s("age_key"),
+                round = s("round"),
             )
         }
     }

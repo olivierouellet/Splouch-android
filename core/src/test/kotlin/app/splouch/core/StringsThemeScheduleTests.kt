@@ -49,7 +49,13 @@ class StringsThemeScheduleTests {
                 "short" to mapOf("event" to "ÉP", "heat" to "SÉR", "lane" to "CL"),
                 "long" to mapOf("event" to "ÉPREUVE", "heat" to "SÉRIE", "lane" to "CL"),
             ),
-            mapOf("unit" to "m", "separator" to "  —  ", "backstroke" to "dos", "girls" to "Filles"),
+            mapOf(
+                "unit" to "m",
+                "separator" to "  —  ",
+                "backstroke" to "dos",
+                "girls" to "Filles",
+                "final" to "Finale",
+            ),
         )
     private val frCached = I18nBundle("fr", mapOf("scoreboard" to "Tableau"), emptyMap(), emptyMap())
 
@@ -117,6 +123,18 @@ class StringsThemeScheduleTests {
             "4x50 m Backstroke Relay",
             EventName.compose(EventNameParts(dist = "4x50", stroke = "backstroke", relay = true), en.eventName),
         )
+    }
+
+    @Test fun `a round follows the name behind its own separator`() {
+        val vocab = StringTable("fr", null, frBuiltIn, en).eventVocab
+        val parts = EventNameParts(dist = "200", stroke = "backstroke", gender = "girls", round = "final")
+        assertEquals("200 m dos  —  Filles  —  Finale", EventName.compose(parts, vocab))
+        assertEquals(
+            "Club Handicap  —  Finale",
+            EventName.compose(EventNameParts(raw = "Club Handicap", round = "final"), vocab),
+        )
+        assertEquals("50 m  —  bogus", EventName.compose(EventNameParts(dist = "50", round = "bogus"), vocab))
+        assertEquals("50 m", EventName.compose(EventNameParts(dist = "50"), vocab))
     }
 
     @Test fun `theme falls back to the documented defaults`() {

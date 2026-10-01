@@ -52,10 +52,14 @@ class PayloadTests {
         assertNull(f.eventNameParts)
         val g = ScoreboardFrame.fromJson(
             j(
-                """{"event_name_parts":{"dist":"200","stroke":"backstroke","relay":false,"gender":"girls","age":"< 12"}}""",
+                """{"event_name_parts":{"dist":"200","stroke":"backstroke","relay":false,"gender":"girls","age":"< 12","round":"final"}}""",
             ),
         )!!
         assertEquals("backstroke", g.eventNameParts!!.stroke)
+        assertEquals("final", g.eventNameParts!!.round)
+        // A server from before `round` existed: absent reads as none.
+        val old = ScoreboardFrame.fromJson(j("""{"event_name_parts":{"dist":"50"}}"""))!!
+        assertEquals("", old.eventNameParts!!.round)
     }
 
     @Test fun `results snapshot, sort absent`() {

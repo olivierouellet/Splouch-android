@@ -18,10 +18,12 @@ object EventName {
         val age = parts.age.ifEmpty { word(parts.ageKey) }
         val right = listOf(word(parts.gender), age).filter { it.isNotEmpty() }.joinToString(" ")
         val l = left.joinToString(" ")
-        val composed = when {
-            l.isNotEmpty() && right.isNotEmpty() -> l + (vocab["separator"] ?: "  —  ") + right
+        val sep = vocab["separator"] ?: "  —  "
+        var composed = when {
+            l.isNotEmpty() && right.isNotEmpty() -> l + sep + right
             else -> l.ifEmpty { right.ifEmpty { parts.raw } }
         }
+        if (parts.round.isNotEmpty()) composed += sep + word(parts.round)
         return composed.ifEmpty { null }
     }
 
