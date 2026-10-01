@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,7 @@ import app.splouch.android.R
 import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.KnownServer
+import app.splouch.core.session.LocalSearch
 import app.splouch.core.session.RemovedServer
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.UiState
@@ -60,9 +62,9 @@ import app.splouch.core.strings.BuiltInStrings
 import kotlinx.coroutines.launch
 
 /**
- * P-11..P-13: the server list — default, saved, the server's directory, nearby — and the
- * add-by-hand field. Every word here is about the app or the device, so it is a native
- * string resource, not a server string (app.md T-05).
+ * P-11..P-13: the server list — default, saved, the server's directory, the officials' local
+ * server once searched for — and the add-by-hand field. Every word here is about the app or
+ * the device, so it is a native string resource, not a server string (app.md T-05).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +113,9 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
         }
     }
 
+    // P-12: the browse lives no longer than the sheet that asked for it.
+    DisposableEffect(model) { onDispose { model.stopLocalSearch() } }
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Box {
             Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
@@ -138,21 +143,43 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                         )
                     }
                 }
-                if (nearby.isNotEmpty()) {
-                    SectionHeader(stringResource(R.string.nearby))
-                    nearby.forEach {
-                        key(it.address.origin) {
-                            ServerRow(
-                                it,
-                                it.address == state.server,
-                                removeLabel,
-                                onSelect = {
-                                    model.selectServer(it.address)
-                                    onDismiss()
-                                },
-                                onRemove = null,
-                            )
+                // P-12: nothing is browsed until Search is tapped — a browse in an idle sheet
+                // costs battery and finds nothing an official was not about to ask for.
+                SectionHeader(stringResource(R.string.local_server))
+                when (state.localSearch) {
+                    LocalSearch.SEARCHING -> if (nearby.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
                         }
+                    }
+                    LocalSearch.IDLE -> TextButton(onClick = model::searchLocal, Modifier.padding(horizontal = 4.dp)) {
+                        Text(stringResource(R.string.local_search))
+                    }
+                    LocalSearch.NONE_FOUND -> Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            stringResource(R.string.local_none_found),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = model::searchLocal) { Text(stringResource(R.string.local_search_again)) }
+                    }
+                }
+                nearby.forEach {
+                    key(it.address.origin) {
+                        ServerRow(
+                            it,
+                            it.address == state.server,
+                            removeLabel,
+                            onSelect = {
+                                model.selectServer(it.address)
+                                onDismiss()
+                            },
+                            onRemove = null,
+                        )
                     }
                 }
                 SectionHeader(stringResource(R.string.add_server))

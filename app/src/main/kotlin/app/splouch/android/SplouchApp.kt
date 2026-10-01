@@ -24,7 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 /**
  * Owns the one [AppModel] for the process, so a rotation or a recreated Activity never
  * reconnects a socket. The platform signals the model needs — foreground, background,
- * network restored, nearby servers — are wired here.
+ * network restored — are wired here, and the mDNS browse the server sheet starts (P-12).
  */
 class SplouchApp : Application() {
 
@@ -34,7 +34,6 @@ class SplouchApp : Application() {
     val transport = OkHttpTransport()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     lateinit var model: AppModel private set
-    private lateinit var nsd: NsdBrowser
     val images = ImageCache(transport)
 
     override fun onCreate() {
@@ -50,16 +49,14 @@ class SplouchApp : Application() {
             scope = scope,
             deviceLang = Locale.getDefault().language.ifEmpty { "en" },
         )
-        nsd = NsdBrowser(this) { model.setDiscovered(it) }
+        model.serverBrowser = NsdBrowser(this) { model.setDiscovered(it) }
         NetworkWatcher(this) { model.networkRestored() }.start()
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 model.foreground()
-                nsd.start()
             }
             override fun onStop(owner: LifecycleOwner) {
                 model.background()
-                nsd.stop()
             }
         })
         model.start()

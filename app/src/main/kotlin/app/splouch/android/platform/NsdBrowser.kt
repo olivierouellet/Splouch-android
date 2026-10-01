@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import app.splouch.core.session.KnownServer
 import app.splouch.core.session.ServerAddress
+import app.splouch.core.session.ServerBrowser
 import app.splouch.core.wire.ServerKind
 
 /**
@@ -18,13 +19,13 @@ import app.splouch.core.wire.ServerKind
  * devices a Pi is still found but cannot be offered; it can be added by hand as
  * `http://splouch.local:5000` (P-13).
  */
-class NsdBrowser(context: Context, private val onChange: (List<KnownServer>) -> Unit) {
+class NsdBrowser(context: Context, private val onChange: (List<KnownServer>) -> Unit) : ServerBrowser {
     private val nsd = context.getSystemService(NsdManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val found = LinkedHashMap<String, KnownServer>()
     private var listener: NsdManager.DiscoveryListener? = null
 
-    fun start() {
+    override fun start() {
         if (listener != null || nsd == null) return
         val l = object : NsdManager.DiscoveryListener {
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
@@ -50,7 +51,7 @@ class NsdBrowser(context: Context, private val onChange: (List<KnownServer>) -> 
         }
     }
 
-    fun stop() {
+    override fun stop() {
         listener?.let {
             try {
                 nsd?.stopServiceDiscovery(it)

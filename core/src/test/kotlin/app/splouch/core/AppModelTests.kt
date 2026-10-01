@@ -6,12 +6,15 @@ import app.splouch.core.session.InMemoryNoticeStore
 import app.splouch.core.session.InMemoryPreferencesStore
 import app.splouch.core.session.InMemoryVidStore
 import app.splouch.core.session.InviteFailure
+import app.splouch.core.session.KnownServer
+import app.splouch.core.session.LocalSearch
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.PickerNotice
 import app.splouch.core.session.PickerNotice.PRIVACY_NOTE
 import app.splouch.core.session.PickerNotice.RESULTS_DISCLAIMER
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
+import app.splouch.core.session.ServerBrowser
 import app.splouch.core.session.ServerInvite
 import app.splouch.core.session.ServerLink
 import app.splouch.core.strings.InMemoryBundleCache
@@ -26,7 +29,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -222,6 +227,83 @@ class AppModelTests {
         assertTrue(r.transport.connections.all { it.sent.isEmpty() })
         r.model.dismissNotice()
         assertNull(r.model.current.contractNotice)
+    }
+
+    private class FakeBrowser : ServerBrowser {
+        var running = false
+        var starts = 0
+        override fun start() {
+            running = true
+            starts++
+        }
+        override fun stop() {
+            running = false
+        }
+    }
+
+    private fun found(origin: String, name: String) =
+        KnownServer(ServerAddress.parseOrNull(origin)!!, name, ServerKind.PI, KnownServer.Source.DISCOVERED)
+
+    @Test fun `the local browse waits for a tap, and ten quiet seconds end it with an answer`() = runTest {
+        val r = Rig(this)
+        val browser = FakeBrowser()
+        r.model.serverBrowser = browser
+        r.http.cloudRoutes()
+        r.model.start()
+        r.model.foreground()
+        runCurrent()
+        assertEquals(0, browser.starts)
+        assertEquals(LocalSearch.IDLE, r.model.current.localSearch)
+
+        r.model.searchLocal()
+        assertTrue(browser.running)
+        assertEquals(LocalSearch.SEARCHING, r.model.current.localSearch)
+        advanceTimeBy(AppModel.LOCAL_SEARCH_LIMIT - 1.milliseconds)
+        assertTrue(browser.running)
+        advanceTimeBy(2.milliseconds)
+        assertFalse(browser.running)
+        assertEquals(LocalSearch.NONE_FOUND, r.model.current.localSearch)
+
+        // Search again is a fresh browse with a fresh limit.
+        r.model.searchLocal()
+        assertEquals(2, browser.starts)
+        assertEquals(LocalSearch.SEARCHING, r.model.current.localSearch)
+        r.model.background()
+        assertFalse(browser.running)
+        assertEquals(LocalSearch.IDLE, r.model.current.localSearch)
+    }
+
+    @Test fun `a Pi found keeps the browse running until the sheet closes, and stays listed once picked`() = runTest {
+        val r = Rig(this)
+        val browser = FakeBrowser()
+        r.model.serverBrowser = browser
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        // A resolve landing outside a browse is somebody else's late answer.
+        r.model.setDiscovered(listOf(found(pi, "Piscine")))
+        assertTrue(r.model.current.servers.none { it.source == KnownServer.Source.DISCOVERED })
+
+        r.model.searchLocal()
+        r.model.setDiscovered(listOf(found(pi, "Piscine")))
+        advanceTimeBy(AppModel.LOCAL_SEARCH_LIMIT * 2)
+        assertTrue(browser.running)
+        assertEquals(LocalSearch.SEARCHING, r.model.current.localSearch)
+        assertEquals(KnownServer.Source.DISCOVERED, r.model.current.servers.single { it.name == "Piscine" }.source)
+
+        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
+        r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
+        r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
+        r.model.selectServer(ServerAddress.parseOrNull(pi)!!)
+        r.model.stopLocalSearch()
+        runCurrent()
+        assertFalse(browser.running)
+        assertEquals(LocalSearch.IDLE, r.model.current.localSearch)
+        // Picked, not saved — yet still in the list, or the sheet would show nothing selected.
+        assertEquals(emptyList(), r.prefsStore.load().servers)
+        val listed = r.model.current.servers.single { it.address.origin == ServerAddress.parseOrNull(pi)!!.origin }
+        assertEquals(KnownServer.Source.CURRENT, listed.source)
+        assertEquals("Piscine", listed.name)
     }
 
     @Test fun `adding a server checks it first and only then saves and selects it`() = runTest {

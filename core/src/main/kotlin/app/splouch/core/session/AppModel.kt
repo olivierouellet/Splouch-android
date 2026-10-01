@@ -15,11 +15,13 @@ import app.splouch.core.wire.PickerConfig
 import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ServerInfo
 import app.splouch.core.wire.ServerKind
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -30,8 +32,18 @@ data class RemovedServer(val origin: String, val index: Int, val wasSelected: Bo
 
 /** A server the picker's menu can offer (app.md P-11..P-13). */
 data class KnownServer(val address: ServerAddress, val name: String, val kind: ServerKind?, val source: Source) {
-    enum class Source { DEFAULT, SAVED, DIRECTORY, DISCOVERED }
+    /** [CURRENT]: the server in use, listed by none of the others — a Pi picked while a browse ran. */
+    enum class Source { DEFAULT, SAVED, DIRECTORY, DISCOVERED, CURRENT }
 }
+
+/** P-12: the platform's mDNS browse. Results come back through [AppModel.setDiscovered]. */
+interface ServerBrowser {
+    fun start()
+    fun stop()
+}
+
+/** P-12: the server sheet's local-server section — its Search button, the browse, or the empty answer. */
+enum class LocalSearch { IDLE, SEARCHING, NONE_FOUND }
 
 data class PickerState(
     val loading: Boolean = false,
@@ -103,6 +115,7 @@ data class UiState(
     /** P-14: set once per handshake; the UI shows it once and calls [AppModel.dismissNotice]. */
     val contractNotice: String? = null,
     val servers: List<KnownServer> = emptyList(),
+    val localSearch: LocalSearch = LocalSearch.IDLE,
     val picker: PickerState = PickerState(),
     val meet: MeetState? = null,
     /** A-09: the meet was found gone; the UI says so once and calls [AppModel.dismissMeetGone]. */
@@ -197,6 +210,10 @@ class AppModel(
     private var api = SplouchApi(http, defaultServer)
     private var directory: List<KnownServer> = emptyList()
     private var discovered: List<KnownServer> = emptyList()
+    private var searchLimit: Job? = null
+
+    /** P-12: set by the platform once, after construction — the browse reports back into this model. */
+    var serverBrowser: ServerBrowser? = null
     private var meetJobs: List<Job> = emptyList()
     private var inForeground = true
     private var generation = 0
@@ -347,8 +364,36 @@ class AppModel(
 
     fun dismissInvite() = _state.update { it.copy(invite = null) }
 
-    /** P-12: what the platform's mDNS browse found. */
+    /**
+     * P-12: the reader tapped Search. Nothing browses until then — not on launch, not on
+     * foreground, not on the sheet opening. [LOCAL_SEARCH_LIMIT] with nothing found ends the
+     * browse and says so; once something answers it runs until [stopLocalSearch].
+     */
+    fun searchLocal() {
+        searchLimit?.cancel()
+        _state.update { it.copy(localSearch = LocalSearch.SEARCHING) }
+        serverBrowser?.start()
+        searchLimit = scope.launch {
+            delay(LOCAL_SEARCH_LIMIT)
+            if (discovered.isEmpty()) endLocalSearch(LocalSearch.NONE_FOUND)
+        }
+    }
+
+    /** P-12: the sheet closed or the app left the foreground. What was found goes with it. */
+    fun stopLocalSearch() = endLocalSearch(LocalSearch.IDLE)
+
+    private fun endLocalSearch(to: LocalSearch) {
+        searchLimit?.cancel()
+        searchLimit = null
+        serverBrowser?.stop()
+        discovered = emptyList()
+        rebuildServers()
+        _state.update { it.copy(localSearch = to) }
+    }
+
+    /** P-12: what the platform's mDNS browse found. A resolve landing after the stop is dropped. */
     fun setDiscovered(servers: List<KnownServer>) {
+        if (current.localSearch != LocalSearch.SEARCHING) return
         discovered = servers
         rebuildServers()
     }
@@ -379,6 +424,16 @@ class AppModel(
         }.forEach { add(KnownServer(it, it.display, null, KnownServer.Source.SAVED)) }
         directory.forEach(::add)
         discovered.forEach(::add)
+        // P-12: a Pi picked from the browse is in use but saved nowhere; it stays listed once
+        // the browse ends, or the sheet would show no server selected.
+        add(
+            KnownServer(
+                current.server,
+                current.serverInfo?.name?.ifEmpty { null } ?: current.server.display,
+                current.serverInfo?.kind,
+                KnownServer.Source.CURRENT,
+            ),
+        )
         _state.update { it.copy(servers = out) }
     }
 
@@ -746,6 +801,7 @@ class AppModel(
     /** The app went to the background: stop the ticker, forget the clock's base (L-12). */
     fun background() {
         inForeground = false
+        stopLocalSearch()
         current.meet?.session?.background()
     }
 
@@ -767,5 +823,8 @@ class AppModel(
          * fault, so it is a constant rather than a literal matched in three places.
          */
         const val NOT_SPLOUCH = "not a Splouch server"
+
+        /** P-12: how long a browse that has found nothing runs before saying so. */
+        val LOCAL_SEARCH_LIMIT = 10.seconds
     }
 }

@@ -10,7 +10,10 @@
     <string name="server">Server</string>
     <string name="add_server">Add a server</string>
     <string name="server_placeholder">https://… or http://splouch.local:5000</string>
-    <string name="nearby">Nearby</string>
+    <string name="local_server">Officials\' local server</string>
+    <string name="local_search">Search</string>
+    <string name="local_search_again">Search again</string>
+    <string name="local_none_found">No server found</string>
     <string name="remove">Remove</string>
     <string name="checking">Checking…</string>
 

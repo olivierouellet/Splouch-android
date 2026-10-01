@@ -3,7 +3,10 @@
     <string name="server">Servidor</string>
     <string name="add_server">Añadir un servidor</string>
     <string name="server_placeholder">https://… o http://splouch.local:5000</string>
-    <string name="nearby">Cercanos</string>
+    <string name="local_server">Servidor local de los oficiales</string>
+    <string name="local_search">Buscar</string>
+    <string name="local_search_again">Buscar de nuevo</string>
+    <string name="local_none_found">No se encontró ningún servidor</string>
     <string name="remove">Quitar</string>
     <string name="checking">Comprobando…</string>
 
