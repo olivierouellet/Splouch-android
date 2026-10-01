@@ -902,12 +902,14 @@ private fun HeaderCell(
             maxLines = 1,
             letterSpacing = 1.sp,
         )
-        // The web colours these with `header_label` and sets the seven-segment face; give the tall glyphs their line.
+        // `header_value`, as on every other board: the accent blue belongs to the word, and the
+        // two colours are what tell it from its number. Seven-segment face; give the tall
+        // glyphs their line.
         Text(
             value.ifEmpty {
                 " "
             },
-            color = colors.headerLabel,
+            color = colors.headerValue,
             fontSize = valueSize,
             lineHeight = valueSize * 1.25f,
             fontFamily = valueFont,
@@ -946,7 +948,7 @@ private fun InlineCell(
             value.ifEmpty {
                 " "
             },
-            color = colors.headerLabel,
+            color = colors.headerValue,
             fontSize = valueSize,
             fontFamily = valueFont,
             maxLines = 1,

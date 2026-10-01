@@ -35,9 +35,12 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -170,7 +173,16 @@ private fun HeatCard(
             // beside it and said nothing the gap does not. Twice the within-pair gap is
             // what groups "EV 12" against "HT 3" in a monospaced face, so the reading is
             // the same and the line is shorter.
-            val eventHeat = "${labels["event"].orEmpty()} ${h.event}  ${labels["heat"].orEmpty()} ${h.heat}"
+            //
+            // The words take `schedule_event` and the numbers `schedule_name`, as the board
+            // header splits `header_label` from `header_value`: the colour is what tells a
+            // word from its number on one line.
+            val eventHeat = buildAnnotatedString {
+                append("${labels["event"].orEmpty()} ")
+                withStyle(SpanStyle(color = colors.scheduleName)) { append(h.event) }
+                append("  ${labels["heat"].orEmpty()} ")
+                withStyle(SpanStyle(color = colors.scheduleName)) { append(h.heat) }
+            }
             val name = EventName.display(h.eventName, h.eventNameParts, vocab)
             val heading: @Composable (Int) -> Unit = { lines ->
                 Text(
