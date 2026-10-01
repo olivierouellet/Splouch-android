@@ -372,16 +372,17 @@ Answered by `app.md` v2 (2026-09-30), and closed here:
 - **`L-15` / `L-16` on tablets** — width decides, at 600; this app now hands the board
   its width class, so a tablet held upright gets the table.
 
-Still open, and server-side — they belong to the `Splouch` repo, not to this ledger:
+Fixed server-side in the `Splouch` repo (2026-10-01), not in this app:
 
-1. **`S-21` — a test session's start list is not announced.** `schedule_update` is emitted
-   only from the meet-file upload route; `POST /test_play`'s companion LENEX changes
-   `GET /schedule.json` without it, so a phone open before the session keeps "No schedule
-   available yet." until pull-to-refresh (`A-05`).
-2. **The cloud's join replay is a partial snapshot.** Against a local cloud relaying a Pi
-   test session, `join_meet` replayed `meet_live` and an `update_scoreboard` without
-   `current_event`, `current_heat`, `event_name` or `lane_name*`; a late joiner sees finals
-   with an empty header and no names until the next heat change.
+1. **`S-21` — a test session's start list is announced.** Starting a session, uploading
+   a test meet, ending the session and unloading a meet all send `schedule_update` now,
+   so a phone open before the session re-fetches instead of waiting for
+   pull-to-refresh (`A-05`). A test that ends with no meet to return to sends the cloud
+   an empty schedule rather than leaving the recording's start list up.
+2. **The cloud's join replay is whole again.** On every relay connect the Pi re-sends
+   its board cache, clock stripped, beside the schedule and results, so a late joiner
+   after a dropped link or a test session gets the header and names straight away
+   rather than at the next heat change.
 
 Also noted, not blocking: the Pi's `GET /config` carries no `label_style`, which now
 costs nothing either way — `T-09` starts from long on every server; `T-07`'s "documented
