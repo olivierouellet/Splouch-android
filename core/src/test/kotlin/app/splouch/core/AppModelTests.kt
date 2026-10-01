@@ -518,6 +518,13 @@ class AppModelTests {
         assertFalse(r.model.notice(PRIVACY_NOTE).folded)
     }
 
+    @Test fun `no picker config yet means no notice, not the snapshot's copy`() {
+        // P-06: a first launch offline has no server's words to show, and an empty picker
+        // has no results to qualify. Same on iOS.
+        val table = app.splouch.core.strings.BuiltInStrings.table("fr")
+        assertTrue(app.splouch.core.session.pickerNotices(null, table, emptyMap()).isEmpty())
+    }
+
     @Test fun `an older server's missing pill words and X name come from the snapshot, never the key`() = runTest {
         val r = Rig(this)
         r.http.cloudRoutes()

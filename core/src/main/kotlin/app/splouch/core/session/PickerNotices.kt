@@ -52,17 +52,22 @@ class InMemoryNoticeStore : NoticeStore {
 }
 
 /**
- * The picker's notices, in order, from the served config, the strings snapshot behind it,
- * and the folds stored for this server. A notice starts folded only when the stored text is
- * the text about to be shown.
+ * The picker's notices, in order, and the folds stored for this server. A notice starts
+ * folded only when the stored text is the text about to be shown.
+ *
+ * A notice is shown only once this server has sent its text (`app.md` `P-06`): no picker
+ * config yet — a first launch offline — means no notice, as on iOS. A notice is this
+ * server's words about this server's results; the snapshot's copy would be another
+ * server's, and an empty picker has no results to qualify. The pill and the X, on the
+ * other hand, may come from the snapshot, for an older server that sends the text alone.
  */
 fun pickerNotices(config: PickerConfig?, table: StringTable, folds: Map<PickerNotice, String>): List<ShownNotice> {
     val shown = buildList {
         add(PickerNotice.RESULTS_DISCLAIMER)
         if (config?.analyticsEnabled == true) add(PickerNotice.PRIVACY_NOTE)
     }
-    return shown.map { n ->
-        val text = served(config, n.textKey) ?: table.mobile(n.textKey)
+    return shown.mapNotNull { n ->
+        val text = served(config, n.textKey) ?: return@mapNotNull null
         val short = served(config, n.shortKey) ?: table.mobile(n.shortKey)
         ShownNotice(n, text, short, folded = folds[n] == text)
     }
