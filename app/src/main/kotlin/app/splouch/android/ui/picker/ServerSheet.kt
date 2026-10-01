@@ -144,30 +144,9 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                     }
                 }
                 // P-12: nothing is browsed until Search is tapped — a browse in an idle sheet
-                // costs battery and finds nothing an official was not about to ask for.
+                // costs battery and finds nothing an official was not about to ask for. One scan
+                // per tap; what it found stays listed after it ends.
                 SectionHeader(stringResource(R.string.local_server))
-                when (state.localSearch) {
-                    LocalSearch.SEARCHING -> if (nearby.isEmpty()) {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                    LocalSearch.IDLE -> TextButton(onClick = model::searchLocal, Modifier.padding(horizontal = 4.dp)) {
-                        Text(stringResource(R.string.local_search))
-                    }
-                    LocalSearch.NONE_FOUND -> Row(
-                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            stringResource(R.string.local_none_found),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = model::searchLocal) { Text(stringResource(R.string.local_search_again)) }
-                    }
-                }
                 nearby.forEach {
                     key(it.address.origin) {
                         ServerRow(
@@ -180,6 +159,27 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                             },
                             onRemove = null,
                         )
+                    }
+                }
+                when (state.localSearch) {
+                    LocalSearch.SEARCHING ->
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    LocalSearch.IDLE -> TextButton(onClick = model::searchLocal, Modifier.padding(horizontal = 4.dp)) {
+                        Text(stringResource(R.string.local_search))
+                    }
+                    LocalSearch.DONE -> Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            if (nearby.isEmpty()) stringResource(R.string.local_none_found) else "",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = model::searchLocal) { Text(stringResource(R.string.local_search_again)) }
                     }
                 }
                 SectionHeader(stringResource(R.string.add_server))

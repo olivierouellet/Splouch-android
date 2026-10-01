@@ -244,7 +244,7 @@ class AppModelTests {
     private fun found(origin: String, name: String) =
         KnownServer(ServerAddress.parseOrNull(origin)!!, name, ServerKind.PI, KnownServer.Source.DISCOVERED)
 
-    @Test fun `the local browse waits for a tap, and ten quiet seconds end it with an answer`() = runTest {
+    @Test fun `the local browse waits for a tap and ends after ten seconds`() = runTest {
         val r = Rig(this)
         val browser = FakeBrowser()
         r.model.serverBrowser = browser
@@ -262,7 +262,7 @@ class AppModelTests {
         assertTrue(browser.running)
         advanceTimeBy(2.milliseconds)
         assertFalse(browser.running)
-        assertEquals(LocalSearch.NONE_FOUND, r.model.current.localSearch)
+        assertEquals(LocalSearch.DONE, r.model.current.localSearch)
 
         // Search again is a fresh browse with a fresh limit.
         r.model.searchLocal()
@@ -273,7 +273,7 @@ class AppModelTests {
         assertEquals(LocalSearch.IDLE, r.model.current.localSearch)
     }
 
-    @Test fun `a Pi found keeps the browse running until the sheet closes, and stays listed once picked`() = runTest {
+    @Test fun `a Pi found outlives the scan until the sheet closes, and stays listed once picked`() = runTest {
         val r = Rig(this)
         val browser = FakeBrowser()
         r.model.serverBrowser = browser
@@ -286,10 +286,14 @@ class AppModelTests {
 
         r.model.searchLocal()
         r.model.setDiscovered(listOf(found(pi, "Piscine")))
-        advanceTimeBy(AppModel.LOCAL_SEARCH_LIMIT * 2)
-        assertTrue(browser.running)
-        assertEquals(LocalSearch.SEARCHING, r.model.current.localSearch)
+        advanceTimeBy(AppModel.LOCAL_SEARCH_LIMIT + 1.milliseconds)
+        // A scan, not a watch: the browse stops whatever it found, and the find stays on offer.
+        assertFalse(browser.running)
+        assertEquals(LocalSearch.DONE, r.model.current.localSearch)
         assertEquals(KnownServer.Source.DISCOVERED, r.model.current.servers.single { it.name == "Piscine" }.source)
+        // ...and a late resolve after the scan is dropped.
+        r.model.setDiscovered(emptyList())
+        assertEquals(1, r.model.current.servers.count { it.source == KnownServer.Source.DISCOVERED })
 
         r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
         r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")

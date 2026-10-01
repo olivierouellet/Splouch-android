@@ -42,8 +42,8 @@ interface ServerBrowser {
     fun stop()
 }
 
-/** P-12: the server sheet's local-server section — its Search button, the browse, or the empty answer. */
-enum class LocalSearch { IDLE, SEARCHING, NONE_FOUND }
+/** P-12: the server sheet's local-server section — its Search button, the scan, or the scan's answer. */
+enum class LocalSearch { IDLE, SEARCHING, DONE }
 
 data class PickerState(
     val loading: Boolean = false,
@@ -366,29 +366,33 @@ class AppModel(
 
     /**
      * P-12: the reader tapped Search. Nothing browses until then — not on launch, not on
-     * foreground, not on the sheet opening. [LOCAL_SEARCH_LIMIT] with nothing found ends the
-     * browse and says so; once something answers it runs until [stopLocalSearch].
+     * foreground, not on the sheet opening. A scan, not a watch: [LOCAL_SEARCH_LIMIT] and the
+     * browse ends whatever it found, the finds staying listed until [stopLocalSearch]. A
+     * second tap rescans from empty — the reader may have changed networks.
      */
     fun searchLocal() {
         searchLimit?.cancel()
+        serverBrowser?.stop()
+        discovered = emptyList()
+        rebuildServers()
         _state.update { it.copy(localSearch = LocalSearch.SEARCHING) }
         serverBrowser?.start()
         searchLimit = scope.launch {
             delay(LOCAL_SEARCH_LIMIT)
-            if (discovered.isEmpty()) endLocalSearch(LocalSearch.NONE_FOUND)
+            searchLimit = null
+            serverBrowser?.stop()
+            _state.update { it.copy(localSearch = LocalSearch.DONE) }
         }
     }
 
     /** P-12: the sheet closed or the app left the foreground. What was found goes with it. */
-    fun stopLocalSearch() = endLocalSearch(LocalSearch.IDLE)
-
-    private fun endLocalSearch(to: LocalSearch) {
+    fun stopLocalSearch() {
         searchLimit?.cancel()
         searchLimit = null
         serverBrowser?.stop()
         discovered = emptyList()
         rebuildServers()
-        _state.update { it.copy(localSearch = to) }
+        _state.update { it.copy(localSearch = LocalSearch.IDLE) }
     }
 
     /** P-12: what the platform's mDNS browse found. A resolve landing after the stop is dropped. */
@@ -824,7 +828,7 @@ class AppModel(
          */
         const val NOT_SPLOUCH = "not a Splouch server"
 
-        /** P-12: how long a browse that has found nothing runs before saying so. */
+        /** P-12: how long one scan for the officials' local server browses. */
         val LOCAL_SEARCH_LIMIT = 10.seconds
     }
 }
