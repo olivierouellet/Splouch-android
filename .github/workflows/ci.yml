@@ -162,25 +162,31 @@ jobs:
           unzip -l "$apk" | grep -q 'res/xml/network_security_config.xml' \
             || { echo "::error::the APK has no network security config"; exit 1; }
 
-      - name: Check the release rule kept the dev addresses out
-        # The debug overlay shadows the release config, so the two files are edited in the
-        # same breath and the wrong one is easy to reach for. A loopback or emulator host
-        # that lands in the main config ships cleartext to a phone, and nothing at runtime
-        # would say so (app.md P-12).
+      - name: Check the cleartext floor is still held in the app
+        # The network security config matches host names, not address ranges, so it
+        # cannot say "private IPs" and permits cleartext outright (app.md P-12, amended
+        # 2026-10-01). The floor is held by ServerAddress and by OkHttpTransport's
+        # LocalCleartextOnly instead, which only covers traffic through that one client.
+        # So this asserts what the OS no longer does: the interceptor is wired on both
+        # sides of the chain, no debug overlay brings back a second rule, and nothing else
+        # in the app opens a connection of its own. Nothing at runtime would say so.
         run: |
-          main=app/src/main/res/xml/network_security_config.xml
-          grep -q 'cleartextTrafficPermitted="false"' "$main" \
-            || { echo "::error::$main no longer denies cleartext by default"; exit 1; }
-          for host in localhost 127.0.0.1 10.0.2.2; do
-            grep -q "$host" "$main" \
-              && { echo "::error::$host is in the release network config; it belongs in src/debug"; exit 1; }
+          transport=app/src/main/kotlin/app/splouch/android/platform/OkHttpTransport.kt
+          for hook in 'addInterceptor(LocalCleartextOnly)' 'addNetworkInterceptor(LocalCleartextOnly)'; do
+            grep -qF "$hook" "$transport" \
+              || { echo "::error::$transport no longer calls $hook"; exit 1; }
           done
-          echo "release config: .local only"
+          test ! -e app/src/debug/res/xml/network_security_config.xml \
+            || { echo "::error::a debug network config is back; the rule lives in ServerAddress"; exit 1; }
+          others=$(grep -rlE 'WebView|HttpURLConnection|OkHttpClient\.Builder|OkHttpClient\(\)' \
+            app/src/main/kotlin core/src/main/kotlin | grep -vF "$transport" || true)
+          [ -z "$others" ] \
+            || { echo "::error::network outside OkHttpTransport, not covered by the cleartext floor: $others"; exit 1; }
+          echo "cleartext floor: LocalCleartextOnly on the only client"
 
       - name: Lint
-        # A gate for anything new. Android Lint reports six errors here and every one of
-        # them is a decision: the exact hosts in the debug network config want no
-        # `includeSubdomains`, a theme attribute sits above `minSdk` on purpose, the
+        # A gate for anything new. Android Lint reports three errors here and every one of
+        # them is a decision: a theme attribute sits above `minSdk` on purpose, the
         # app's name is not translated, and a Bonjour call guarded by an SDK_INT check is
         # read as an extension-SDK call. Those, and the warnings, are recorded in
         # app/lint-baseline.xml; an error that is not in it fails here. The report is
