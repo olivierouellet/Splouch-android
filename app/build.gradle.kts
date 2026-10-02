@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -13,6 +15,12 @@ val appVersionCode = run {
     (year.toInt() * 100 + month.toInt()) * 1000 + patch.toInt()
 }
 
+// The Play upload key lives outside the repo; `local.properties` (gitignored) names it.
+// Without those entries — CI, a fresh clone — the release build is simply unsigned.
+val uploadKey = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}.takeIf { it.getProperty("splouch.upload.storeFile") != null }
+
 android {
     namespace = "app.splouch.android"
     compileSdk = 37
@@ -25,9 +33,21 @@ android {
         versionName = appVersionName
     }
 
+    signingConfigs {
+        if (uploadKey != null) {
+            create("upload") {
+                storeFile = file(uploadKey.getProperty("splouch.upload.storeFile"))
+                storePassword = uploadKey.getProperty("splouch.upload.storePassword")
+                keyAlias = uploadKey.getProperty("splouch.upload.keyAlias")
+                keyPassword = uploadKey.getProperty("splouch.upload.storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
 
