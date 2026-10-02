@@ -1,8 +1,7 @@
 # Play Store submission
 
-Everything the Play Console asks for, with the value to enter. **TODO** marks what is
-still open; the [checklist](#before-the-first-upload) at the end is the order to do
-it in.
+Everything the Play Console asks for, with the value to enter. The
+[checklist](#before-the-first-upload) at the end is the order to do it in.
 
 ## Account
 
@@ -116,7 +115,8 @@ Results shown are live and unofficial.
 | Field | Value |
 | --- | --- |
 | Artifact | `./gradlew :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab` |
-| Signing | **TODO** Upload keystore and a release `signingConfig`; the build currently produces an unsigned AAB |
+| Signing | Upload key `~/.android/splouch-upload.keystore`, alias `upload`, named in `local.properties` (`splouch.upload.*`). Without those entries the AAB is unsigned |
+| Upload key SHA-256 | `60:07:C2:9B:57:73:C8:8B:21:A2:36:BF:89:AC:0C:56:46:49:26:70:41:2B:50:0E:00:E3:74:36:C9:7A:16:74` (not the one for `assetlinks.json`) |
 | Play App Signing | Accept (Google holds the app signing key) |
 | Track | Closed testing first, then production after 14 days with 12 testers |
 | Countries | Canada only |
@@ -145,11 +145,9 @@ made in the `Splouch` repo.
 
 ## Before the first upload
 
-1. **TODO** Choose the contact email.
-2. **TODO** Publish the privacy policy on splouch.ca.
-3. **TODO** Create the upload keystore and sign the release build.
-4. Regenerate the string snapshot: `scripts/update-strings.sh https://splouch.ca`.
-5. Build the AAB, create the app in the Console, and fill in the sections above.
-6. Upload to closed testing and recruit 12 testers for 14 days.
-7. Serve `assetlinks.json` with the App signing fingerprint.
-8. Apply for production, then turn on the `/add` store link.
+1. Back up the upload keystore and its password together, somewhere other than this Mac.
+2. Regenerate the string snapshot: `scripts/update-strings.sh https://splouch.ca`.
+3. Build the AAB, create the app in the Console, and fill in the sections above.
+4. Upload to closed testing and recruit 12 testers for 14 days.
+5. Serve `assetlinks.json` with the App signing fingerprint.
+6. Apply for production, then turn on the `/add` store link.
