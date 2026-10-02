@@ -37,7 +37,7 @@ Both languages: fr-CA (default) and en-CA.
 | Tablet screenshots | None (optional) |
 | Category | Sports |
 | Tags | Up to 5 from Play's list, chosen in the Console |
-| Contact email | **TODO** a dedicated address |
+| Contact email | <support@splouch.ca> |
 | Website | <https://splouch.ca> |
 
 How the store images are made: [`Screenshots/README.md`](../Screenshots/README.md).
@@ -100,7 +100,7 @@ Results shown are live and unofficial.
 
 | Section | Answer |
 | --- | --- |
-| Privacy policy | **TODO** URL. Not live yet: `https://splouch.ca/privacy` returns 404. The page belongs in the `Splouch` repo |
+| Privacy policy | `https://splouch.ca/privacy` |
 | App access | All functionality available without special access; there is no login |
 | Ads | No ads |
 | Content rating | Questionnaire: reference/utility app. No violence, sexual content, profanity, drugs or gambling; no user-generated content, user interaction, location sharing or purchases. Expect *Everyone* / *PEGI 3* |
