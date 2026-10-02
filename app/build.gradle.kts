@@ -7,7 +7,7 @@ plugins {
 
 // Play needs a versionCode above every one it has seen, so it is derived from the
 // name: yyyy.mm.patch -> yyyymm * 1000 + patch (2026.09.0 -> 202609000).
-val appVersionName = "2026.10.0"
+val appVersionName = "2026.10.1"
 val appVersionCode = run {
     val (year, month, patch) = requireNotNull(
         Regex("""(\d{4})\.(\d{2})\.(\d{1,3})""").matchEntire(appVersionName),
