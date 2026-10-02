@@ -1,5 +1,6 @@
 package app.splouch.android.ui
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,11 +14,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.core.view.WindowCompat
@@ -31,6 +36,8 @@ import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.android.ui.theme.SplouchTheme
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.Appearance
+import app.splouch.core.session.UiState
+import java.util.Locale
 
 /**
  * The two halves of the app, and the line between them (`parity.md` T-01).
@@ -44,6 +51,36 @@ import app.splouch.core.session.Appearance
 @Composable
 fun SplouchRoot(model: AppModel, images: ImageCache) {
     val state by model.state.collectAsStateWithLifecycle()
+    NativeLanguage(state.prefs.lang) { RootContent(model, images, state) }
+}
+
+/**
+ * T-05 and T-08: the app's own words — the server sheet, Language, Appearance — come from
+ * its resources, which Android resolves in the device's language. A reader who chose
+ * French in the app then read French from the server beside "Server" and "Language" in
+ * English. A chosen language is laid over the resources here, for every screen and sheet;
+ * Automatic leaves the device's. A language with no `values-*` of its own falls back to
+ * English, as T-05 says the native table does.
+ */
+@Composable
+private fun NativeLanguage(lang: String?, content: @Composable () -> Unit) {
+    if (lang == null) return content()
+    val context = LocalContext.current
+    val base = LocalConfiguration.current
+    val localized = remember(context, base, lang) {
+        val config = Configuration(base).apply { setLocale(Locale.forLanguageTag(lang)) }
+        context.createConfigurationContext(config)
+    }
+    CompositionLocalProvider(
+        LocalContext provides localized,
+        LocalConfiguration provides localized.resources.configuration,
+        LocalResources provides localized.resources,
+        content = content,
+    )
+}
+
+@Composable
+private fun RootContent(model: AppModel, images: ImageCache, state: UiState) {
     val snackbar = remember { SnackbarHostState() }
     val meetGone = stringResource(R.string.meet_gone)
 
