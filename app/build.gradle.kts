@@ -3,6 +3,16 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+// Play needs a versionCode above every one it has seen, so it is derived from the
+// name: yyyy.mm.patch -> yyyymm * 1000 + patch (2026.09.0 -> 202609000).
+val appVersionName = "2026.09.0"
+val appVersionCode = run {
+    val (year, month, patch) = requireNotNull(
+        Regex("""(\d{4})\.(\d{2})\.(\d{1,3})""").matchEntire(appVersionName),
+    ) { "versionName must be yyyy.mm.patch, got $appVersionName" }.destructured
+    (year.toInt() * 100 + month.toInt()) * 1000 + patch.toInt()
+}
+
 android {
     namespace = "app.splouch.android"
     compileSdk = 37
@@ -11,8 +21,8 @@ android {
         applicationId = "app.splouch.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "2026.09.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     buildTypes {
