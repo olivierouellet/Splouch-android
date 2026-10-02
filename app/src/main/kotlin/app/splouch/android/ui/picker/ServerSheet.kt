@@ -5,15 +5,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,6 +26,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHost
@@ -29,7 +34,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -166,20 +170,22 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
-                    LocalSearch.IDLE -> TextButton(onClick = model::searchLocal, Modifier.padding(horizontal = 4.dp)) {
-                        Text(stringResource(R.string.local_search))
-                    }
+                    LocalSearch.IDLE -> SearchButton(
+                        stringResource(R.string.local_search),
+                        model::searchLocal,
+                        Modifier.padding(horizontal = 16.dp),
+                    )
                     LocalSearch.DONE -> Row(
-                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             if (nearby.isEmpty()) stringResource(R.string.local_none_found) else "",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = model::searchLocal) { Text(stringResource(R.string.local_search_again)) }
+                        SearchButton(stringResource(R.string.local_search_again), model::searchLocal)
                     }
                 }
                 SectionHeader(stringResource(R.string.add_server))
@@ -291,6 +297,20 @@ private fun ServerRow(
  * The stored choice is untouched, and returning the control is a matter of putting the
  * two rows back here and returning `labelStyle` from that property.
  */
+/**
+ * P-12's Search. Outlined, with the glyph, rather than a text button: the section header
+ * above it is the same primary-coloured words, and a bare text button read as a second
+ * header rather than as something to tap.
+ */
+@Composable
+private fun SearchButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    OutlinedButton(onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+        Icon(painterResource(R.drawable.ic_search), null, Modifier.size(ButtonDefaults.IconSize))
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        Text(label)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
