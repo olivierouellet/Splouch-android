@@ -43,6 +43,7 @@ in English and French, light and dark, is in [`Screenshots/`](Screenshots/).
 | [Emulator](emulator.md) | Booting, installing, launching against a local server, driving and capturing |
 | [Parity ledger](parity.md) | One row per feature ID: built here or not, and why |
 | [Screenshots](Screenshots/README.md) | What is captured, the Play Store set, recapturing |
+| [Play Store](docs/play-store.md) | What to enter in the Play Console, and what is still open |
 
 ---
 
