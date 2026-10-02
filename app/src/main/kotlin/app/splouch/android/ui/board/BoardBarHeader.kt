@@ -12,16 +12,18 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 
 /**
- * The board's header where the app bar carries it (landscape). The shell cannot ask the
- * tab for this — a pager page that is off screen is still composed — so it reads the same
- * two flows the tabs do and shows whichever belongs to the page in view.
+ * The board's header where the app bar carries it (landscape, and portrait on need). The
+ * shell cannot ask the tab for this — a pager page that is off screen is still composed — so
+ * it reads the same two flows the tabs do and shows whichever belongs to the page in view.
  */
 @Composable
 fun BoardBarHeader(meet: MeetState, results: Boolean, landscape: Boolean, server: String? = null) {
-    // Short labels in portrait: the bar is phone-width, not landscape-width, and "EVENT 12
-    // HEAT 3" buys nothing over "EV 12  HT 3" while the width it costs is the event name's,
-    // which is the one thing here that can run long. Landscape has the room for the words.
-    val labels = if (landscape) boardLabels(meet) else meet.strings.labels("short") + meet.shortLabels
+    // The bar is one line high, so the word sits *beside* its number here, in either
+    // orientation — and inline takes the short word, as on the web board. "EVENT 12 HEAT 3"
+    // buys nothing over "EV 12  HT 3" while the width it costs is the event name's, the one
+    // thing on this row that can run long. The long word is `BoardHeader`'s, where it stands
+    // over its number with the cell's width to itself.
+    val labels = inlineLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
     val vocab = meet.strings.eventVocab
     // Landscape keeps the wall clock; portrait does not. The row is only up here in portrait
@@ -53,6 +55,17 @@ fun BoardBarHeader(meet: MeetState, results: Boolean, landscape: Boolean, server
 fun boardLabels(meet: MeetState): Map<String, String> {
     val short = meet.strings.labels("short")
     return remember(short, meet.labels) { short + meet.labels }
+}
+
+/**
+ * The words for EVENT / HEAT where they sit inline beside their number: the short forms,
+ * still the server's (`T-04`) — `MeetState.shortLabels` is the operator's own words with
+ * only the two wide keys taken short — over the language table's so nothing is unlabelled.
+ */
+@Composable
+fun inlineLabels(meet: MeetState): Map<String, String> {
+    val short = meet.strings.labels("short")
+    return remember(short, meet.shortLabels) { short + meet.shortLabels }
 }
 
 /** L-03: device local time, `HH:mm`, ticking every second. */
