@@ -198,7 +198,8 @@ private fun HeatCard(
                 if (name.isNotEmpty()) {
                     Text(
                         name,
-                        color = colors.rowText,
+                        // The words' colour, not the numbers'.
+                        color = colors.scheduleEvent,
                         style = MaterialTheme.typography.bodyLarge,
                         fontFamily = fonts.family,
                         maxLines = lines,
