@@ -46,39 +46,6 @@
     </issue>
 
     <issue
-        id="NetworkSecurityConfig"
-        message="Missing `includeSubdomains` attribute"
-        errorLine1="        &lt;domain>localhost&lt;/domain>"
-        errorLine2="         ~~~~~~">
-        <location
-            file="src/debug/res/xml/network_security_config.xml"
-            line="8"
-            column="10"/>
-    </issue>
-
-    <issue
-        id="NetworkSecurityConfig"
-        message="Missing `includeSubdomains` attribute"
-        errorLine1="        &lt;domain>127.0.0.1&lt;/domain>"
-        errorLine2="         ~~~~~~">
-        <location
-            file="src/debug/res/xml/network_security_config.xml"
-            line="9"
-            column="10"/>
-    </issue>
-
-    <issue
-        id="NetworkSecurityConfig"
-        message="Missing `includeSubdomains` attribute"
-        errorLine1="        &lt;domain>10.0.2.2&lt;/domain>"
-        errorLine2="         ~~~~~~">
-        <location
-            file="src/debug/res/xml/network_security_config.xml"
-            line="10"
-            column="10"/>
-    </issue>
-
-    <issue
         id="ConfigurationScreenWidthHeight"
         message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
         errorLine1="    val height = (cfg.screenHeightDp * 0.085f).coerceIn(52f, 92f).dp"

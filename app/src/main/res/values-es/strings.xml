@@ -13,7 +13,7 @@
     <string name="server_unreachable">No se puede conectar con este servidor</string>
     <string name="not_splouch">No es un servidor Splouch</string>
     <string name="invalid_address">Introduce una dirección válida</string>
-    <string name="cleartext_not_local">El http sin cifrar solo se permite para nombres .local</string>
+    <string name="cleartext_not_local">El http sin cifrar solo se permite en la red local.</string>
     <string name="meet_gone">Esta competición ya no está disponible</string>
 
     <string name="add_server_question">¿Añadir este servidor?</string>

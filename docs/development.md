@@ -62,9 +62,10 @@ stored preferences:
 adb shell am start -n app.splouch.android/.MainActivity --es server http://10.0.2.2:5055
 ```
 
-Only `.local` names, `localhost`, `127.0.0.1` and `10.0.2.2` may be dialled over plain
-HTTP (release builds: `.local` only). See `app/src/main/res/xml/network_security_config.xml`
-and app.md `P-12`.
+Plain HTTP is allowed only to hosts on the local network: `.local` names, `localhost`, and
+loopback, private and link-local addresses (`10.0.2.2` included), in debug and release
+alike. `ServerAddress.isLocalName` decides, and `OkHttpTransport` enforces it on every
+request; see `app/src/main/res/xml/network_security_config.xml` and app.md `P-12`.
 
 A server can also arrive by QR code (`parity.md` `P-16`): the code carries
 `https://splouch.ca/add?server=<origin>`, a verified App Link, and the app prompts before

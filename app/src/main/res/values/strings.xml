@@ -21,7 +21,7 @@
     <string name="server_unreachable">Cannot reach this server</string>
     <string name="not_splouch">Not a Splouch server</string>
     <string name="invalid_address">Enter a valid address</string>
-    <string name="cleartext_not_local">Plain http is only allowed for .local names</string>
+    <string name="cleartext_not_local">Plain http is only allowed on the local network</string>
     <string name="meet_gone">This meet is no longer available</string>
 
     <!-- Added from a QR code (P-16). The prompt is the whole of the security here: a code

@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- app.md P-12: cleartext for the local network only. A Pi is plain HTTP and is
-     reached by its mDNS name (`splouch.local`, `<host>.local`); anything remote must be
-     HTTPS. Android's config matches host names, not address ranges, so a Pi is never
-     dialled by a raw IP — ServerAddress enforces the same rule before a request is made. -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">local</domain>
-    </domain-config>
+<!-- app.md P-12: cleartext for the local network only. The config matches host names, not
+     address ranges, so it cannot say "192.168.0.0/16"; the OS permits cleartext and the
+     rule is enforced in the app instead, twice: ServerAddress refuses an http address to a
+     non-local host before it is used, and OkHttpTransport's LocalCleartextOnly refuses any
+     such request, every redirect hop included. All network goes through OkHttpTransport;
+     anything that does not (a WebView, a library with its own HTTP stack) is not covered. -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
 </network-security-config>

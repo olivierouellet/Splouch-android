@@ -105,6 +105,19 @@ class AppModelTests {
         assertNull(s.meet)
     }
 
+    @Test fun `the directory lists plain http servers only on the local network`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.on(
+            "$cloud/servers",
+            body = """{"servers":[{"name":"Pool Pi","url":"http://192.168.1.20:5000","kind":"pi"},""" +
+                """{"name":"Stranger","url":"http://203.0.113.5:5000","kind":"pi"}]}""",
+        )
+        r.model.start()
+        runCurrent()
+        assertEquals(listOf("c.example", "192.168.1.20:5000"), r.model.current.servers.map { it.address.display })
+    }
+
     @Test fun `opening a meet starts a session in the meet's language with long headers over the operator's labels`() =
         runTest {
             val r = Rig(this)
@@ -316,7 +329,7 @@ class AppModelTests {
         r.model.start()
         runCurrent()
         assertEquals(AddServerResult.InvalidAddress, r.model.addServer("not a url at all ://"))
-        assertEquals(AddServerResult.CleartextNotLocal, r.model.addServer("http://192.168.1.10:5000"))
+        assertEquals(AddServerResult.CleartextNotLocal, r.model.addServer("http://203.0.113.10:5000"))
         assertIs<AddServerResult.Unreachable>(r.model.addServer("https://nowhere.example"))
         assertEquals(emptyList(), r.prefsStore.load().servers)
         r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
@@ -375,7 +388,7 @@ class AppModelTests {
         assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?server="))
         assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?server=ftp://x"))
         // The cleartext floor is the typed address's, and a printed code cannot lower it.
-        assertEquals(ServerLink.Result.CleartextNotLocal, p("https://c.example/add?server=http://192.168.1.10:5000"))
+        assertEquals(ServerLink.Result.CleartextNotLocal, p("https://c.example/add?server=http://203.0.113.10:5000"))
         // A parameter that only starts the same is not the parameter.
         assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?servers=$pi"))
     }
@@ -468,7 +481,7 @@ class AppModelTests {
         runCurrent()
         assertEquals(InviteFailure.BAD_LINK, r.model.current.invite?.failure)
         assertNull(r.model.current.invite?.address)
-        r.model.openServerLink("https://c.example/add?server=http://192.168.1.10:5000")
+        r.model.openServerLink("https://c.example/add?server=http://203.0.113.10:5000")
         runCurrent()
         assertEquals(InviteFailure.CLEARTEXT_NOT_LOCAL, r.model.current.invite?.failure)
 

@@ -31,6 +31,25 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 class SessionTests {
+    @Test fun `plain http is allowed on the local network and nowhere else`() {
+        listOf(
+            "192.168.1.20", "10.255.0.1", "172.31.255.254", "169.254.3.4", "127.4.5.6", "10.0.2.2",
+            "localhost", "splouch.local", "[::1]", "[fd12::1]", "[fe80::1%wlan0]", "[::ffff:192.168.1.2]",
+        ).forEach { assertIs<ServerAddress.Result.Ok>(ServerAddress.parse("http://$it:5000"), it) }
+        listOf(
+            "203.0.113.5", "8.8.8.8", "172.15.0.1", "172.32.0.1", "192.169.1.1", "[2001:db8::1]",
+            "[::ffff:8.8.8.8]", "localhost.example", "10.0.0.1.example", "192.168.1.20.example",
+            "010.0.0.1", "3232235796", "local", "[::]",
+        ).forEach { assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://$it:5000"), it) }
+        // The transport sees hosts as OkHttp gives them: IPv6 without brackets.
+        listOf("fd12::1", "fe80::1", "::1", "::ffff:c0a8:102", "192.168.1.20")
+            .forEach { assertTrue(ServerAddress.isLocalName(it), it) }
+        listOf("2001:db8::1", "::ffff:808:808", "203.0.113.5", "1:2:3:4:5:6:7:8:9", "fd12:::1")
+            .forEach { assertFalse(ServerAddress.isLocalName(it), it) }
+        // Over https the range does not matter.
+        assertIs<ServerAddress.Result.Ok>(ServerAddress.parse("https://203.0.113.5"))
+    }
+
     @Test fun `server address normalises and keys the vid per origin`() {
         val a = ServerAddress.parseOrNull("HTTPS://Splouch.CA:443/")!!
         assertEquals("https://splouch.ca", a.origin)
@@ -40,7 +59,7 @@ class SessionTests {
         val pi = ServerAddress.parseOrNull("http://splouch.local:5000")!!
         assertEquals("http://splouch.local:5000", pi.origin)
         assertEquals("ws://splouch.local:5000/ws/scoreboard", pi.wsUrl("/ws/scoreboard"))
-        assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://192.168.1.10:5000"))
+        assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://203.0.113.10:5000"))
         assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://splouch.ca"))
         assertEquals(ServerAddress.Result.Invalid, ServerAddress.parse("ftp://x"))
         assertEquals(ServerAddress.Result.Invalid, ServerAddress.parse(""))

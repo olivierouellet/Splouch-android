@@ -53,9 +53,8 @@ preferences, so it does not disturb whatever the app was last pointed at.
 
 **`10.0.2.2` is the emulator's alias for the host's loopback.** Inside the emulator
 `127.0.0.1` is the emulator itself, so a server on your Mac is unreachable at that
-address. Only `.local` names, `localhost`, `127.0.0.1` and `10.0.2.2` may be dialled
-over plain HTTP — see `app/src/main/res/xml/network_security_config.xml` and app.md
-`P-12`.
+address. Plain HTTP is allowed only on the local network (`10.0.2.2` included) — see
+`app/src/main/res/xml/network_security_config.xml` and app.md `P-12`.
 
 Dev servers, per [`docs/development.md`](docs/development.md). Note the Pi cannot have port 5000 on macOS: ControlCenter
 (AirPlay Receiver) listens there, so pass an explicit port.

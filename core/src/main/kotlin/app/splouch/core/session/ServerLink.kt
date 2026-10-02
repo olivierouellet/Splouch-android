@@ -23,7 +23,7 @@ import java.net.URLDecoder
  * the query rather than in the authority.
  *
  * The address inside is held to exactly the rule a typed one is ([ServerAddress.parse]):
- * `http` for a `.local` name or the developer loopbacks, `https` for anything else. A
+ * `http` only for a host on the local network, `https` for anything else. A
  * printed code is a stranger's input in a way a typed address is not, so the cleartext
  * floor cannot be lower here — and the link only *proposes*. Nothing is saved until the
  * reader says yes and `GET /server` answers (`P-13`).

@@ -3,6 +3,7 @@ package app.splouch.android.platform
 import app.splouch.core.session.HttpClient
 import app.splouch.core.session.HttpFailure
 import app.splouch.core.session.HttpResponse
+import app.splouch.core.session.ServerAddress
 import app.splouch.core.transport.WebSocketTransport
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -21,6 +22,8 @@ class OkHttpTransport(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .addInterceptor(LocalCleartextOnly)
+        .addNetworkInterceptor(LocalCleartextOnly)
         .addNetworkInterceptor(SameOriginRedirects)
         .build(),
 ) : WebSocketTransport,
@@ -91,9 +94,27 @@ private fun ResponseBody.capped(limit: Long): ByteArray {
 private fun ResponseBody.text(limit: Long): String = String(capped(limit), contentType()?.charset() ?: Charsets.UTF_8)
 
 /**
+ * app.md P-12's cleartext floor, at the transport: plain `http` (and `ws`) only to a host
+ * on the local network ([ServerAddress.isLocalName]). The network security config cannot
+ * express IP ranges and so permits cleartext outright; this is what holds the line for
+ * any URL that did not come through [ServerAddress.parse]. Registered twice: as an
+ * application interceptor it refuses before a socket is opened, and as a network
+ * interceptor it sees every redirect hop before a byte of the request is written.
+ */
+private object LocalCleartextOnly : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val url = chain.request().url
+        if (!url.isHttps && !ServerAddress.isLocalName(url.host)) {
+            throw IOException("plain http to a host off the local network refused")
+        }
+        return chain.proceed(chain.request())
+    }
+}
+
+/**
  * A redirect is followed only within the origin it came from. Everything the app asks for
  * is on the server the reader chose; a `Location` naming another host would let a remote
- * server steer the phone at an address on its LAN (`*.local` is cleartext-permitted), or
+ * server steer the phone at an address on its LAN (local hosts are cleartext-permitted), or
  * answer a typed address's `GET /server` (P-13) with somebody else's.
  */
 private object SameOriginRedirects : Interceptor {
