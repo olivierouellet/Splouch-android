@@ -290,6 +290,24 @@ private fun ServerRow(
 }
 
 /**
+ * P-12's Search. Outlined, with the glyph, rather than a text button: the section header
+ * above it is the same primary-coloured words, and a bare text button read as a second
+ * header rather than as something to tap.
+ */
+@Composable
+private fun SearchButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+    ) {
+        Icon(painterResource(R.drawable.ic_search), null, Modifier.size(ButtonDefaults.IconSize))
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        Text(label)
+    }
+}
+
+/**
  * T-08: one language per device, set where every meet is in view. The web picker shows
  * this same control, so its words are the server's.
  *
@@ -297,20 +315,6 @@ private fun ServerRow(
  * The stored choice is untouched, and returning the control is a matter of putting the
  * two rows back here and returning `labelStyle` from that property.
  */
-/**
- * P-12's Search. Outlined, with the glyph, rather than a text button: the section header
- * above it is the same primary-coloured words, and a bare text button read as a second
- * header rather than as something to tap.
- */
-@Composable
-private fun SearchButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    OutlinedButton(onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-        Icon(painterResource(R.drawable.ic_search), null, Modifier.size(ButtonDefaults.IconSize))
-        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-        Text(label)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
