@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,8 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -452,13 +451,27 @@ private fun NoticePill(notice: ShownNotice, takeFocus: Boolean, onFocused: () ->
         PickerNotice.RESULTS_DISCLAIMER -> R.drawable.ic_hourglass_top
         PickerNotice.PRIVACY_NOTE -> R.drawable.ic_group
     }
-    // An AssistChip is a button to TalkBack and pads itself to a 48dp target around its 32dp.
-    AssistChip(
+    // A small outlined capsule, as iOS's, rather than an AssistChip: the chip's fixed paddings
+    // and 14sp label put two French pills past a phone's width, so they stacked. The FlowRow
+    // still stacks them when a narrow screen or a large font scale leaves no room. A clickable
+    // Surface is a button to TalkBack and pads itself to a 48dp target around its 32dp.
+    val colors = MaterialTheme.colorScheme
+    Surface(
         onClick = onUnfold,
-        label = { Text(notice.short) },
-        leadingIcon = { Icon(painterResource(icon), null, Modifier.size(AssistChipDefaults.IconSize)) },
+        shape = CircleShape,
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, colors.outline),
         modifier = Modifier.focusRequester(focus),
-    )
+    ) {
+        Row(
+            Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(painterResource(icon), null, Modifier.size(16.dp), tint = colors.primary)
+            Text(notice.short, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
 }
 
 @Composable
