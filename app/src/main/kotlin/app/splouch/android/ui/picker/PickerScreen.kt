@@ -90,6 +90,7 @@ import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.Appearance
+import app.splouch.core.session.MeetContext
 import app.splouch.core.session.PickerNotice
 import app.splouch.core.session.ShownNotice
 import app.splouch.core.session.UiState
@@ -278,7 +279,8 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                         // every meet, not the shown ones, so typing does not shift the names.
                         val anyImage = meets.any { it.hasPickerImage }
                         items(shown, key = { it.id }) { m ->
-                            val img = if (m.hasPickerImage) state.server.httpUrl("/picker_image/${m.id}") else null
+                            val path = "/picker_image/${MeetContext.enc(m.id)}"
+                            val img = if (m.hasPickerImage) state.server.httpUrl(path) else null
                             MeetCard(
                                 name = m.name.ifBlank { cfg?.strings?.get("unnamed_meet") ?: t.mobile("unnamed_meet") },
                                 // P-03: a retained meet says so in words, the server's (`mobile.offline`),

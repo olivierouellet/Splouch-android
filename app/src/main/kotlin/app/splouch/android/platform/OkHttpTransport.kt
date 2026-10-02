@@ -8,9 +8,11 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
@@ -19,6 +21,7 @@ class OkHttpTransport(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .addNetworkInterceptor(SameOriginRedirects)
         .build(),
 ) : WebSocketTransport,
     HttpClient {
@@ -49,21 +52,58 @@ class OkHttpTransport(
         val req = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
         try {
             client.newCall(req).execute().use { r ->
-                HttpResponse(r.code, r.body.string(), r.headers.names().associateWith { r.header(it).orEmpty() })
+                val headers = r.headers.names().associateWith { r.header(it).orEmpty() }
+                HttpResponse(r.code, r.body.text(MAX_TEXT_BYTES), headers)
             }
         } catch (e: IOException) {
             throw HttpFailure(e.message ?: "network error", e)
         }
     }
 
-    /** Raw bytes, for the picker images (P-02, P-05). Null on any fault. */
-    suspend fun bytes(url: String): ByteArray? = withContext(Dispatchers.IO) {
+    /** Raw bytes, for the picker images (P-02, P-05). Null on any fault, or past [limit]. */
+    suspend fun bytes(url: String, limit: Long): ByteArray? = withContext(Dispatchers.IO) {
         try {
             client.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                if (r.isSuccessful) r.body.bytes() else null
+                if (r.isSuccessful) r.body.capped(limit) else null
             }
         } catch (_: IOException) {
             null
         }
+    }
+
+    private companion object {
+        /**
+         * A body is held in memory whole, so a server — or anything a redirect or a hostile
+         * LAN put in its place — could end the process with one oversized answer. The
+         * largest real one is a big meet's schedule, well under this.
+         */
+        const val MAX_TEXT_BYTES = 16L * 1024 * 1024
+    }
+}
+
+/** The body, refused with an [IOException] once it passes [limit] bytes. */
+private fun ResponseBody.capped(limit: Long): ByteArray {
+    val source = source()
+    if (source.request(limit + 1)) throw IOException("response over $limit bytes")
+    return source.buffer.readByteArray()
+}
+
+private fun ResponseBody.text(limit: Long): String = String(capped(limit), contentType()?.charset() ?: Charsets.UTF_8)
+
+/**
+ * A redirect is followed only within the origin it came from. Everything the app asks for
+ * is on the server the reader chose; a `Location` naming another host would let a remote
+ * server steer the phone at an address on its LAN (`*.local` is cleartext-permitted), or
+ * answer a typed address's `GET /server` (P-13) with somebody else's.
+ */
+private object SameOriginRedirects : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val response = chain.proceed(chain.request())
+        if (!response.isRedirect) return response
+        val from = response.request.url
+        val to = response.header("Location")?.let { from.resolve(it) } ?: return response
+        if (to.scheme == from.scheme && to.host == from.host && to.port == from.port) return response
+        response.close()
+        throw IOException("redirect to another origin refused")
     }
 }

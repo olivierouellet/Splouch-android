@@ -67,23 +67,43 @@ class SplouchApp : Application() {
     }
 }
 
-/** Picker images and logo (P-02, P-05): fetched once, decoded, kept in memory. */
+/**
+ * Picker images and logo (P-02, P-05): fetched once, decoded, kept in memory.
+ *
+ * Both ends are bounded, since the bytes are a server's: the download by [MAX_BYTES], and
+ * the decode by sampling down to [MAX_SIDE] — a few-kilobyte PNG can declare a size whose
+ * pixels alone would not fit in the process. The cache is budgeted in bytes, not entries.
+ */
 class ImageCache(private val transport: OkHttpTransport) {
-    private val cache = LruCache<String, Bitmap>(32)
+    private val cache = object : LruCache<String, Bitmap>(CACHE_BYTES) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
+    }
     private val failed = HashSet<String>()
 
     suspend fun load(url: String): Bitmap? {
         cache.get(url)?.let { return it }
         if (url in failed) return null
-        val bytes = transport.bytes(url) ?: run {
-            failed += url
-            return null
-        }
-        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: run {
+        val bmp = transport.bytes(url, MAX_BYTES)?.let(::decode) ?: run {
             failed += url
             return null
         }
         cache.put(url, bmp)
         return bmp
+    }
+
+    private fun decode(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > MAX_SIDE) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+    }
+
+    private companion object {
+        const val MAX_BYTES = 4L * 1024 * 1024
+        const val MAX_SIDE = 1024
+        const val CACHE_BYTES = 32 * 1024 * 1024
     }
 }
