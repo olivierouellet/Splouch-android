@@ -9,6 +9,7 @@ import app.splouch.core.transport.SplouchSocket
 import app.splouch.core.transport.WebSocketTransport
 import app.splouch.core.wire.Frame
 import app.splouch.core.wire.MeetLive
+import app.splouch.core.wire.Moved
 import app.splouch.core.wire.ResultsSnapshot
 import app.splouch.core.wire.ScoreboardFrame
 import kotlinx.coroutines.CoroutineScope
@@ -31,20 +32,29 @@ import kotlinx.coroutines.launch
  * - the current heat for the Schedule tab is read off the first two (S-05)
  *
  * `join_meet {meet_id, vid}` goes out on every connect of every socket, on a cloud only
- * (C-02), with the `vid` minted for this server (C-10).
+ * (C-02), with the `vid` minted for this server (C-10) — the server the meet list came
+ * from, even when the meet's `base` is on another host, so one phone is one visitor.
+ *
+ * The sockets open at the meet's `base` (C-11). A `moved {url, base}` on any of them
+ * (C-12) switches all three to the new base at once and reports it on [moves], so the
+ * owner can re-fetch config there.
  *
  * Runs on [scope], which must be single-threaded.
  */
 class MeetSession(
-    val context: MeetContext,
-    transport: WebSocketTransport,
+    context: MeetContext,
+    private val transport: WebSocketTransport,
     private val vidStore: VidStore,
     private val scope: CoroutineScope,
     numLanes: Int,
-    timing: SplouchSocket.Timing = SplouchSocket.Timing(),
-    timeSource: kotlin.time.TimeSource.WithComparableMarks = kotlin.time.TimeSource.Monotonic,
+    private val timing: SplouchSocket.Timing = SplouchSocket.Timing(),
+    private val timeSource: kotlin.time.TimeSource.WithComparableMarks = kotlin.time.TimeSource.Monotonic,
     clock: RaceClock = RaceClock(timeSource),
 ) {
+    /** Where the session is now: its `base` changes on a move (C-12), its server never. */
+    var context: MeetContext = context
+        private set
+
     val board = ScoreboardState(numLanes, clock)
     val results = ResultsBoard(numLanes)
 
@@ -72,22 +82,76 @@ class MeetSession(
     /** A-09: a socket reconnected; the owner re-fetches config to learn whether the meet is gone. */
     val reconnects: Flow<Unit> = reconnectChannel.receiveAsFlow()
 
-    val scoreboardSocket = SplouchSocket(context.wsUrl("/ws/scoreboard"), transport, scope, timing, timeSource)
-    val resultsSocket = SplouchSocket(context.wsUrl("/ws/results"), transport, scope, timing, timeSource)
-    val scheduleSocket = SplouchSocket(context.wsUrl("/ws/schedule"), transport, scope, timing, timeSource)
-    private val sockets = listOf(scoreboardSocket, resultsSocket, scheduleSocket)
+    private val moveChannel = Channel<MeetBase>(Channel.CONFLATED)
+
+    /** C-12: the sockets followed the meet to this base; the owner re-fetches config there. */
+    val moves: Flow<MeetBase> = moveChannel.receiveAsFlow()
+
+    var scoreboardSocket = socket("/ws/scoreboard")
+        private set
+    var resultsSocket = socket("/ws/results")
+        private set
+    var scheduleSocket = socket("/ws/schedule")
+        private set
+    private val sockets get() = listOf(scoreboardSocket, resultsSocket, scheduleSocket)
 
     private var scoreboardConnects = 0
     private var tickerJob: Job? = null
+    private var collectors: List<Job> = emptyList()
     private var started = false
+    private var closed = false
+
+    private fun socket(path: String) = SplouchSocket(context.wsUrl(path), transport, scope, timing, timeSource)
 
     fun start() {
         if (started) return
         started = true
-        scope.launch { scoreboardSocket.events.collect(::onScoreboardEvent) }
-        scope.launch { resultsSocket.events.collect(::onResultsEvent) }
-        scope.launch { scheduleSocket.events.collect(::onScheduleEvent) }
+        open()
+    }
+
+    /** Collects the current three and starts them; a collector outlives no socket it was not started for. */
+    private fun open() {
+        val sb = scoreboardSocket
+        val rs = resultsSocket
+        val sc = scheduleSocket
+        collectors = listOf(
+            scope.launch { sb.events.collect { if (sb === scoreboardSocket) onScoreboardEvent(it) } },
+            scope.launch { rs.events.collect { if (rs === resultsSocket) onResultsEvent(it) } },
+            scope.launch { sc.events.collect { if (sc === scheduleSocket) onScheduleEvent(it) } },
+        )
         sockets.forEach { it.start() }
+    }
+
+    /**
+     * C-12, and A-09's config naming a new `base`: the meet now lives at [base]. All three
+     * sockets close and reopen there, joining as on any connect. The board is held as on a
+     * drop (C-09) until the new worker replays it — a base that never answers must not leave
+     * a clock ticking as if live. Same base, or a closed session: nothing to do.
+     */
+    fun moveTo(base: MeetBase) {
+        if (closed || base == context.base) return
+        context = context.copy(base = base)
+        collectors.forEach { it.cancel() }
+        collectors = emptyList()
+        sockets.forEach { it.close() }
+        scoreboardSocket = socket("/ws/scoreboard")
+        resultsSocket = socket("/ws/results")
+        scheduleSocket = socket("/ws/schedule")
+        // The first connect at the new base is not a reconnect: the owner re-fetches config
+        // on [moves] already.
+        scoreboardConnects = 0
+        board.onDisconnect()
+        results.clear()
+        publishScoreboard()
+        _resultsView.value = results.view()
+        if (started) open()
+        moveChannel.trySend(base)
+    }
+
+    /** A `moved` frame, from whichever socket heard it first. One without a usable base is ignored (C-07). */
+    private fun onMoved(data: kotlinx.serialization.json.JsonElement?) {
+        val base = MeetBase.parse(Moved.fromJson(data)?.base) ?: return
+        moveTo(base)
     }
 
     /** C-05: foreground or network restored — probe every socket. */
@@ -118,7 +182,9 @@ class MeetSession(
     }
 
     fun close() {
+        closed = true
         stopTicker()
+        collectors.forEach { it.cancel() }
         sockets.forEach { it.close() }
     }
 
@@ -177,6 +243,7 @@ class MeetSession(
                 }
                 "meet_live" -> board.setMeetLive(MeetLive.fromJson(e.data).live)
                 "reload" -> reloadChannel.trySend(Unit)
+                "moved" -> return onMoved(e.data)
                 else -> Unit // C-07
             }
         }
@@ -194,6 +261,7 @@ class MeetSession(
                 }
                 "meet_live" -> if (!MeetLive.fromJson(e.data).live) results.clear()
                 "reload" -> reloadChannel.trySend(Unit)
+                "moved" -> return onMoved(e.data)
                 else -> Unit
             }
         }
@@ -204,7 +272,11 @@ class MeetSession(
         when (e) {
             SocketEvent.Connected -> join(scheduleSocket)
             SocketEvent.Disconnected -> Unit
-            is SocketEvent.Message -> if (e.event == "schedule_update") scheduleChannel.trySend(Unit)
+            is SocketEvent.Message -> when (e.event) {
+                "schedule_update" -> scheduleChannel.trySend(Unit)
+                "moved" -> onMoved(e.data)
+                else -> Unit
+            }
         }
     }
 

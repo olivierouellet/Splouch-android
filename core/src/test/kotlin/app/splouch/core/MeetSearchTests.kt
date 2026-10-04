@@ -2,10 +2,14 @@ package app.splouch.core
 
 import app.splouch.core.session.MeetSearch
 import app.splouch.core.session.PickerState
+import app.splouch.core.session.ServerAddress
+import app.splouch.core.session.countryName
+import app.splouch.core.session.region
 import app.splouch.core.wire.MeetSummary
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MeetSearchTests {
@@ -61,5 +65,72 @@ class MeetSearchTests {
         // A refresh that leaves too few meets closes the field, and the query no longer hides any.
         val shrunk = open.copy(meets = listOf(meets[0], meets[2]), query = "winter")
         assertEquals(listOf("a", "c"), shrunk.shownMeets.map { it.id })
+    }
+
+    // ── app.md v3: P-01, P-17, P-18 ───────────────────────────────────────────
+
+    private fun located(id: String, name: String, country: String, province: String) = MeetSummary(
+        id,
+        name,
+        "",
+        "",
+        "",
+        "",
+        offline = false,
+        hasPickerImage = false,
+        country = country,
+        province = province,
+    )
+
+    @Test fun `P-17 searches the province, the country code, and the country's name in the reader's language`() {
+        val meets = listOf(
+            located("qc", "Coupe", country = "CA", province = "QC"),
+            located("ge", "Open", country = "CH", province = "GE"),
+            located("none", "Gala", country = "", province = ""),
+        )
+        fun shown(query: String, lang: String) =
+            PickerState(meets = meets, searching = true, query = query, lang = lang).shownMeets.map { it.id }
+        assertEquals(listOf("qc"), shown("qc", "en"))
+        assertEquals(listOf("ge"), shown("ch", "en"))
+        assertEquals(listOf("ge"), shown("switzerland", "en"))
+        assertEquals(listOf("ge"), shown("suisse", "fr"))
+        assertEquals(listOf("ge"), shown("suiza", "es"))
+        // the reader's language, not every language
+        assertEquals(emptyList(), shown("suisse", "en"))
+        assertEquals(listOf("qc"), shown("canada coupe", "fr"))
+    }
+
+    @Test fun `P-01 the region reads province then country, named in the reader's language`() {
+        assertEquals("Allemagne", countryName("DE", "fr"))
+        assertEquals("Germany", countryName("de", "en"))
+        assertEquals("", countryName("", "en"))
+        assertEquals("C1", countryName("C1", "en"))
+        assertEquals("QC, Canada", located("a", "", "CA", "QC").region("en"))
+        assertEquals("Canada", located("a", "", "CA", "").region("en"))
+        assertEquals("QC", located("a", "", "", "QC").region("en"))
+        assertEquals("", located("a", "", "", "").region("en"))
+    }
+
+    @Test fun `P-18 ten meets are cards with their images, eleven are compact rows that fetch none`() {
+        val server = ServerAddress.parseOrNull("https://c.example")!!
+        fun list(n: Int) = PickerState(
+            meets = List(n) { MeetSummary("m$it", "Meet $it", "", "", "", "", offline = false, hasPickerImage = true) },
+        )
+        val ten = list(10)
+        assertFalse(ten.compact)
+        assertTrue(ten.reserveImage)
+        assertEquals("https://c.example/picker_image/m0", ten.imageUrl(server, ten.meets[0]))
+        assertEquals(10, ten.meets.mapNotNull { ten.imageUrl(server, it) }.size)
+
+        val eleven = list(11)
+        assertTrue(eleven.compact)
+        assertFalse(eleven.reserveImage)
+        assertEquals(emptyList(), eleven.meets.mapNotNull { eleven.imageUrl(server, it) })
+        // counted on the whole list: a query that leaves three does not bring images back
+        val searched = eleven.copy(searching = true, query = "meet 1")
+        assertTrue(searched.compact)
+        assertNull(searched.imageUrl(server, searched.shownMeets.first()))
+        // a meet without an image never asks, whatever the count
+        assertNull(list(1).let { it.imageUrl(server, it.meets[0].copy(hasPickerImage = false)) })
     }
 }

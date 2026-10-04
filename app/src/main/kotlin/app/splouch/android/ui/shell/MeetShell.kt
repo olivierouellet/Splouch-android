@@ -2,6 +2,7 @@ package app.splouch.android.ui.shell
 
 import android.content.res.Configuration
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,6 +60,8 @@ import app.splouch.core.session.MeetState
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.UiState
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 private fun MeetTab.icon(): Int = when (this) {
@@ -129,12 +132,24 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     // it is abandoned. Without it (and without the manifest's
     // `enableOnBackInvokedCallback`) Android 13+ gets no preview at all and the meet just
     // vanishes on release.
+    //
+    // A-12: the meet list is asked for as the finger starts to move, so its answer is
+    // usually in by the release. Answered → close. Not answering within ~4 s → the board
+    // settles back where it was and the notice says why; the next back asks again. An
+    // abandoned gesture abandons the question with it, and raises nothing.
     val backProgress = remember { mutableFloatStateOf(0f) }
     val close by rememberUpdatedState { model.closeMeet() }
     PredictiveBackHandler { progress ->
         try {
-            progress.collect { backProgress.floatValue = it.progress }
-            close()
+            coroutineScope {
+                val reachable = async { model.pickerReachable() }
+                progress.collect { backProgress.floatValue = it.progress }
+                if (reachable.await()) {
+                    close()
+                } else {
+                    animate(backProgress.floatValue, 0f) { v, _ -> backProgress.floatValue = v }
+                }
+            }
         } catch (cancelled: CancellationException) {
             backProgress.floatValue = 0f
             throw cancelled
@@ -209,7 +224,7 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
                 navigationIcon = {
-                    IconButton(onClick = { model.closeMeet() }) {
+                    IconButton(onClick = { model.leaveMeet() }) {
                         Icon(painterResource(R.drawable.ic_back), t.mobile("back_to_meets"))
                     }
                 },

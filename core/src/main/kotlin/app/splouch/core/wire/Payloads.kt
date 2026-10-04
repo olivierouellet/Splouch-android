@@ -74,6 +74,11 @@ data class MeetSummary(
     val meetDate: String,
     val offline: Boolean,
     val hasPickerImage: Boolean,
+    /** The organizer's, ISO 3166-1 alpha-2; `""` when unrecorded (P-01, P-17). */
+    val country: String = "",
+    val province: String = "",
+    /** C-11: where the meet is reached, as sent; `""` from a server older than app.md v3. */
+    val base: String = "",
 ) {
     companion object {
         fun fromJson(e: JsonElement?): MeetSummary? {
@@ -88,6 +93,9 @@ data class MeetSummary(
                 meetDate = o["meet_date"].asStringOrNull().orEmpty(),
                 offline = o["offline"].asBoolOrNull() ?: false,
                 hasPickerImage = o["has_picker_image"].asBoolOrNull() ?: false,
+                country = o["country"].asStringOrNull()?.trim().orEmpty(),
+                province = o["province"].asStringOrNull()?.trim().orEmpty(),
+                base = o["base"].asStringOrNull()?.trim().orEmpty(),
             )
         }
 
@@ -241,6 +249,8 @@ data class MeetConfig(
     /** The cloud says whether a relay is attached; the Pi does not say, the socket does. */
     val live: Boolean? = null,
     val settings: MeetSettings,
+    /** A-09, C-12: where the meet is reached now, cloud only; `""` when the server does not say. */
+    val base: String = "",
 ) {
     /** A-08's rule for the shell title: `app_window_title`, then `name`, then `Splouch`. */
     val title: String get() = appWindowTitle.trim().ifEmpty { name.trim().ifEmpty { "Splouch" } }
@@ -256,6 +266,7 @@ data class MeetConfig(
                 meetDate = o["meet_date"].asStringOrNull().orEmpty(),
                 live = o["live"].asBoolOrNull(),
                 settings = MeetSettings.fromJson(o["settings"]),
+                base = o["base"].asStringOrNull()?.trim().orEmpty(),
             )
         }
 
@@ -368,6 +379,16 @@ class ScoreboardFrame(val fields: Map<String, JsonElement>) {
 data class MeetLive(val live: Boolean) {
     companion object {
         fun fromJson(e: JsonElement?): MeetLive = MeetLive(e.asObjectOrNull()?.get("live").asBoolOrNull() ?: false)
+    }
+}
+
+/** `moved {url, base}` on any attendee socket (api.md §3, app.md C-12). `url` is the web page's; a client follows `base`. */
+data class Moved(val url: String, val base: String) {
+    companion object {
+        fun fromJson(e: JsonElement?): Moved? {
+            val o = e.asObjectOrNull() ?: return null
+            return Moved(o["url"].asStringOrNull().orEmpty(), o["base"].asStringOrNull().orEmpty())
+        }
     }
 }
 

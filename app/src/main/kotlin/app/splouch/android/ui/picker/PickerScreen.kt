@@ -83,6 +83,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.splouch.android.ImageCache
 import app.splouch.android.R
@@ -90,10 +91,10 @@ import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.Appearance
-import app.splouch.core.session.MeetContext
 import app.splouch.core.session.PickerNotice
 import app.splouch.core.session.ShownNotice
 import app.splouch.core.session.UiState
+import app.splouch.core.session.region
 import app.splouch.core.wire.ServerKind
 
 /**
@@ -274,28 +275,41 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                                 )
                             }
                         }
-                        // P-02: reserve the image slot across the list when any meet has one, so
-                        // the names line up instead of stepping in and out by 56dp. Taken over
+                        // P-02: the slot is reserved across the list when any meet has an image,
+                        // so the names line up instead of stepping in and out by 56dp; taken over
                         // every meet, not the shown ones, so typing does not shift the names.
-                        val anyImage = meets.any { it.hasPickerImage }
+                        // P-18: past ten meets, compact rows — no image, none fetched, no slot.
+                        val unnamed = cfg?.strings?.get("unnamed_meet") ?: t.mobile("unnamed_meet")
+                        // P-03: a retained meet says so in words, the server's (`mobile.offline`),
+                        // as on iOS — the dot alone is colour, and colour says nothing out loud.
+                        val offline = t.mobile("offline")
                         items(shown, key = { it.id }) { m ->
-                            val path = "/picker_image/${MeetContext.enc(m.id)}"
-                            val img = if (m.hasPickerImage) state.server.httpUrl(path) else null
-                            MeetCard(
-                                name = m.name.ifBlank { cfg?.strings?.get("unnamed_meet") ?: t.mobile("unnamed_meet") },
-                                // P-03: a retained meet says so in words, the server's (`mobile.offline`),
-                                // as on iOS — the dot alone is colour, and colour says nothing out loud.
-                                meta = listOf(
-                                    m.meetDate,
-                                    m.location,
-                                    m.sport,
-                                    if (m.offline) t.mobile("offline") else "",
-                                )
-                                    .filter { it.isNotBlank() },
-                                live = !m.offline,
-                                image = img?.let { url -> remoteBitmap(images, url) },
-                                reserveImage = anyImage,
-                            ) { model.openMeet(m.id) }
+                            // P-01: the organizer's province and country, the country named in the
+                            // reader's language.
+                            val region = m.region(picker.lang)
+                            if (picker.compact) {
+                                CompactMeetRow(
+                                    name = m.name.ifBlank { unnamed },
+                                    meta = listOf(m.meetDate, m.location, region, if (m.offline) offline else "")
+                                        .filter { it.isNotBlank() },
+                                    live = !m.offline,
+                                ) { model.openMeet(m.id) }
+                            } else {
+                                MeetCard(
+                                    name = m.name.ifBlank { unnamed },
+                                    meta = listOf(
+                                        m.meetDate,
+                                        m.location,
+                                        region,
+                                        m.sport,
+                                        if (m.offline) offline else "",
+                                    )
+                                        .filter { it.isNotBlank() },
+                                    live = !m.offline,
+                                    image = picker.imageUrl(state.server, m)?.let { url -> remoteBitmap(images, url) },
+                                    reserveImage = picker.reserveImage,
+                                ) { model.openMeet(m.id) }
+                            }
                         }
                     }
                 }
@@ -585,6 +599,40 @@ private fun MeetCard(
                     )
             },
         )
+    }
+}
+
+/**
+ * P-18: one meet in a long list — the dot, the name and one line of details, no image and no
+ * slot for one. Still a button of at least 48dp, and one TalkBack stop.
+ */
+@Composable
+private fun CompactMeetRow(name: String, meta: List<String>, live: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StatusDot(live)
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (meta.isNotEmpty()) {
+                    Text(
+                        meta.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
     }
 }
 

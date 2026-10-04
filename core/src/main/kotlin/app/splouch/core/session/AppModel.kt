@@ -21,11 +21,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** What [AppModel.removeServer] took away, so [AppModel.restoreServer] can put it back exactly. */
 data class RemovedServer(val origin: String, val index: Int, val wasSelected: Boolean)
@@ -65,6 +68,8 @@ data class PickerState(
      * same words ([UiState.pickerNotices]).
      */
     val folds: Map<PickerNotice, String> = emptyMap(),
+    /** The reader's language — chosen, else the device's — for country names (P-01, P-17). */
+    val lang: String = "",
 ) {
     /** The search action is offered at all: only once there are enough meets to be worth searching. */
     val canSearch: Boolean get() = MeetSearch.shows(meets.size)
@@ -76,7 +81,29 @@ data class PickerState(
      * The cards to draw, in the server's order. A query is ignored once the field is gone,
      * or it would hide meets with nothing on screen to say why.
      */
-    val shownMeets: List<MeetSummary> get() = if (searchOpen) MeetSearch.filter(meets, query) else meets
+    val shownMeets: List<MeetSummary> get() = if (searchOpen) MeetSearch.filter(meets, query, lang) else meets
+
+    /**
+     * P-18: more than [COMPACT_ABOVE] meets → compact rows, no picker image. Counted on
+     * every meet the server listed, not the ones a query leaves, so typing never flips the
+     * list between the two shapes.
+     */
+    val compact: Boolean get() = meets.size > COMPACT_ABOVE
+
+    /** P-02: the picker image to fetch for [meet], or null — none supplied, or the list is compact (P-18). */
+    fun imageUrl(server: ServerAddress, meet: MeetSummary): String? =
+        if (compact || !meet.hasPickerImage) null else server.httpUrl("/picker_image/${MeetContext.enc(meet.id)}")
+
+    /**
+     * P-02: hold the image slot on every card when any meet has an image, so the names line
+     * up instead of stepping in and out by 56dp. Never in a compact list (P-18).
+     */
+    val reserveImage: Boolean get() = !compact && meets.any { it.hasPickerImage }
+
+    companion object {
+        /** P-18: at this many meets or fewer the picker draws cards; above it, compact rows. */
+        const val COMPACT_ABOVE = 10
+    }
 }
 
 /** One open meet and everything its tabs render from. */
@@ -120,6 +147,11 @@ data class UiState(
     val meet: MeetState? = null,
     /** A-09: the meet was found gone; the UI says so once and calls [AppModel.dismissMeetGone]. */
     val meetGone: Boolean = false,
+    /**
+     * A-12: back was asked for and the meet list did not answer, so the meet stays open. The
+     * UI says so once (`mobile.picker_unavailable`) and calls [AppModel.dismissPickerUnavailable].
+     */
+    val pickerUnavailable: Boolean = false,
     val prefs: Preferences = Preferences(),
     /** P-16: a QR code named a server and the reader has not answered yet. */
     val invite: ServerInvite? = null,
@@ -229,6 +261,7 @@ class AppModel(
                 server = server,
                 isDefaultServer = server == defaultServer,
                 pickerStrings = pickerTable(prefs),
+                picker = it.picker.copy(lang = prefs.lang ?: deviceLang),
             )
         }
         rebuildServers()
@@ -247,7 +280,7 @@ class AppModel(
                 isDefaultServer = address == defaultServer,
                 serverInfo = null,
                 serverError = null,
-                picker = PickerState(),
+                picker = PickerState(lang = readerLang()),
                 contractNotice = null,
             )
         }
@@ -407,6 +440,7 @@ class AppModel(
 
     fun dismissNotice() = _state.update { it.copy(contractNotice = null) }
     fun dismissMeetGone() = _state.update { it.copy(meetGone = false) }
+    fun dismissPickerUnavailable() = _state.update { it.copy(pickerUnavailable = false) }
 
     private fun rebuildServers() {
         val seen = HashSet<String>()
@@ -561,10 +595,17 @@ class AppModel(
 
     // ── meet (P-08, A-*, C-08, A-09) ──────────────────────────────────────────
 
-    /** Opens a meet on a cloud, or the one meet on a Pi (`meetId` null). */
+    /**
+     * Opens a meet on a cloud, or the one meet on a Pi (`meetId` null). A cloud meet is
+     * reached at the `base` its list entry names (C-11); an entry without one, from a server
+     * older than app.md v3, at the server URL.
+     */
     fun openMeet(meetId: String?) {
         val kind = current.kind ?: return
-        val context = MeetContext(current.server, kind, meetId)
+        val server = current.server
+        val base = meetId?.let { id -> current.picker.meets.firstOrNull { it.id == id } }
+            ?.let { MeetBase.parse(it.base) } ?: MeetBase.of(server)
+        val context = MeetContext(server, kind, meetId, base)
         val gen = generation
         scope.launch {
             when (val r = api.meetConfig(context)) {
@@ -580,8 +621,12 @@ class AppModel(
         }
     }
 
-    private fun startMeet(context: MeetContext, config: MeetConfig) {
+    private fun startMeet(listed: MeetContext, config: MeetConfig) {
         closeMeet()
+        // A-09: the config names where the meet is now. Opened there from the start, rather
+        // than connecting at the listed base only to be moved on.
+        val moved = MeetBase.parse(config.base)?.takeIf { listed.kind == ServerKind.CLOUD && it != listed.base }
+        val context = moved?.let { listed.copy(base = it) } ?: listed
         val prefs = current.prefs
         val lang = prefs.lang ?: config.settings.locale ?: deviceLang
         val strings = table(context.server, lang)
@@ -606,17 +651,53 @@ class AppModel(
             scope.launch { session.reloads.collect { refetchConfig() } },
             scope.launch { session.reconnects.collect { refetchConfig() } },
             scope.launch { session.scheduleUpdates.collect { loadSchedule() } },
+            scope.launch { session.moves.collect { onMoved(session) } },
         )
+        if (moved != null) refetchConfig() // the config in hand came from the old base
         loadSchedule()
         refreshStrings(context.server, lang, forPicker = false)
     }
 
-    /** A-02: back to the picker (or, on a Pi, to the server list). */
+    /** Closes the meet outright. Back from the meet is [leaveMeet], which asks A-12 first. */
     fun closeMeet() {
         meetJobs.forEach { it.cancel() }
         meetJobs = emptyList()
         current.meet?.session?.close()
         _state.update { it.copy(meet = null) }
+    }
+
+    private var leaving: Job? = null
+
+    /**
+     * A-02 by a tap: back to the picker (or, on a Pi, to the server list) — once A-12 says
+     * the meet list is there to go back to. A second tap while one check is out adds none.
+     */
+    fun leaveMeet() {
+        if (current.meet == null || leaving?.isActive == true) return
+        leaving = scope.launch { if (pickerReachable()) closeMeet() }
+    }
+
+    /**
+     * A-12: is the meet list there to go back to? Asks `GET /meets` with [PICKER_CHECK_TIMEOUT];
+     * an answer refreshes the picker's list on the way. No answer raises
+     * [UiState.pickerUnavailable] and the meet stays open; the next back asks again, so
+     * back works as soon as the list does. A Pi has no list and always says yes.
+     *
+     * Suspends in the caller, so the system back gesture can start it as the finger moves
+     * and abandon it with the gesture: an abandoned check raises nothing.
+     */
+    suspend fun pickerReachable(): Boolean {
+        if (current.kind != ServerKind.CLOUD) return true
+        val gen = generation
+        val r = withTimeoutOrNull(PICKER_CHECK_TIMEOUT) { api.meets() }
+        currentCoroutineContext().ensureActive()
+        if (gen != generation) return false
+        if (r is ApiResult.Ok) {
+            _state.update { it.copy(picker = it.picker.copy(meets = r.value, loaded = true, error = null)) }
+            return true
+        }
+        _state.update { it.copy(pickerUnavailable = true) }
+        return false
     }
 
     /** A-05: pull-to-refresh on the shell — re-fetch config, rejoin the sockets, reload the schedule. */
@@ -636,8 +717,10 @@ class AppModel(
         val meet = current.meet ?: return
         val gen = generation
         scope.launch {
-            val r = api.meetConfig(meet.context)
+            val r = api.meetConfig(meet.session.context)
             if (gen != generation || current.meet?.session !== meet.session) return@launch
+            // C-12 by way of A-09: the config came from a base the meet has left.
+            if (r is ApiResult.Ok && followBase(meet.session, r.value)) return@launch
             when (r) {
                 is ApiResult.Ok -> _state.update { s ->
                     val m = s.meet ?: return@update s
@@ -672,11 +755,32 @@ class AppModel(
         }
     }
 
+    /**
+     * A-09: the config names the meet's `base` now. One that differs from the base in use is
+     * followed as a `moved` is (C-12). Returns whether it moved — the config that said so came
+     * from the old base, and the one fetched at the new base replaces it.
+     */
+    private fun followBase(session: MeetSession, config: MeetConfig): Boolean {
+        if (session.context.kind != ServerKind.CLOUD) return false
+        val base = MeetBase.parse(config.base) ?: return false
+        if (base == session.context.base) return false
+        session.moveTo(base) // reported back on `moves` → [onMoved]
+        return true
+    }
+
+    /** C-12: the session's sockets followed the meet to a new base; config and start list follow too. */
+    private fun onMoved(session: MeetSession) {
+        if (current.meet?.session !== session) return
+        _state.update { s -> s.copy(meet = s.meet?.copy(context = session.context)) }
+        refetchConfig(clearRefreshing = true)
+        loadSchedule()
+    }
+
     fun loadSchedule() {
         val meet = current.meet ?: return
         val gen = generation
         scope.launch {
-            val r = api.schedule(meet.context)
+            val r = api.schedule(meet.session.context)
             if (gen != generation || current.meet?.session !== meet.session) return@launch
             _state.update { s ->
                 val m = s.meet ?: return@update s
@@ -698,7 +802,7 @@ class AppModel(
 
     fun setLang(lang: String?) {
         savePrefs(current.prefs.copy(lang = lang?.takeIf { it.isNotBlank() }))
-        _state.update { it.copy(pickerStrings = pickerTable(it.prefs)) }
+        _state.update { it.copy(pickerStrings = pickerTable(it.prefs), picker = it.picker.copy(lang = readerLang())) }
         refreshStrings(current.server, current.prefs.lang ?: deviceLang, forPicker = true)
         if (current.kind == ServerKind.CLOUD) refreshPicker()
         current.meet?.let { m ->
@@ -752,6 +856,8 @@ class AppModel(
     }
 
     private fun pickerTable(prefs: Preferences): StringTable = table(current.server, prefs.lang ?: deviceLang)
+
+    private fun readerLang(): String = current.prefs.lang ?: deviceLang
 
     /** Cached server value → built-in → built-in English → key (T-10). */
     private fun table(server: ServerAddress, lang: String): StringTable =
@@ -830,5 +936,8 @@ class AppModel(
 
         /** P-12: how long one scan for the officials' local server browses. */
         val LOCAL_SEARCH_LIMIT = 10.seconds
+
+        /** A-12: how long back waits on the meet list before it keeps the reader on the meet. */
+        val PICKER_CHECK_TIMEOUT = 4.seconds
     }
 }

@@ -5,6 +5,7 @@ import app.splouch.core.schedule.HeatRef
 import app.splouch.core.session.ApiResult
 import app.splouch.core.session.Contract
 import app.splouch.core.session.InMemoryVidStore
+import app.splouch.core.session.MeetBase
 import app.splouch.core.session.MeetContext
 import app.splouch.core.session.MeetSession
 import app.splouch.core.session.ServerAddress
@@ -72,9 +73,12 @@ class SessionTests {
     }
 
     @Test fun `contract mismatch is a notice, never a refusal`() {
-        assertNull(Contract.mismatchNotice(ContractVersions("v2", "v2")))
+        assertNull(Contract.mismatchNotice(ContractVersions("v2", "v3")))
         val n = Contract.mismatchNotice(ContractVersions("v1", "v1"))!!
         assertTrue(n.contains("v1") && n.contains("v2"))
+        // P-14 against app.md v3: a v2 server is named beside the v3 this app was built for.
+        val v2 = Contract.mismatchNotice(ContractVersions("v2", "v2"))!!
+        assertTrue(v2.contains("app v2") && v2.contains("app v3"))
     }
 
     @Test fun `built contract versions match the documents' headers`() {
@@ -267,6 +271,119 @@ class SessionTests {
         assertEquals("", session.scoreboard.value.lanes[0].time)
         assertEquals("", session.scoreboard.value.currentEvent)
         assertNull(session.currentHeat.value)
+        session.close()
+    }
+
+    // ── app.md v3: C-11, C-12 ─────────────────────────────────────────────────
+
+    @Test fun `C-11 a base parses with its path, and is held to the cleartext floor`() {
+        assertEquals("https://ca1.example/w2", MeetBase.parse(" https://ca1.example/w2/ ")!!.url)
+        assertEquals("https://ca1.example", MeetBase.parse("https://CA1.example:443")!!.url)
+        assertEquals("http://127.0.0.1:5055/w1", MeetBase.parse("http://127.0.0.1:5055/w1")!!.url)
+        assertEquals(
+            MeetBase.of(ServerAddress.parseOrNull("https://c.example")!!),
+            MeetBase.parse("https://c.example/"),
+        )
+        assertNull(MeetBase.parse(null))
+        assertNull(MeetBase.parse("  "))
+        assertNull(MeetBase.parse("http://ca1.example/w2")) // cleartext to a public host
+        assertNull(MeetBase.parse("ca1.example/w2")) // no scheme
+        assertNull(MeetBase.parse("ftp://ca1.example"))
+        assertNull(MeetBase.parse("https://u:p@ca1.example/w2"))
+        assertNull(MeetBase.parse("https://ca1.example/w2?x=1"))
+    }
+
+    @Test fun `C-11 a meet's sockets, config, schedule and icon are at its base, the server URL without one`() = runTest {
+        val server = ServerAddress.parseOrNull("https://c.example")!!
+        val ctx = MeetContext(server, ServerKind.CLOUD, "m 1", MeetBase.parse("https://ca1.example/w2")!!)
+        assertEquals("https://ca1.example/w2/meet/m%201/config", ctx.configUrl)
+        assertEquals("https://ca1.example/w2/meet/m%201/schedule", ctx.scheduleUrl)
+        assertEquals("https://ca1.example/w2/icon/m%201", ctx.iconUrl)
+        // strings stay on the server the list came from
+        assertEquals("https://c.example/i18n/fr", ctx.i18nUrl("fr"))
+        // no base (a server older than v3): the server URL, as before
+        val plain = MeetContext(server, ServerKind.CLOUD, "m1")
+        assertEquals("https://c.example/meet/m1/config", plain.configUrl)
+        assertEquals("https://c.example/meet/m1/schedule", plain.scheduleUrl)
+        assertEquals("https://c.example/icon/m1", plain.iconUrl)
+        assertNull(MeetContext(ServerAddress.parseOrNull("http://pi.local:5000")!!, ServerKind.PI, null).iconUrl)
+
+        val transport = FakeTransport()
+        val vids = InMemoryVidStore()
+        val session =
+            MeetSession(ctx, transport, vids, backgroundScope, numLanes = 4, timeSource = testScheduler.timeSource)
+        session.start()
+        assertEquals(
+            listOf(
+                "wss://ca1.example/w2/ws/scoreboard",
+                "wss://ca1.example/w2/ws/results",
+                "wss://ca1.example/w2/ws/schedule",
+            ),
+            transport.connections.map { it.url },
+        )
+        transport.connections.forEach { it.serverOpen() }
+        runCurrent()
+        // C-10: the vid is the list server's, never one minted for the worker's host
+        val vid = vids.vid("https://c.example")
+        transport.connections.forEach { c ->
+            assertEquals(vid, Frame.decode(c.sent.single())!!.data!!.jsonObject["vid"]!!.jsonPrimitive.content)
+        }
+        session.close()
+    }
+
+    @Test fun `C-12 a moved on any socket switches all three to the new base, holds the board, and joins there`() = runTest {
+        val transport = FakeTransport()
+        val vids = InMemoryVidStore()
+        val server = ServerAddress.parseOrNull("https://c.example")!!
+        val ctx = MeetContext(server, ServerKind.CLOUD, "m1", MeetBase.parse("https://ca1.example/w1")!!)
+        val session =
+            MeetSession(ctx, transport, vids, backgroundScope, numLanes = 4, timeSource = testScheduler.timeSource)
+        val moves = ArrayList<MeetBase>()
+        backgroundScope.launch { session.moves.toList(moves) }
+        session.start()
+        transport.connections.forEach { it.serverOpen() }
+        runCurrent()
+        transport.connections[0].serverSend("""{"event":"meet_live","data":{"live":true}}""")
+        runCurrent()
+        assertTrue(session.scoreboard.value.meetLive)
+
+        // heard on the schedule socket: all three go
+        val old = transport.connections.toList()
+        old[2].serverSend(
+            """{"event":"moved","data":{"url":"https://ca2.example/w3/mobile?meet=m1","base":"https://ca2.example/w3"}}""",
+        )
+        runCurrent()
+        val moved = MeetBase.parse("https://ca2.example/w3")!!
+        assertTrue(old.all { it.closed })
+        assertEquals(moved, session.context.base)
+        assertEquals(server, session.context.server)
+        assertEquals(listOf(moved), moves)
+        assertEquals(
+            listOf(
+                "wss://ca2.example/w3/ws/scoreboard",
+                "wss://ca2.example/w3/ws/results",
+                "wss://ca2.example/w3/ws/schedule",
+            ),
+            transport.connections.drop(3).map { it.url },
+        )
+        // held until the new worker replays it — never "gone", never left ticking as live
+        assertFalse(session.scoreboard.value.meetLive)
+        transport.connections.drop(3).forEach { it.serverOpen() }
+        runCurrent()
+        transport.connections.drop(3).forEach { c ->
+            val join = Frame.decode(c.sent.single())!!
+            assertEquals("join_meet", join.event)
+            assertEquals(vids.vid("https://c.example"), join.data!!.jsonObject["vid"]!!.jsonPrimitive.content)
+        }
+
+        // the same base again, or one that cannot be followed, moves nothing
+        val now = transport.connections.size
+        transport.last.serverSend("""{"event":"moved","data":{"url":"","base":"https://ca2.example/w3/"}}""")
+        transport.last.serverSend("""{"event":"moved","data":{"url":"","base":"http://evil.example/w1"}}""")
+        transport.last.serverSend("""{"event":"moved","data":{}}""")
+        runCurrent()
+        assertEquals(now, transport.connections.size)
+        assertEquals(1, moves.size)
         session.close()
     }
 }

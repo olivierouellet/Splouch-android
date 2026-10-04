@@ -99,6 +99,16 @@ private fun RootContent(model: AppModel, images: ImageCache, state: UiState) {
         }
     }
 
+    // A-12: back was asked for and the meet list did not answer; the meet is still on
+    // screen. The server's words, in the meet's language — the screen the reader is on.
+    LaunchedEffect(state.pickerUnavailable) {
+        if (state.pickerUnavailable) {
+            val strings = state.meet?.strings ?: state.pickerStrings
+            snackbar.showSnackbar(strings.mobile("picker_unavailable"))
+            model.dismissPickerUnavailable()
+        }
+    }
+
     val meet = state.meet
     // P-15, and the one place the scheme is decided. `AUTO` hands the question to the OS,
     // which is what lets it move with the time of day.

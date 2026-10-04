@@ -10,6 +10,7 @@ import app.splouch.core.wire.ServerEntry
 import app.splouch.core.wire.ServerInfo
 import app.splouch.core.wire.ServerKind
 import app.splouch.core.wire.parseJsonOrNull
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.JsonElement
 
 /** A REST call's outcome. `NotFound` is a real answer (app.md A-09), everything else a network fault (C-03). */
@@ -73,6 +74,8 @@ class SplouchApi(private val http: HttpClient, val server: ServerAddress) {
     private suspend fun <T> getJson(url: String, decode: (JsonElement?) -> T?): ApiResult<T> {
         val r = try {
             http.get(url)
+        } catch (e: CancellationException) {
+            throw e // a timeout or a caller gone (A-12) is not a network fault
         } catch (e: Exception) {
             return ApiResult.Failure(e.message ?: e.javaClass.simpleName)
         }

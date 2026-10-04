@@ -8,6 +8,7 @@ import app.splouch.core.session.InMemoryVidStore
 import app.splouch.core.session.InviteFailure
 import app.splouch.core.session.KnownServer
 import app.splouch.core.session.LocalSearch
+import app.splouch.core.session.MeetBase
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.PickerNotice
 import app.splouch.core.session.PickerNotice.PRIVACY_NOTE
@@ -30,6 +31,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -57,7 +59,7 @@ class AppModelTests {
     // Each payload stays on one line, as the server sends it, so a fixture reads against the wire.
     @Suppress("ktlint:standard:max-line-length")
     private fun StubHttp.cloudRoutes(base: String = "https://c.example") {
-        on("$base/server", body = """{"kind":"cloud","name":"Cloud","contract":{"api":"v2","app":"v2"}}""")
+        on("$base/server", body = """{"kind":"cloud","name":"Cloud","contract":{"api":"v2","app":"v3"}}""")
         on(
             "$base/meets",
             body = """{"meets":[{"id":"m1","name":"Meet One","offline":false},{"id":"m2","name":"Old","offline":true}]}""",
@@ -633,5 +635,185 @@ class AppModelTests {
         assertEquals("Résultats non officiels", r.model.notice(RESULTS_DISCLAIMER).short)
         assertEquals("Comptage de l'assistance", r.model.notice(PRIVACY_NOTE).short)
         assertEquals("Réduire", r.model.current.noticeCollapseLabel)
+    }
+
+    // ── app.md v3: C-11, C-12, A-09, A-12 ─────────────────────────────────────
+
+    private val configOne = """{"name":"Meet One","live":true,"settings":{"num_lanes":6,"locale":"en"}}"""
+
+    @Suppress("ktlint:standard:max-line-length")
+    @Test
+    fun `C-11 a meet opens at the base its list entry names, and A-09 asks that base`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.on(
+            "$cloud/meets",
+            body = """{"meets":[{"id":"m1","name":"Meet One","offline":false,"country":"CA","province":"QC","base":"https://w.example/w2"}]}""",
+        )
+        r.http.on("https://w.example/w2/meet/m1/config", body = configOne)
+        r.http.on("https://w.example/w2/meet/m1/schedule", body = """{"heats":[]}""")
+        r.model.start()
+        runCurrent()
+        val listed = r.model.current.picker.meets.single()
+        assertEquals("CA" to "QC", listed.country to listed.province)
+        r.model.openMeet("m1")
+        runCurrent()
+        val m = r.model.current.meet!!
+        assertEquals("https://w.example/w2", m.context.base.url)
+        assertEquals(emptyList(), m.schedule)
+        val urls = r.http.calls.map { it.first }
+        assertTrue("https://w.example/w2/meet/m1/config" in urls)
+        assertTrue("https://w.example/w2/meet/m1/schedule" in urls)
+        assertFalse(urls.any { it.startsWith("$cloud/meet/") })
+        // strings stay on the server the list came from
+        assertFalse(urls.any { it.startsWith("https://w.example/w2/i18n") })
+        assertTrue(r.transport.connections.all { it.url.startsWith("wss://w.example/w2/ws/") })
+
+        // A-09: the 404 that closes the meet is the base's
+        r.http.on("https://w.example/w2/meet/m1/config", status = 404, body = "{}")
+        r.model.foreground()
+        runCurrent()
+        assertNull(r.model.current.meet)
+        assertTrue(r.model.current.meetGone)
+    }
+
+    @Test fun `C-11 an entry with no base, or one that fails the cleartext floor, opens at the server URL`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.on(
+            "$cloud/meets",
+            body = """{"meets":[{"id":"m1","name":"Meet One","offline":false,"base":"http://w.example/w2"}]}""",
+        )
+        r.model.start()
+        runCurrent()
+        r.model.openMeet("m1")
+        runCurrent()
+        assertEquals(MeetBase.parse(cloud), r.model.current.meet!!.context.base)
+        assertTrue(r.transport.connections.all { it.url.startsWith("wss://c.example/ws/") })
+    }
+
+    @Test fun `C-12 a moved reconnects all three sockets at the new base and re-fetches config there, never gone`() =
+        runTest {
+            val r = Rig(this)
+            r.http.cloudRoutes()
+            r.http.on("https://w.example/w3/meet/m1/config", body = configOne)
+            r.http.on("https://w.example/w3/meet/m1/schedule", body = """{"heats":[]}""")
+            r.model.start()
+            runCurrent()
+            r.model.openMeet("m1")
+            runCurrent()
+            val session = r.model.current.meet!!.session
+            r.transport.connections.forEach { it.serverOpen() }
+            runCurrent()
+            r.transport.connections[1].serverSend(
+                """{"event":"moved","data":{"url":"https://w.example/w3/mobile?meet=m1","base":"https://w.example/w3"}}""",
+            )
+            runCurrent()
+            val m = r.model.current.meet!!
+            assertTrue(m.session === session)
+            assertFalse(r.model.current.meetGone)
+            assertEquals("https://w.example/w3", m.context.base.url)
+            assertTrue(r.transport.connections.take(3).all { it.closed })
+            assertEquals(3, r.transport.connections.drop(3).size)
+            assertTrue(r.transport.connections.drop(3).all { it.url.startsWith("wss://w.example/w3/ws/") })
+            assertTrue("https://w.example/w3/meet/m1/config" in r.http.calls.map { it.first })
+            // the old worker's 404 for the meet it let go is never asked again
+            r.http.on("$cloud/meet/m1/config", status = 404, body = "{}")
+            r.model.foreground()
+            runCurrent()
+            assertNotNull(r.model.current.meet)
+            assertFalse(r.model.current.meetGone)
+        }
+
+    @Suppress("ktlint:standard:max-line-length")
+    @Test
+    fun `A-09 a config naming another base is followed as a moved`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.on(
+            "$cloud/meet/m1/config",
+            body = """{"name":"Meet One","live":true,"base":"https://w.example/w4","settings":{"num_lanes":6,"locale":"en"}}""",
+        )
+        r.http.on("https://w.example/w4/meet/m1/config", body = configOne)
+        r.http.on("https://w.example/w4/meet/m1/schedule", body = """{"heats":[]}""")
+        r.model.start()
+        runCurrent()
+        r.model.openMeet("m1")
+        runCurrent()
+        // the first config already named the new base: opened there, no socket at the old one
+        assertEquals("https://w.example/w4", r.model.current.meet!!.context.base.url)
+        assertEquals(3, r.transport.connections.size)
+        assertTrue(r.transport.connections.all { it.url.startsWith("wss://w.example/w4/ws/") })
+
+        // and on a later fetch: the meet moved on while open
+        r.http.on(
+            "https://w.example/w4/meet/m1/config",
+            body = """{"name":"Meet One","live":true,"base":"https://w.example/w5","settings":{"num_lanes":6,"locale":"en"}}""",
+        )
+        r.http.on("https://w.example/w5/meet/m1/config", body = configOne)
+        r.http.on("https://w.example/w5/meet/m1/schedule", body = """{"heats":[]}""")
+        r.model.refreshMeet()
+        runCurrent()
+        val m = r.model.current.meet!!
+        assertEquals("https://w.example/w5", m.context.base.url)
+        assertFalse(m.refreshing)
+        assertTrue(r.transport.connections.take(3).all { it.closed })
+        assertTrue(r.transport.connections.drop(3).all { it.url.startsWith("wss://w.example/w5/ws/") })
+        // an empty base (a worker that does not know its own address) moves nothing
+        r.http.on(
+            "https://w.example/w5/meet/m1/config",
+            body = configOne.replace("{\"name\"", "{\"base\":\"\",\"name\""),
+        )
+        r.model.foreground()
+        runCurrent()
+        assertEquals(6, r.transport.connections.size)
+    }
+
+    @Test fun `A-12 back keeps the meet while the list fails or hangs, and works once it answers`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        r.model.openMeet("m1")
+        runCurrent()
+
+        // fails
+        r.http.on("$cloud/meets", status = 503)
+        r.model.leaveMeet()
+        runCurrent()
+        assertNotNull(r.model.current.meet)
+        assertTrue(r.model.current.pickerUnavailable)
+        r.model.dismissPickerUnavailable()
+
+        // hangs: nothing for ~4 s, then the notice, and still on the meet
+        r.http.hanging += "$cloud/meets"
+        r.model.leaveMeet()
+        runCurrent()
+        advanceTimeBy(3_900.milliseconds)
+        runCurrent()
+        assertNotNull(r.model.current.meet)
+        assertFalse(r.model.current.pickerUnavailable)
+        advanceTimeBy(200.milliseconds)
+        runCurrent()
+        assertNotNull(r.model.current.meet)
+        assertTrue(r.model.current.pickerUnavailable)
+        r.model.dismissPickerUnavailable()
+
+        // an abandoned back gesture raises nothing
+        val gesture = backgroundScope.launch { r.model.pickerReachable() }
+        runCurrent()
+        gesture.cancel()
+        advanceTimeBy(5_000.milliseconds)
+        runCurrent()
+        assertFalse(r.model.current.pickerUnavailable)
+
+        // the list answers: back works, and lands on the fresh list
+        r.http.hanging.clear()
+        r.http.on("$cloud/meets", body = """{"meets":[{"id":"m3","name":"New","offline":false}]}""")
+        r.model.leaveMeet()
+        runCurrent()
+        assertNull(r.model.current.meet)
+        assertFalse(r.model.current.pickerUnavailable)
+        assertEquals(listOf("m3"), r.model.current.picker.meets.map { it.id })
     }
 }
