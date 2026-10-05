@@ -53,6 +53,8 @@ android {
 
     buildFeatures {
         compose = true
+        // P-19's About shows the version, read from `BuildConfig.VERSION_NAME`.
+        buildConfig = true
     }
 
     compileOptions {

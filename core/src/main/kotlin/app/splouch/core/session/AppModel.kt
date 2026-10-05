@@ -62,12 +62,6 @@ data class PickerState(
      */
     val searching: Boolean = false,
     val query: String = "",
-    /**
-     * P-06/P-07: the text each notice was folded at on this server, read from the
-     * [NoticeStore] whenever the config arrives. A notice starts folded only against the
-     * same words ([UiState.pickerNotices]).
-     */
-    val folds: Map<PickerNotice, String> = emptyMap(),
     /** The reader's language — chosen, else the device's — for country names (P-01, P-17). */
     val lang: String = "",
 ) {
@@ -158,14 +152,25 @@ data class UiState(
     /** Strings for the picker and the server sheet, in the device's or chosen language. */
     val pickerStrings: StringTable = StringTable.EMPTY,
     val locales: List<LocaleEntry> = emptyList(),
+    /** C-10: the spectator's setting for [server]. On by default; kept while the server does not count. */
+    val counting: Boolean = true,
+    /**
+     * P-20: the introduction is on screen — due on this install's first picker config, or
+     * replayed from settings. Never raised before the server has answered: pages 1 and 4
+     * are its words.
+     */
+    val introOpen: Boolean = false,
 ) {
     val kind: ServerKind? get() = serverInfo?.kind
 
-    /** P-06, then P-07 while counting is on, each with its words and whether it starts folded. */
-    val pickerNotices: List<ShownNotice> get() = pickerNotices(picker.config, pickerStrings, picker.folds)
+    /** P-06's line and full text, or null until this server has sent them. */
+    val disclaimer: Disclaimer? get() = disclaimer(picker.config, pickerStrings)
 
-    /** The notices' X, by name. */
-    val noticeCollapseLabel: String get() = noticeCollapseLabel(picker.config, pickerStrings)
+    /** P-07: the Privacy section (and P-20's fourth page) shows only while the server counts. */
+    val countingOffered: Boolean get() = countingOffered(picker.config)
+
+    /** P-07: the server's note under the counting toggle. */
+    val privacyNote: String? get() = privacyNote(picker.config)
 }
 
 /**
@@ -228,7 +233,6 @@ class AppModel(
     private val http: HttpClient,
     private val transport: WebSocketTransport,
     private val vidStore: VidStore,
-    private val noticeStore: NoticeStore,
     private val prefsStore: PreferencesStore,
     private val bundleCache: BundleCache,
     private val scope: CoroutineScope,
@@ -262,6 +266,7 @@ class AppModel(
                 isDefaultServer = server == defaultServer,
                 pickerStrings = pickerTable(prefs),
                 picker = it.picker.copy(lang = prefs.lang ?: deviceLang),
+                counting = vidStore.counting(server.origin),
             )
         }
         rebuildServers()
@@ -282,6 +287,7 @@ class AppModel(
                 serverError = null,
                 picker = PickerState(lang = readerLang()),
                 contractNotice = null,
+                counting = vidStore.counting(address.origin),
             )
         }
         directory = emptyList()
@@ -542,16 +548,17 @@ class AppModel(
                 m.await() to c.await()
             }
             if (gen != generation) return@launch
-            val folds = loadFolds((config as? ApiResult.Ok)?.value)
             _state.update { s ->
                 val ok = meets is ApiResult.Ok
                 s.copy(
+                    // P-20: due on the first launch whose server answered, postponed by any
+                    // launch that did not.
+                    introOpen = s.introOpen || (config is ApiResult.Ok && !s.prefs.introSeen),
                     picker = s.picker.copy(
                         loading = false,
                         loaded = s.picker.loaded || ok,
                         meets = (meets as? ApiResult.Ok)?.value ?: s.picker.meets,
                         config = (config as? ApiResult.Ok)?.value ?: s.picker.config,
-                        folds = folds,
                         error = when (meets) {
                             is ApiResult.Ok -> null
                             ApiResult.NotFound -> "HTTP 404"
@@ -563,27 +570,26 @@ class AppModel(
         }
     }
 
+    // ── counting (C-10, P-07) and the introduction (P-20) ─────────────────────
+
     /**
-     * P-07's fold is forgotten whenever the server reports counting off, so a server that
-     * turns it back on says so in full. A config that failed to arrive reports nothing.
+     * C-10's setting for the server in use. Off deletes its `vid` now; on makes a new one at
+     * the next `join_meet`, never the old. An open meet's next join reads it again.
      */
-    private fun loadFolds(config: PickerConfig?): Map<PickerNotice, String> {
-        val origin = current.server.origin
-        if (config != null && !config.analyticsEnabled) noticeStore.setFolded(origin, PickerNotice.PRIVACY_NOTE, null)
-        return PickerNotice.entries.mapNotNull { n -> noticeStore.folded(origin, n)?.let { n to it } }.toMap()
+    fun setCounting(on: Boolean) {
+        vidStore.setCounting(current.server.origin, on)
+        _state.update { it.copy(counting = on) }
     }
 
-    /** P-06/P-07's X: remember the exact words folded, for this server. */
-    fun foldNotice(notice: PickerNotice) {
-        val text = current.pickerNotices.firstOrNull { it.notice == notice }?.text ?: return
-        noticeStore.setFolded(current.server.origin, notice, text)
-        _state.update { it.copy(picker = it.picker.copy(folds = it.picker.folds + (notice to text))) }
+    /** P-20 from settings About. Only with the server's words in hand, as on first launch. */
+    fun replayIntro() {
+        if (current.picker.config != null) _state.update { it.copy(introOpen = true) }
     }
 
-    /** The pill: open the notice again and forget the fold. */
-    fun unfoldNotice(notice: PickerNotice) {
-        noticeStore.setFolded(current.server.origin, notice, null)
-        _state.update { it.copy(picker = it.picker.copy(folds = it.picker.folds - notice)) }
+    /** P-20 finished or skipped: seen either way, and counting is left as it was. */
+    fun finishIntro() {
+        if (!current.prefs.introSeen) savePrefs(current.prefs.copy(introSeen = true))
+        _state.update { it.copy(introOpen = false) }
     }
 
     fun openPickerSearch() = _state.update { it.copy(picker = it.picker.copy(searching = true)) }

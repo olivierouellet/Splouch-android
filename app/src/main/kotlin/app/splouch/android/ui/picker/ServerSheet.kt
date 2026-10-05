@@ -45,7 +45,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -62,17 +61,19 @@ import app.splouch.core.session.LocalSearch
 import app.splouch.core.session.RemovedServer
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.UiState
-import app.splouch.core.strings.BuiltInStrings
 import kotlinx.coroutines.launch
 
 /**
  * P-11..P-13: the server list — default, saved, the server's directory, the officials' local
  * server once searched for — and the add-by-hand field. Every word here is about the app or
  * the device, so it is a native string resource, not a server string (app.md T-05).
+ *
+ * Opened from Settings (P-19). [onDismiss] closes the sheet and leaves the reader there;
+ * [onChosen] is a server picked or added, which ends on the picker (`P-11`'s flow).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
+fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen: () -> Unit) {
     val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -105,7 +106,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
             when (val r = model.addServer(text)) {
                 is AddServerResult.Ok -> {
                     text = ""
-                    onDismiss()
+                    onChosen()
                 }
                 AddServerResult.InvalidAddress -> error = invalidAddress
                 AddServerResult.CleartextNotLocal -> error = cleartextNotLocal
@@ -137,7 +138,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                             removeLabel,
                             onSelect = {
                                 model.selectServer(it.address)
-                                onDismiss()
+                                onChosen()
                             },
                             onRemove = if (it.source == KnownServer.Source.SAVED) {
                                 ({ removeWithUndo(it.address) })
@@ -159,7 +160,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
                             removeLabel,
                             onSelect = {
                                 model.selectServer(it.address)
-                                onDismiss()
+                                onChosen()
                             },
                             onRemove = null,
                         )
@@ -305,35 +306,4 @@ private fun SearchButton(label: String, onClick: () -> Unit, modifier: Modifier 
         Spacer(Modifier.width(ButtonDefaults.IconSpacing))
         Text(label)
     }
-}
-
-/**
- * T-08: one language per device, set where every meet is in view. The web picker shows
- * this same control, so its words are the server's.
- *
- * T-09's short/long control is **withdrawn** — see [app.splouch.core.session.Preferences.effectiveLabelStyle].
- * The stored choice is untouched, and returning the control is a matter of putting the
- * two rows back here and returning `labelStyle` from that property.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PrefsSheet(model: AppModel, state: UiState, onDismiss: () -> Unit) {
-    val locales = state.locales.ifEmpty { BuiltInStrings.locales() }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            SectionHeader(stringResource(R.string.language))
-            ChoiceRow(stringResource(R.string.language_auto), state.prefs.lang == null) { model.setLang(null) }
-            locales.forEach { l -> ChoiceRow(l.name, state.prefs.lang == l.code) { model.setLang(l.code) } }
-        }
-    }
-}
-
-@Composable
-private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    ListItem(
-        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { RadioButton(selected = selected, onClick = null) },
-        headlineContent = { Text(label) },
-    )
 }

@@ -32,12 +32,15 @@ data class Frame(val event: String, val data: JsonElement? = null) {
 
         fun ping(): Frame = Frame("ping")
 
-        /** `join_meet {meet_id, vid}` — the cloud room handshake (api.md §3, app.md C-02). */
-        fun joinMeet(meetId: String, vid: String): Frame = Frame(
+        /**
+         * `join_meet {meet_id, vid}` — the cloud room handshake (api.md §3, app.md C-02). No
+         * `vid` key at all when the spectator refused counting (C-10): not counted.
+         */
+        fun joinMeet(meetId: String, vid: String?): Frame = Frame(
             "join_meet",
             buildJsonObject {
                 put("meet_id", meetId)
-                put("vid", vid)
+                if (vid != null) put("vid", vid)
             },
         )
     }

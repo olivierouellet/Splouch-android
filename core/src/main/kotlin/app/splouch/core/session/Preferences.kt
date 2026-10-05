@@ -29,7 +29,10 @@ enum class Appearance {
     }
 }
 
-/** What survives a relaunch, per device: the server, the language and style choices (T-08, T-09), the appearance (P-15), the tab (A-04). */
+/**
+ * What survives a relaunch, per device: the server, the language and style choices (T-08, T-09),
+ * the appearance (P-15), the tab (A-04), and whether the introduction has been seen (P-20).
+ */
 data class Preferences(
     val server: String? = null,
     /** Servers added by hand (P-13), as origins. */
@@ -45,6 +48,8 @@ data class Preferences(
      * screen now sits at that position. Null until a tab has settled.
      */
     val tab: MeetTab? = null,
+    /** P-20: finished or skipped once on this install. Never set by a launch that had no server to show it with. */
+    val introSeen: Boolean = false,
 ) {
     /**
      * What the board actually renders (T-09). The control is withdrawn from the UI, so

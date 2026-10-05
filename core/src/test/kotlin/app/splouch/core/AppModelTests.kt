@@ -2,7 +2,6 @@ package app.splouch.core
 
 import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
-import app.splouch.core.session.InMemoryNoticeStore
 import app.splouch.core.session.InMemoryPreferencesStore
 import app.splouch.core.session.InMemoryVidStore
 import app.splouch.core.session.InviteFailure
@@ -10,9 +9,6 @@ import app.splouch.core.session.KnownServer
 import app.splouch.core.session.LocalSearch
 import app.splouch.core.session.MeetBase
 import app.splouch.core.session.MeetTab
-import app.splouch.core.session.PickerNotice
-import app.splouch.core.session.PickerNotice.PRIVACY_NOTE
-import app.splouch.core.session.PickerNotice.RESULTS_DISCLAIMER
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.ServerBrowser
@@ -27,6 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -44,13 +41,13 @@ class AppModelTests {
     private class Rig(
         scope: TestScope,
         prefs: Preferences = Preferences(),
-        val notices: InMemoryNoticeStore = InMemoryNoticeStore(),
+        val vids: InMemoryVidStore = InMemoryVidStore(),
     ) {
         val http = StubHttp()
         val transport = FakeTransport()
         val prefsStore = InMemoryPreferencesStore(prefs)
         val model = AppModel(
-            ServerAddress.parseOrNull("https://c.example")!!, http, transport, InMemoryVidStore(), notices, prefsStore,
+            ServerAddress.parseOrNull("https://c.example")!!, http, transport, vids, prefsStore,
             InMemoryBundleCache(), scope.backgroundScope, deviceLang = "fr",
             timeSource = scope.testScheduler.timeSource,
         )
@@ -536,105 +533,125 @@ class AppModelTests {
         assertEquals("", r.model.current.picker.query)
     }
 
-    // ── P-06/P-07 folds ──────────────────────────────────────────────────────
-
-    private fun AppModel.notice(n: PickerNotice) = current.pickerNotices.single { it.notice == n }
-
-    @Test fun `a notice starts folded only when the stored text is the text the server just sent`() = runTest {
-        val notices = InMemoryNoticeStore()
-        notices.setFolded(cloud, RESULTS_DISCLAIMER, "D")
-        notices.setFolded(cloud, PRIVACY_NOTE, "An older wording of P")
-        val r = Rig(this, notices = notices)
-        r.http.cloudRoutes()
-        r.model.start()
-        runCurrent()
-        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
-        // Reworded, or the same note in another language: in full, once.
-        assertFalse(r.model.notice(PRIVACY_NOTE).folded)
-        assertEquals("P", r.model.notice(PRIVACY_NOTE).text)
-    }
-
-    @Test fun `folding stores the exact words, and opening again forgets them`() = runTest {
-        val r = Rig(this)
-        r.http.cloudRoutes()
-        r.model.start()
-        runCurrent()
-        assertFalse(r.model.notice(RESULTS_DISCLAIMER).folded)
-        r.model.foldNotice(RESULTS_DISCLAIMER)
-        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
-        assertEquals("D", r.notices.folded(cloud, RESULTS_DISCLAIMER))
-        assertNull(r.notices.folded(cloud, PRIVACY_NOTE))
-        // A refresh reads the fold back rather than losing it.
-        r.model.refreshPicker()
-        runCurrent()
-        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
-        r.model.unfoldNotice(RESULTS_DISCLAIMER)
-        assertFalse(r.model.notice(RESULTS_DISCLAIMER).folded)
-        assertNull(r.notices.folded(cloud, RESULTS_DISCLAIMER))
-    }
+    // ── P-06, P-07, C-10, P-20 (app.md v3, amended) ──────────────────────────
 
     @Suppress("ktlint:standard:max-line-length")
-    @Test
-    fun `counting off forgets P-07's fold, so counting back on shows it in full`() = runTest {
+    private fun StubHttp.pickerConfig(
+        analytics: Boolean,
+        strings: String = """"results_disclaimer":"D","privacy_note":"P"""",
+    ) = on(
+        "$cloud/picker/config?lang=fr",
+        body = """{"title":"Splouch","lang":"fr","analytics_enabled":$analytics,"strings":{$strings}}""",
+    )
+
+    @Test fun `P-06 is one line from the server's words, nothing before the server has answered`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.routes.remove("$cloud/picker/config?lang=fr")
+        r.model.start()
+        runCurrent()
+        // No config — a first launch offline — means no line, not the snapshot's copy.
+        assertNull(r.model.current.disclaimer)
+        r.http.pickerConfig(true, """"results_disclaimer":"D","results_disclaimer_short":"Short D"""")
+        r.model.refreshPicker()
+        runCurrent()
+        assertEquals("Short D", r.model.current.disclaimer!!.short)
+        assertEquals("D", r.model.current.disclaimer!!.full)
+    }
+
+    @Test fun `an older server's missing short line comes from the snapshot, in the reader's language`() = runTest {
         val r = Rig(this)
         r.http.cloudRoutes()
         r.model.start()
         runCurrent()
-        r.model.foldNotice(PRIVACY_NOTE)
-        r.model.foldNotice(RESULTS_DISCLAIMER)
-        r.http.on(
-            "$cloud/picker/config?lang=fr",
-            body = """{"title":"Splouch","lang":"fr","analytics_enabled":false,"strings":{"results_disclaimer":"D","privacy_note":"P"}}""",
-        )
-        r.model.refreshPicker()
-        runCurrent()
-        assertEquals(listOf(RESULTS_DISCLAIMER), r.model.current.pickerNotices.map { it.notice })
-        assertNull(r.notices.folded(cloud, PRIVACY_NOTE))
-        // P-06's fold is not counting's to forget.
-        assertEquals("D", r.notices.folded(cloud, RESULTS_DISCLAIMER))
-        r.http.cloudRoutes()
-        r.model.refreshPicker()
-        runCurrent()
-        assertFalse(r.model.notice(PRIVACY_NOTE).folded)
+        assertEquals("Résultats non officiels", r.model.current.disclaimer!!.short)
     }
 
-    @Test fun `a fold on one server leaves another server's notices alone`() = runTest {
+    @Test fun `P-07 offers the privacy section only while the server counts, and keeps the choice`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        assertTrue(r.model.current.countingOffered)
+        assertEquals("P", r.model.current.privacyNote)
+        r.model.setCounting(false)
+        r.http.pickerConfig(false)
+        r.model.refreshPicker()
+        runCurrent()
+        assertFalse(r.model.current.countingOffered)
+        assertNull(r.model.current.privacyNote)
+        // Hidden, not forgotten.
+        assertFalse(r.vids.counting(cloud))
+        assertFalse(r.model.current.counting)
+    }
+
+    @Test fun `C-10 off from settings deletes this server's vid, back on makes a new one`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        assertTrue(r.model.current.counting)
+        val first = r.vids.vid(cloud)!!
+        r.model.setCounting(false)
+        assertFalse(r.model.current.counting)
+        assertNull(r.vids.entries[cloud]!!.id)
+        assertNull(r.vids.entries[cloud]!!.createdAt)
+        r.model.setCounting(true)
+        val second = r.vids.vid(cloud)!!
+        assertNotEquals(first, second)
+    }
+
+    @Test fun `C-10 the setting is per server`() = runTest {
         val other = "https://x.example"
         val r = Rig(this)
         r.http.cloudRoutes()
         r.http.cloudRoutes(other)
         r.model.start()
         runCurrent()
-        r.model.foldNotice(RESULTS_DISCLAIMER)
+        r.model.setCounting(false)
         r.model.selectServer(ServerAddress.parseOrNull(other)!!)
         runCurrent()
-        // The same words, but another server: in full.
-        assertEquals("D", r.model.notice(RESULTS_DISCLAIMER).text)
-        assertFalse(r.model.notice(RESULTS_DISCLAIMER).folded)
-        assertNull(r.notices.folded(other, RESULTS_DISCLAIMER))
-        r.model.foldNotice(PRIVACY_NOTE)
+        assertTrue(r.model.current.counting)
         r.model.selectServer(ServerAddress.parseOrNull(cloud)!!)
         runCurrent()
-        assertTrue(r.model.notice(RESULTS_DISCLAIMER).folded)
-        assertFalse(r.model.notice(PRIVACY_NOTE).folded)
+        assertFalse(r.model.current.counting)
     }
 
-    @Test fun `no picker config yet means no notice, not the snapshot's copy`() {
-        // P-06: a first launch offline has no server's words to show, and an empty picker
-        // has no results to qualify. Same on iOS.
-        val table = app.splouch.core.strings.BuiltInStrings.table("fr")
-        assertTrue(app.splouch.core.session.pickerNotices(null, table, emptyMap()).isEmpty())
-    }
-
-    @Test fun `an older server's missing pill words and X name come from the snapshot, never the key`() = runTest {
+    @Test fun `P-20 waits for the server, then shows once`() = runTest {
         val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.routes.remove("$cloud/picker/config?lang=fr")
+        r.model.start()
+        runCurrent()
+        // Offline first launch: postponed, and not marked seen.
+        assertFalse(r.model.current.introOpen)
+        assertFalse(r.prefsStore.load().introSeen)
+        r.model.replayIntro() // nor can it be replayed without the server's words
+        assertFalse(r.model.current.introOpen)
+
+        r.http.cloudRoutes()
+        r.model.refreshPicker()
+        runCurrent()
+        assertTrue(r.model.current.introOpen)
+        r.model.finishIntro()
+        assertFalse(r.model.current.introOpen)
+        assertTrue(r.prefsStore.load().introSeen)
+        // Skipping is not consent either way: counting is as it was.
+        assertTrue(r.model.current.counting)
+
+        r.model.refreshPicker()
+        runCurrent()
+        assertFalse(r.model.current.introOpen)
+        r.model.replayIntro()
+        assertTrue(r.model.current.introOpen)
+    }
+
+    @Test fun `P-20 seen on a previous launch stays seen`() = runTest {
+        val r = Rig(this, Preferences(introSeen = true))
         r.http.cloudRoutes()
         r.model.start()
         runCurrent()
-        // In the reader's language, from the snapshot — not English beside a French notice.
-        assertEquals("Résultats non officiels", r.model.notice(RESULTS_DISCLAIMER).short)
-        assertEquals("Comptage de l'assistance", r.model.notice(PRIVACY_NOTE).short)
-        assertEquals("Réduire", r.model.current.noticeCollapseLabel)
+        assertFalse(r.model.current.introOpen)
     }
 
     // ── app.md v3: C-11, C-12, A-09, A-12 ─────────────────────────────────────

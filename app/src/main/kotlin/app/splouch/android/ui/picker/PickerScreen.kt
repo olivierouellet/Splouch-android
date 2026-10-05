@@ -7,14 +7,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,21 +24,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,12 +52,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -77,8 +73,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -89,10 +83,8 @@ import app.splouch.android.ImageCache
 import app.splouch.android.R
 import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
+import app.splouch.android.ui.common.rememberFocusReturn
 import app.splouch.core.session.AppModel
-import app.splouch.core.session.Appearance
-import app.splouch.core.session.PickerNotice
-import app.splouch.core.session.ShownNotice
 import app.splouch.core.session.UiState
 import app.splouch.core.session.region
 import app.splouch.core.wire.ServerKind
@@ -108,11 +100,27 @@ import app.splouch.core.wire.ServerKind
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: SnackbarHostState) {
+fun PickerScreen(
+    model: AppModel,
+    state: UiState,
+    images: ImageCache,
+    snackbar: SnackbarHostState,
+    onOpenSettings: () -> Unit,
+    refocusSettings: Boolean,
+    onRefocused: () -> Unit,
+) {
     val t = state.pickerStrings
-    var showMenu by remember { mutableStateOf(false) }
-    var showServers by remember { mutableStateOf(false) }
-    var showPrefs by remember { mutableStateOf(false) }
+    var showDisclaimer by remember { mutableStateOf(false) }
+    // X-10: Settings is a destination, so the picker is rebuilt on the way back and the
+    // gear asks for focus once it is there; the disclaimer's sheet hands it back to the line.
+    val gear = rememberFocusReturn()
+    val disclaimerLine = rememberFocusReturn()
+    LaunchedEffect(refocusSettings) {
+        if (refocusSettings) {
+            gear.request()
+            onRefocused()
+        }
+    }
     val cfg = state.picker.config
     val title = (cfg?.title ?: state.serverInfo?.name ?: "").trim()
 
@@ -162,41 +170,10 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                                 Icon(painterResource(R.drawable.ic_search), searchLabel)
                             }
                         }
-                        // One overflow rather than a row of glyphs. Two of these open a list the
-                        // server serves and the third is three fixed choices the app owns, so the
-                        // Appearance rows sit inline with a check on the current one — a menu
-                        // inside a menu is not something Material does, and the iOS twin's
-                        // `Picker(.menu)` reads the same way.
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(painterResource(R.drawable.ic_more), stringResource(R.string.more_options))
-                        }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.server)) },
-                                leadingIcon = { Icon(painterResource(R.drawable.ic_server), null) },
-                                onClick = {
-                                    showMenu = false
-                                    showServers = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.language)) },
-                                leadingIcon = { Icon(painterResource(R.drawable.ic_language), null) },
-                                onClick = {
-                                    showMenu = false
-                                    showPrefs = true
-                                },
-                            )
-                            HorizontalDivider()
-                            val closeMenu = { showMenu = false }
-                            // A menu item is padded 12dp, not the sheet's 16.
-                            SectionHeader(
-                                stringResource(R.string.appearance),
-                                Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
-                            )
-                            AppearanceChoice(R.string.appearance_dark, Appearance.DARK, state, model, closeMenu)
-                            AppearanceChoice(R.string.appearance_light, Appearance.LIGHT, state, model, closeMenu)
-                            AppearanceChoice(R.string.appearance_auto, Appearance.AUTO, state, model, closeMenu)
+                        // P-19: a gear, not ⋮. Settings hold a toggle, explanatory text and links,
+                        // which a `DropdownMenu` renders badly, so they are a destination of their own.
+                        IconButton(onClick = onOpenSettings, modifier = Modifier.focusRequester(gear.requester)) {
+                            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
                         }
                     },
                 )
@@ -246,15 +223,14 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
                         ) { model.openMeet(null) }
                     }
                     else -> {
-                        // P-06/P-07 above the list, over whatever it holds: below it, a season
-                        // of meets pushed them out of sight.
-                        item(key = "notices") {
-                            Notices(
-                                state.pickerNotices,
-                                state.noticeCollapseLabel,
-                                onFold = model::foldNotice,
-                                onUnfold = model::unfoldNotice,
-                            )
+                        // P-06 above the list, over whatever it holds: below it, a season of
+                        // meets pushed it out of sight. Nothing until the server has sent it.
+                        state.disclaimer?.let { d ->
+                            item(key = "disclaimer") {
+                                DisclaimerLine(d.short, Modifier.focusRequester(disclaimerLine.requester)) {
+                                    showDisclaimer = true
+                                }
+                            }
                         }
                         val meets = state.picker.meets
                         val shown = state.picker.shownMeets
@@ -316,8 +292,14 @@ fun PickerScreen(model: AppModel, state: UiState, images: ImageCache, snackbar: 
             }
         }
     }
-    if (showServers) ServerSheet(model, state) { showServers = false }
-    if (showPrefs) PrefsSheet(model, state) { showPrefs = false }
+    if (showDisclaimer) {
+        state.disclaimer?.let { d ->
+            DisclaimerSheet(d.short, d.full) {
+                showDisclaimer = false
+                disclaimerLine.request()
+            }
+        }
+    }
 }
 
 /** P-05: title and logo, either order. An operator who left the title empty gets no empty line. */
@@ -359,133 +341,47 @@ private fun Logo(bmp: Bitmap?) {
 }
 
 /**
- * P-06 and P-07. Each shows its full text with an X; the X folds it to a pill and the pill
- * opens it again, so a notice never goes away. One flowing row, in order: an open notice
- * takes the whole line, and folded pills share one, centred — the web picker's layout.
- *
- * Not a dialog and not a consent, so there is no Accept: counting is not the reader's to
- * refuse (C-10), and a button would promise a choice there is none of.
+ * P-06: one quiet line — hourglass and the server's short text — that nobody can close, so
+ * it needs no X, no pill, no stored fold and no focus hand-off. The whole row is the button
+ * and at least 48dp tall (X-05); its text is its name to TalkBack, the icon says nothing.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Notices(
-    notices: List<ShownNotice>,
-    collapseLabel: String,
-    onFold: (PickerNotice) -> Unit,
-    onUnfold: (PickerNotice) -> Unit,
-) {
-    // Where focus goes once the notice has redrawn: the pill after a fold, the X after an
-    // opening, so a screen reader or a keyboard is not left on a control that has vanished.
-    var focusAfter by remember { mutableStateOf<PickerNotice?>(null) }
-    FlowRow(
-        Modifier.fillMaxWidth().padding(bottom = 8.dp),
+private fun DisclaimerLine(short: String, modifier: Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(MaterialTheme.shapes.small)
+            .then(modifier)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        for (n in notices) {
-            key(n.notice) {
-                val takeFocus = focusAfter == n.notice
-                val focused = { focusAfter = null }
-                if (n.folded) {
-                    NoticePill(n, takeFocus, focused) {
-                        focusAfter = n.notice
-                        onUnfold(n.notice)
-                    }
-                } else {
-                    NoticeFull(n, collapseLabel, takeFocus, focused) {
-                        focusAfter = n.notice
-                        onFold(n.notice)
-                    }
-                }
-            }
-        }
+        Icon(painterResource(R.drawable.ic_hourglass_top), null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+        Text(short, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
     }
 }
 
-/**
- * A requester that takes focus once, as the control it is on first appears, when [take]
- * says so. It waits two frames first: the control the reader was on has just left the
- * tree, and TalkBack re-homes its own focus when that happens — a request made in the
- * same frame is overtaken, and TalkBack lands on the first X on the screen.
- */
+/** P-06's tap, Android's way: the server's full text in a `ModalBottomSheet`. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun focusOnArrival(take: Boolean, onTaken: () -> Unit): FocusRequester {
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        if (take) {
-            withFrameNanos { }
-            withFrameNanos { }
-            focus.requestFocus()
-            onTaken()
-        }
-    }
-    return focus
-}
-
-/** An open notice: the server's words in full, and the X that folds them. */
-@Composable
-private fun NoticeFull(
-    notice: ShownNotice,
-    collapseLabel: String,
-    takeFocus: Boolean,
-    onFocused: () -> Unit,
-    onFold: () -> Unit,
-) {
-    val focus = focusOnArrival(takeFocus, onFocused)
-    // The disclaimer at full contrast; the privacy note a step quieter, as it always was.
-    val disclaimer = notice.notice == PickerNotice.RESULTS_DISCLAIMER
-    val type = MaterialTheme.typography
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Text(
-                notice.text,
-                style = if (disclaimer) type.bodyMedium else type.bodySmall,
-                color = if (disclaimer) colors.onSurface else colors.onSurfaceVariant,
-                modifier = Modifier.weight(1f).padding(start = 16.dp, top = 14.dp, bottom = 14.dp),
-            )
-            // An IconButton is 48dp, the touch target, and sits in the top end corner
-            // however many lines the text wraps to at a large font scale.
-            IconButton(onClick = onFold, modifier = Modifier.focusRequester(focus)) {
-                Icon(painterResource(R.drawable.ic_close), collapseLabel, Modifier.size(20.dp))
-            }
-        }
-    }
-}
-
-/** A folded notice: a chip with its icon and short label. The label is the button's name. */
-@Composable
-private fun NoticePill(notice: ShownNotice, takeFocus: Boolean, onFocused: () -> Unit, onUnfold: () -> Unit) {
-    val focus = focusOnArrival(takeFocus, onFocused)
-    // Hourglass: pending validation, not an error. Two people: the visitors being counted.
-    // Never a shield, which reads as a privacy setting, and there is none.
-    val icon = when (notice.notice) {
-        PickerNotice.RESULTS_DISCLAIMER -> R.drawable.ic_hourglass_top
-        PickerNotice.PRIVACY_NOTE -> R.drawable.ic_group
-    }
-    // A small outlined capsule, as iOS's, rather than an AssistChip: the chip's fixed paddings
-    // and 14sp label put two French pills past a phone's width, so they stacked. The FlowRow
-    // still stacks them when a narrow screen or a large font scale leaves no room. A clickable
-    // Surface is a button to TalkBack and pads itself to a 48dp target around its 32dp.
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        onClick = onUnfold,
-        shape = CircleShape,
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, colors.outline),
-        modifier = Modifier.focusRequester(focus),
-    ) {
-        Row(
-            Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+private fun DisclaimerSheet(short: String, full: String, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(painterResource(icon), null, Modifier.size(16.dp), tint = colors.primary)
-            Text(notice.short, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    painterResource(R.drawable.ic_hourglass_top),
+                    null,
+                    Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(short, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            }
+            Text(full, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -662,32 +558,3 @@ private fun StatusDot(live: Boolean) {
 }
 
 private val LiveGreen = Color(0xFF4CAF50)
-
-/**
- * P-15, one of the three.
- *
- * `Role.RadioButton` and `selected` rather than a bare check glyph: a tick is a glyph and a
- * glyph says nothing out loud, so without this a listener hears "Dark, Light, Automatic" and
- * cannot tell which one they are already on. Same fix the server and language rows got.
- *
- * **`mergeDescendants = true` is the whole of why it works.** Unmerged, the role and the
- * selected flag sit on a wrapper the reader never lands on, and the node it *does* land on
- * is the bare label — which is what the accessibility tree showed before this: `class=TextView`,
- * `checkable=false`, `selected=false`, on every one of the three.
- */
-@Composable
-private fun AppearanceChoice(label: Int, value: Appearance, state: UiState, model: AppModel, onPicked: () -> Unit) {
-    val selected = state.prefs.appearance == value
-    DropdownMenuItem(
-        modifier = Modifier.semantics(mergeDescendants = true) {
-            role = Role.RadioButton
-            this.selected = selected
-        },
-        text = { Text(stringResource(label)) },
-        trailingIcon = { if (selected) Icon(painterResource(R.drawable.ic_check), null) },
-        onClick = {
-            model.setAppearance(value)
-            onPicked()
-        },
-    )
-}

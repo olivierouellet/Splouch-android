@@ -33,7 +33,8 @@ import kotlinx.coroutines.launch
  *
  * `join_meet {meet_id, vid}` goes out on every connect of every socket, on a cloud only
  * (C-02), with the `vid` minted for this server (C-10) — the server the meet list came
- * from, even when the meet's `base` is on another host, so one phone is one visitor.
+ * from, even when the meet's `base` is on another host, so one phone is one visitor. A
+ * spectator who refused counting joins without one; the setting is read on every join.
  *
  * The sockets open at the meet's `base` (C-11). A `moved {url, base}` on any of them
  * (C-12) switches all three to the new base at once and reports it on [moves], so the

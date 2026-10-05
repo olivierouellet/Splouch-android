@@ -66,7 +66,7 @@ class SessionTests {
         assertEquals(ServerAddress.Result.Invalid, ServerAddress.parse(""))
         assertIs<ServerAddress.Result.Ok>(ServerAddress.parse("http://10.0.2.2:5000"))
         val vids = InMemoryVidStore()
-        val v1 = vids.vid(a.origin)
+        val v1 = vids.vid(a.origin)!!
         assertEquals(v1, vids.vid(ServerAddress.parseOrNull("https://splouch.ca/")!!.origin))
         assertNotEquals(v1, vids.vid(pi.origin))
         assertEquals(36, v1.length)
@@ -162,6 +162,26 @@ class SessionTests {
         runCurrent()
         assertEquals("join_meet", transport.last.sentEvents().single())
         assertEquals(1, reconnects.size)
+        session.close()
+    }
+
+    @Test fun `C-10 a refusing spectator joins without a vid, and none is created`() = runTest {
+        val transport = FakeTransport()
+        val vids = InMemoryVidStore()
+        vids.setCounting("https://c.example", false)
+        val ctx = MeetContext(ServerAddress.parseOrNull("https://c.example")!!, ServerKind.CLOUD, "m1")
+        val session =
+            MeetSession(ctx, transport, vids, backgroundScope, numLanes = 4, timeSource = testScheduler.timeSource)
+        session.start()
+        transport.connections.forEach { it.serverOpen() }
+        runCurrent()
+        transport.connections.forEach { c ->
+            val join = Frame.decode(c.sent.single())!!
+            assertEquals("join_meet", join.event)
+            assertEquals("m1", join.data!!.jsonObject["meet_id"]!!.jsonPrimitive.content)
+            assertNull(join.data.jsonObject["vid"])
+        }
+        assertNull(vids.entries["https://c.example"]!!.id)
         session.close()
     }
 

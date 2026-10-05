@@ -18,7 +18,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -29,8 +33,10 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.ImageCache
 import app.splouch.android.R
+import app.splouch.android.ui.intro.IntroScreen
 import app.splouch.android.ui.picker.PickerScreen
 import app.splouch.android.ui.picker.ServerInviteDialog
+import app.splouch.android.ui.settings.SettingsScreen
 import app.splouch.android.ui.shell.MeetShell
 import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.android.ui.theme.SplouchTheme
@@ -110,6 +116,24 @@ private fun RootContent(model: AppModel, images: ImageCache, state: UiState) {
     }
 
     val meet = state.meet
+    // P-19: Settings is a destination of the picker's, held here with the other three.
+    // Saveable, so a rotation keeps the reader in it; a meet opening (a Pi chosen, a QR
+    // code) closes it, so leaving that meet lands on the picker.
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var refocusGear by remember { mutableStateOf(false) }
+    LaunchedEffect(meet != null) { if (meet != null) settingsOpen = false }
+    val screen = when {
+        meet != null -> Screen.MEET
+        // P-20 waits for the picker: never over a meet, and the model raises it only once
+        // the server has answered.
+        state.introOpen -> Screen.INTRO
+        settingsOpen -> Screen.SETTINGS
+        else -> Screen.PICKER
+    }
+    // The picker leaves composition while Settings or a meet is on screen; this keeps its
+    // scroll position for the way back. Its query is the model's and survives regardless.
+    val saved = rememberSaveableStateHolder()
+
     // P-15, and the one place the scheme is decided. `AUTO` hands the question to the OS,
     // which is what lets it move with the time of day.
     val dark = when (state.prefs.appearance) {
@@ -130,29 +154,52 @@ private fun RootContent(model: AppModel, images: ImageCache, state: UiState) {
 
     theme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            // Opening a meet is a move forward and closing it a move back, so the two slide
-            // along the shared axis rather than cutting. The picker used to be replaced by
-            // the board between one frame and the next, which reads as a redraw rather than
-            // as having gone somewhere. A meet is only ever reached from the picker, so
-            // "in a meet or not" is the whole of the navigation state.
+            // Opening a meet or Settings is a move forward and closing it a move back, so
+            // the screens slide along the shared axis rather than cutting. A meet and
+            // Settings are only ever reached from the picker, so depth is the whole of the
+            // navigation state.
             AnimatedContent(
-                targetState = meet != null,
+                targetState = screen,
                 transitionSpec = {
-                    val forward = targetState
+                    val forward = targetState.depth > initialState.depth
                     val enter = { full: Int -> if (forward) full / 4 else -full / 4 }
                     val exit = { full: Int -> if (forward) -full / 4 else full / 4 }
                     (slideInHorizontally(tween(DURATION_MS), enter) + fadeIn(tween(DURATION_MS)))
                         .togetherWith(slideOutHorizontally(tween(DURATION_MS), exit) + fadeOut(tween(DURATION_MS)))
                 },
-                label = "meet",
-            ) { inMeet ->
+                label = "screen",
+            ) { shownScreen ->
                 // Read the meet off `state` rather than closing over it, so the outgoing
                 // page keeps rendering the one it was showing for the length of the slide.
                 val shown = state.meet
-                if (inMeet && shown != null) {
-                    MeetShell(model, state, shown, snackbar)
-                } else {
-                    PickerScreen(model, state, images, snackbar)
+                when {
+                    shownScreen == Screen.MEET && shown != null -> MeetShell(model, state, shown, snackbar)
+                    shownScreen == Screen.INTRO -> IntroScreen(model, state)
+                    shownScreen == Screen.SETTINGS -> SettingsScreen(
+                        model,
+                        state,
+                        onClose = {
+                            settingsOpen = false
+                            refocusGear = true // X-10
+                        },
+                        // P-20 ends on the picker, so the replay leaves Settings behind it.
+                        onReplayIntro = {
+                            settingsOpen = false
+                            refocusGear = true
+                            model.replayIntro()
+                        },
+                    )
+                    else -> saved.SaveableStateProvider("picker") {
+                        PickerScreen(
+                            model,
+                            state,
+                            images,
+                            snackbar,
+                            onOpenSettings = { settingsOpen = true },
+                            refocusSettings = refocusGear,
+                            onRefocused = { refocusGear = false },
+                        )
+                    }
                 }
             }
         }
@@ -166,6 +213,9 @@ private fun RootContent(model: AppModel, images: ImageCache, state: UiState) {
 }
 
 private const val DURATION_MS = 280
+
+/** The four places the app can be, by how far from the picker each sits. */
+private enum class Screen(val depth: Int) { PICKER(0), SETTINGS(1), MEET(1), INTRO(2) }
 
 /** Light glyphs over a dark screen and dark glyphs over a light one, in both system bars. */
 @Composable

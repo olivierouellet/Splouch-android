@@ -39,5 +39,24 @@
     <string name="appearance_auto">Automático</string>
     <string name="language">Idioma</string>
     <string name="language_auto">Automático</string>
-    <string name="more_options">Más opciones</string>
+    <string name="back">Atrás</string>
+    <string name="settings">Ajustes</string>
+    <string name="settings_display">Pantalla</string>
+    <string name="settings_privacy">Privacidad</string>
+    <string name="settings_about">Acerca de</string>
+    <string name="privacy_count">Contar mi visita</string>
+    <string name="privacy_policy">Política de privacidad</string>
+    <string name="show_introduction">Ver la introducción</string>
+    <string name="app_version">Versión</string>
+    <string name="intro_skip">Omitir</string>
+    <string name="intro_next">Siguiente</string>
+    <string name="intro_done">Listo</string>
+    <string name="intro_page">Página %1$d de %2$d</string>
+    <string name="intro_results_title">Resultados no oficiales</string>
+    <string name="intro_tabs_title">Tres pestañas</string>
+    <string name="intro_tabs_body">%1$s muestra la serie en el agua, %2$s las series terminadas, %3$s las listas de salida. Desliza para pasar de una a otra.</string>
+    <string name="intro_follow_title">Seguir a un nadador o un club</string>
+    <string name="intro_follow_body">En %1$s, %2$s deja solo los nadadores o clubes que elijas. Activa %3$s para ver cuándo nadan.</string>
+    <string name="intro_counting_title">Recuento de asistencia</string>
+    <string name="intro_counting_where">Puedes cambiarlo cuando quieras en Ajustes › Privacidad.</string>
 </resources>

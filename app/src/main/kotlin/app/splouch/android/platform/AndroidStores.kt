@@ -4,10 +4,9 @@ import android.content.Context
 import androidx.core.content.edit
 import app.splouch.core.session.Appearance
 import app.splouch.core.session.MeetTab
-import app.splouch.core.session.NoticeStore
-import app.splouch.core.session.PickerNotice
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.PreferencesStore
+import app.splouch.core.session.VidEntry
 import app.splouch.core.session.VidStore
 import app.splouch.core.strings.BundleCache
 import app.splouch.core.strings.CachedBundle
@@ -17,34 +16,40 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * C-10: one random UUID per server origin, stored once. Nothing here reads a device
- * identifier, and no id is ever derived from another.
+ * C-10's storage, per normalised server origin: the id under the origin itself (where
+ * every release before dates were kept wrote it), its creation date, and the spectator's
+ * counting setting. Every rule — off forgets, back on makes a new one, 13-month replacement
+ * — is [VidStore]'s. Nothing here reads a device identifier.
  */
-class PrefsVidStore(context: Context) : VidStore {
+class PrefsVidStore(context: Context) : VidStore(System::currentTimeMillis) {
     private val prefs = context.getSharedPreferences("splouch.vid", Context.MODE_PRIVATE)
 
-    override fun vid(origin: String): String = synchronized(this) {
-        prefs.getString(origin, null)?.takeIf { it.isNotEmpty() }
-            ?: VidStore.fresh().also { prefs.edit().putString(origin, it).apply() }
+    // An origin holds no space, so a suffixed key cannot collide with another server's id.
+    override fun load(origin: String): VidEntry = VidEntry(
+        id = prefs.getString(origin, null)?.takeIf { it.isNotEmpty() },
+        createdAt = prefs.getLong("$origin at", 0L).takeIf { it > 0L },
+        counting = prefs.getBoolean("$origin counting", true),
+    )
+
+    override fun store(origin: String, entry: VidEntry) {
+        val id = entry.id
+        val at = entry.createdAt
+        prefs.edit {
+            if (id == null) remove(origin) else putString(origin, id)
+            if (at == null) remove("$origin at") else putLong("$origin at", at)
+            // Only a refusal is written: on is the default, and stays so for a server never touched.
+            if (entry.counting) remove("$origin counting") else putBoolean("$origin counting", false)
+        }
     }
 }
 
 /**
- * P-06/P-07: the text each notice was folded at, per server origin and per notice. The
- * words themselves, not a flag, so a reworded notice shows in full once.
+ * P-06 used to fold, and remembered each fold per server in `splouch.notices`. The line no
+ * longer folds, so the folds are deleted — once, on the first launch of this release; the
+ * file is gone after that and the call finds nothing.
  */
-class PrefsNoticeStore(context: Context) : NoticeStore {
-    private val prefs = context.getSharedPreferences("splouch.notices", Context.MODE_PRIVATE)
-
-    // An origin holds no space, so the pair cannot collide with another server's.
-    private fun key(origin: String, notice: PickerNotice) = "$origin ${notice.name}"
-
-    override fun folded(origin: String, notice: PickerNotice): String? = prefs.getString(key(origin, notice), null)
-
-    override fun setFolded(origin: String, notice: PickerNotice, text: String?) {
-        val key = key(origin, notice)
-        prefs.edit { if (text == null) remove(key) else putString(key, text) }
-    }
+fun dropNoticeFolds(context: Context) {
+    context.deleteSharedPreferences("splouch.notices")
 }
 
 class PrefsPreferencesStore(context: Context) : PreferencesStore {
@@ -60,6 +65,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         // pinned-dark app, so that is what it keeps.
         appearance = Appearance.parse(prefs.getString("appearance", null)),
         tab = storedTab(),
+        introSeen = prefs.getBoolean("intro_seen", false),
     )
 
     /**
@@ -84,6 +90,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
             .putString("lang", prefs.lang)
             .putString("label_style", prefs.labelStyle)
             .putString("appearance", prefs.appearance.name)
+            .putBoolean("intro_seen", prefs.introSeen)
             .apply {
                 val tab = prefs.tab
                 if (tab == null) remove("tab") else putString("tab", tab.name)
