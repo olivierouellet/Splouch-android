@@ -5,10 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -20,6 +23,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,11 +48,13 @@ import app.splouch.core.session.AppModel
 import app.splouch.core.session.Appearance
 import app.splouch.core.session.UiState
 import app.splouch.core.strings.BuiltInStrings
+import app.splouch.core.wire.LocaleEntry
 import app.splouch.core.wire.ServerKind
 
 /**
- * P-19: one full-screen destination in place of the picker's ⋮ menu, sections in the
- * contract's order — Server, Display, Privacy (only while the server counts), About. Section
+ * P-19: one full-screen destination in place of the picker's ⋮ menu. Sections Display,
+ * Privacy (only while the server counts), Server, About — the contract lists Server first;
+ * the reader's own choices come first here (see `parity.md` P-19). Section
  * names and the toggle are the app's words (T-05); the privacy note and the disclaimer are
  * the server's. Back returns to the picker, whose list and query live in the model and are
  * untouched by anything here.
@@ -59,6 +65,9 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
     BackHandler(onBack = onClose)
     var showServers by remember { mutableStateOf(false) }
     val serverRow = rememberFocusReturn()
+    var showLanguages by remember { mutableStateOf(false) }
+    val languageRow = rememberFocusReturn()
+    val locales = state.locales.ifEmpty { BuiltInStrings.locales() }
     val uri = LocalUriHandler.current
     val policy = state.server.httpUrl("/privacy")
 
@@ -75,24 +84,22 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            // ── Server (P-11..P-13): a row to the existing sheet ──
-            Section(stringResource(R.string.server), first = true)
-            ListItem(
-                modifier = Modifier.focusRequester(serverRow.requester).clickable { showServers = true },
-                colors = transparent(),
-                leadingContent = { Icon(painterResource(R.drawable.ic_server), null) },
-                headlineContent = {
-                    Text(state.serverInfo?.name?.ifBlank { null } ?: state.server.display, maxLines = 1)
-                },
-                supportingContent = { Text(state.server.display, maxLines = 1) },
-            )
-
             // ── Display: language (T-08), Appearance (P-15) ──
-            Section(stringResource(R.string.settings_display))
-            SubHeader(stringResource(R.string.language))
-            val locales = state.locales.ifEmpty { BuiltInStrings.locales() }
-            ChoiceRow(stringResource(R.string.language_auto), state.prefs.lang == null) { model.setLang(null) }
-            locales.forEach { l -> ChoiceRow(l.name, state.prefs.lang == l.code) { model.setLang(l.code) } }
+            // Language is one row naming the current choice and opening the list: the server
+            // may offer many more languages than today's three, and inline they would push
+            // everything below them off the screen. Appearance is three fixed choices, inline.
+            Section(stringResource(R.string.settings_display), first = true)
+            ListItem(
+                modifier = Modifier.focusRequester(languageRow.requester).clickable { showLanguages = true },
+                colors = transparent(),
+                headlineContent = { Text(stringResource(R.string.language)) },
+                supportingContent = {
+                    Text(
+                        state.prefs.lang?.let { code -> locales.firstOrNull { it.code == code }?.name ?: code }
+                            ?: stringResource(R.string.language_auto),
+                    )
+                },
+            )
             SubHeader(stringResource(R.string.appearance))
             listOf(
                 R.string.appearance_dark to Appearance.DARK,
@@ -108,6 +115,18 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                 CountingSwitch(state.counting, state.privacyNote, model::setCounting)
                 LinkRow(stringResource(R.string.privacy_policy)) { uri.openUri(policy) }
             }
+
+            // ── Server (P-11..P-13): a row to the existing sheet ──
+            Section(stringResource(R.string.server))
+            ListItem(
+                modifier = Modifier.focusRequester(serverRow.requester).clickable { showServers = true },
+                colors = transparent(),
+                leadingContent = { Icon(painterResource(R.drawable.ic_server), null) },
+                headlineContent = {
+                    Text(state.serverInfo?.name?.ifBlank { null } ?: state.server.display, maxLines = 1)
+                },
+                supportingContent = { Text(state.server.display, maxLines = 1) },
+            )
 
             // ── About: P-06 in full, the policy, P-20's replay, the version ──
             Section(stringResource(R.string.settings_about))
@@ -136,6 +155,13 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                 headlineContent = { Text(stringResource(R.string.app_version)) },
                 supportingContent = { Text(BuildConfig.VERSION_NAME) },
             )
+        }
+    }
+
+    if (showLanguages) {
+        LanguageDialog(state.prefs.lang, locales, model::setLang) {
+            showLanguages = false
+            languageRow.request()
         }
     }
 
@@ -168,6 +194,43 @@ internal fun CountingSwitch(on: Boolean, note: String?, onChange: (Boolean) -> U
         headlineContent = { Text(stringResource(R.string.privacy_count)) },
         supportingContent = note?.let { { Text(it) } },
         trailingContent = { Switch(checked = on, onCheckedChange = null) },
+    )
+}
+
+/**
+ * T-08's choices, the way an Android settings list offers one of many: a dialog of radio
+ * rows that scrolls however many languages the server lists. A pick applies at once and
+ * closes it, as a `ListPreference` does; Cancel, back or the scrim leave the choice as it was.
+ */
+@Composable
+private fun LanguageDialog(
+    current: String?,
+    locales: List<LocaleEntry>,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.language)) },
+        text = {
+            // The dialog's own padding holds the text slot in 24dp; the rows draw their own.
+            LazyColumn {
+                item {
+                    ChoiceRow(stringResource(R.string.language_auto), current == null) {
+                        onPick(null)
+                        onDismiss()
+                    }
+                }
+                items(locales, key = { it.code }) { l ->
+                    ChoiceRow(l.name, current == l.code) {
+                        onPick(l.code)
+                        onDismiss()
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
