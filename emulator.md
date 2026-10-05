@@ -66,13 +66,14 @@ cd ../Splouch/cloud  && DATA_DIR=/tmp/splouch-cloud uv run uvicorn cloud_server:
 
 ## Scanning a QR code without a camera (`P-16`)
 
-The App Link a code carries is `https://splouch.ca/add?server=<origin>`. Deliver that
+The App Link a code carries is `https://splouch.org/add?server=<origin>` (codes printed
+before 2026-10-05 carry `splouch.ca`, which the app still accepts). Deliver that
 Intent by hand, naming the package so it goes to the app whether or not the link has
 been verified:
 
 ```sh
 adb shell am start -a android.intent.action.VIEW \
-  -d "'https://splouch.ca/add?server=http%3A%2F%2F10.0.2.2%3A5056'" app.splouch.android
+  -d "'https://splouch.org/add?server=http%3A%2F%2F10.0.2.2%3A5056'" app.splouch.android
 ```
 
 Quote the URL twice — the outer quotes are the Mac's shell, the inner ones the device's,
@@ -80,10 +81,10 @@ and without them `&` and `?` are eaten before `am` ever sees them.
 
 That is the same Intent a verified link produces, minus the one thing it cannot test:
 whether Android decides to send it to the app at all rather than offering a chooser.
-That decision needs `https://splouch.ca/.well-known/assetlinks.json` and shows here:
+That decision needs `/.well-known/assetlinks.json` on **both** hosts and shows here:
 
 ```sh
-adb shell pm get-app-links app.splouch.android   # splouch.ca: verified, or 1024 for no response
+adb shell pm get-app-links app.splouch.android   # per host: verified, or 1024 for no response
 adb shell pm verify-app-links --re-verify app.splouch.android
 ```
 

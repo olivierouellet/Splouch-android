@@ -48,6 +48,7 @@ class SplouchApp : Application() {
             bundleCache = FileBundleCache(this),
             scope = scope,
             deviceLang = Locale.getDefault().language.ifEmpty { "en" },
+            formerDefaults = FORMER_DEFAULTS.mapNotNull { ServerAddress.parseOrNull(it) },
         )
         model.serverBrowser = NsdBrowser(this) { model.setDiscovered(it) }
         NetworkWatcher(this) { model.networkRestored() }.start()
@@ -63,7 +64,14 @@ class SplouchApp : Application() {
     }
 
     companion object {
-        const val DEFAULT_SERVER = "https://splouch.ca"
+        const val DEFAULT_SERVER = "https://splouch.org"
+
+        /**
+         * P-11: defaults this app has shipped before. A stored selection of one moves to
+         * [DEFAULT_SERVER]; P-16 links on its host still open the app (the manifest lists
+         * the same hosts) while codes printed with it are in circulation.
+         */
+        val FORMER_DEFAULTS = listOf("https://splouch.ca")
     }
 }
 

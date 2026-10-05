@@ -51,8 +51,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * P-16: `https://splouch.ca/add?server=…` from the camera. The model does the parsing —
-     * the host it will accept is its own default server's and nothing here decides that —
+     * P-16: `https://splouch.org/add?server=…` (or a former default's host) from the camera.
+     * The model does the parsing — the hosts it will accept are its own and nothing here
+     * decides that —
      * and raises the prompt; nothing is saved or dialled before the reader agrees.
      *
      * Each one is **taken out of the Intent once read**. An Activity keeps the Intent that

@@ -154,12 +154,12 @@ fun PickerScreen(
                     scrollBehavior = barScroll,
                     colors = TopAppBarDefaults.topAppBarColors(),
                     title = {
-                        // P-11 asks for the server in the header when it is not the default. It
-                        // is here whatever it is: a bar holding two actions and no title reads
-                        // as unfinished, and the operator's own title is already the branding
-                        // block below (P-05), so repeating it there would be the one thing
-                        // worse than an empty bar.
-                        Text(state.server.display, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        // P-11: the server only when it is not the app's default — on the
+                        // default there is nothing to explain, and the operator's own title is
+                        // the branding block below (P-05).
+                        state.pickerServerName?.let {
+                            Text(it, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        }
                     },
                     actions = {
                         if (picker.canSearch) {

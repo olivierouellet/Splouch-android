@@ -163,6 +163,13 @@ data class UiState(
 ) {
     val kind: ServerKind? get() = serverInfo?.kind
 
+    /**
+     * P-11: the server as the picker names it — only when it is not the app's default. On the
+     * default there is nothing to explain; elsewhere a spectator who switched and forgot sees
+     * why the meets changed.
+     */
+    val pickerServerName: String? get() = server.display.takeUnless { isDefaultServer }
+
     /** P-06's line and full text, or null until this server has sent them. */
     val disclaimer: Disclaimer? get() = disclaimer(picker.config, pickerStrings)
 
@@ -239,8 +246,17 @@ class AppModel(
     private val deviceLang: String,
     private val timing: SplouchSocket.Timing = SplouchSocket.Timing(),
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
+    /**
+     * P-11: servers that used to be the default (`https://splouch.ca` until 2026-10-05). A
+     * stored selection of one is moved to [defaultServer] on launch, and P-16 links on their
+     * hosts are still the app's own while their printed codes are in circulation.
+     */
+    private val formerDefaults: List<ServerAddress> = emptyList(),
 ) {
     private val _state = MutableStateFlow(UiState(defaultServer, isDefaultServer = true))
+
+    /** P-16: the hosts a QR link may name — the default's, then any former default's. */
+    private val linkHosts: Set<String> = (listOf(defaultServer) + formerDefaults).mapTo(LinkedHashSet()) { it.host }
     val state: StateFlow<UiState> = _state
 
     private var api = SplouchApi(http, defaultServer)
@@ -257,13 +273,13 @@ class AppModel(
     val current: UiState get() = _state.value
 
     fun start() {
-        val prefs = prefsStore.load()
+        val prefs = migrateDefault(prefsStore.load())
         val server = prefs.server?.let { ServerAddress.parseOrNull(it) } ?: defaultServer
         _state.update {
             it.copy(
                 prefs = prefs,
                 server = server,
-                isDefaultServer = server == defaultServer,
+                isDefaultServer = isDefault(server),
                 pickerStrings = pickerTable(prefs),
                 picker = it.picker.copy(lang = prefs.lang ?: deviceLang),
                 counting = vidStore.counting(server.origin),
@@ -275,14 +291,29 @@ class AppModel(
 
     // ── servers (P-11..P-14) ──────────────────────────────────────────────────
 
+    /** P-11: by normalised origin, so `https://Splouch.org/` is the default too. */
+    private fun isDefault(address: ServerAddress): Boolean = address.origin == defaultServer.origin
+
+    /**
+     * P-11: a stored selection of a former default becomes the default — stored as no
+     * selection, as the default always is. Its `vid` stays with its origin and is not copied
+     * (C-10: never derived from another), so the new default makes its own on the first join.
+     * Hand-added servers are left as they are. Idempotent: once rewritten there is nothing to do.
+     */
+    private fun migrateDefault(prefs: Preferences): Preferences {
+        val stored = prefs.server?.let { ServerAddress.parseOrNull(it) } ?: return prefs
+        if (formerDefaults.none { it.origin == stored.origin }) return prefs
+        return prefs.copy(server = null).also(prefsStore::save)
+    }
+
     fun selectServer(address: ServerAddress) {
         if (address == current.server && current.serverInfo != null) return
         closeMeet()
-        savePrefs(current.prefs.copy(server = address.origin.takeIf { address != defaultServer }))
+        savePrefs(current.prefs.copy(server = address.origin.takeIf { !isDefault(address) }))
         _state.update {
             it.copy(
                 server = address,
-                isDefaultServer = address == defaultServer,
+                isDefaultServer = isDefault(address),
                 serverInfo = null,
                 serverError = null,
                 picker = PickerState(lang = readerLang()),
@@ -308,7 +339,7 @@ class AppModel(
             is ApiResult.Failure -> return AddServerResult.Unreachable(r.reason)
         }
         val known = KnownServer(address, info.name.ifEmpty { address.display }, info.kind, KnownServer.Source.SAVED)
-        if (address != defaultServer && address.origin !in current.prefs.servers) {
+        if (!isDefault(address) && address.origin !in current.prefs.servers) {
             savePrefs(current.prefs.copy(servers = current.prefs.servers + address.origin))
         }
         rebuildServers()
@@ -360,7 +391,7 @@ class AppModel(
      * than a code that fails, because the reader has no way to tell it from a dead app.
      */
     fun openServerLink(url: String) {
-        val invite = when (val r = ServerLink.parse(url, defaultServer.host)) {
+        val invite = when (val r = ServerLink.parse(url, linkHosts)) {
             is ServerLink.Result.Ok -> ServerInvite(
                 r.address,
                 standing = when {
@@ -457,7 +488,7 @@ class AppModel(
         add(
             KnownServer(
                 defaultServer,
-                current.serverInfo?.takeIf { current.server == defaultServer }?.name?.ifEmpty { null }
+                current.serverInfo?.takeIf { current.isDefaultServer }?.name?.ifEmpty { null }
                     ?: defaultServer.display,
                 null,
                 KnownServer.Source.DEFAULT,

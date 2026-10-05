@@ -52,22 +52,22 @@ class SessionTests {
     }
 
     @Test fun `server address normalises and keys the vid per origin`() {
-        val a = ServerAddress.parseOrNull("HTTPS://Splouch.CA:443/")!!
-        assertEquals("https://splouch.ca", a.origin)
-        assertEquals("wss://splouch.ca/ws/results", a.wsUrl("/ws/results"))
-        assertEquals("https://splouch.ca/server", a.httpUrl("/server"))
-        assertEquals("splouch.ca", ServerAddress.parseOrNull("splouch.ca")!!.display)
+        val a = ServerAddress.parseOrNull("HTTPS://Splouch.ORG:443/")!!
+        assertEquals("https://splouch.org", a.origin)
+        assertEquals("wss://splouch.org/ws/results", a.wsUrl("/ws/results"))
+        assertEquals("https://splouch.org/server", a.httpUrl("/server"))
+        assertEquals("splouch.org", ServerAddress.parseOrNull("splouch.org")!!.display)
         val pi = ServerAddress.parseOrNull("http://splouch.local:5000")!!
         assertEquals("http://splouch.local:5000", pi.origin)
         assertEquals("ws://splouch.local:5000/ws/scoreboard", pi.wsUrl("/ws/scoreboard"))
         assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://203.0.113.10:5000"))
-        assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://splouch.ca"))
+        assertEquals(ServerAddress.Result.CleartextNotLocal, ServerAddress.parse("http://splouch.org"))
         assertEquals(ServerAddress.Result.Invalid, ServerAddress.parse("ftp://x"))
         assertEquals(ServerAddress.Result.Invalid, ServerAddress.parse(""))
         assertIs<ServerAddress.Result.Ok>(ServerAddress.parse("http://10.0.2.2:5000"))
         val vids = InMemoryVidStore()
         val v1 = vids.vid(a.origin)!!
-        assertEquals(v1, vids.vid(ServerAddress.parseOrNull("https://splouch.ca/")!!.origin))
+        assertEquals(v1, vids.vid(ServerAddress.parseOrNull("https://splouch.org/")!!.origin))
         assertNotEquals(v1, vids.vid(pi.origin))
         assertEquals(36, v1.length)
     }
