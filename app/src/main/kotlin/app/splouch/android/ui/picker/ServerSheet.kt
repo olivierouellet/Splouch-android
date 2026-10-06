@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,7 +51,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -247,14 +252,49 @@ private fun ServerRow(
     onRemove: (() -> Unit)?,
 ) {
     val row = @Composable {
+        var menu by remember { mutableStateOf(false) }
         ListItem(
             // `selectable` is what carries the selected state to the screen reader: the radio
-            // button is a glyph, and a glyph says nothing out loud.
-            modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
+            // button is a glyph, and a glyph says nothing out loud. The swipe is invisible to
+            // TalkBack, so Remove is also a custom action on the row itself.
+            modifier = Modifier
+                .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+                .semantics {
+                    if (onRemove != null) {
+                        customActions = listOf(
+                            CustomAccessibilityAction(removeLabel) {
+                                onRemove()
+                                true
+                            },
+                        )
+                    }
+                },
             colors = ListItemDefaults.colors(containerColor = BottomSheetDefaults.ContainerColor),
             leadingContent = { RadioButton(selected = selected, onClick = null) },
             headlineContent = { Text(s.name, maxLines = 1) },
             supportingContent = { Text(s.address.display + (s.kind?.let { "  ·  ${it.wire}" } ?: ""), maxLines = 1) },
+            // The visible way in: a swipe alone is undiscoverable, and the overflow is where
+            // Android puts a row's secondary actions. Only on rows that can be removed, so its
+            // presence is what tells a removable server from a fixed one.
+            trailingContent = onRemove?.let { remove ->
+                {
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.more_options))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(removeLabel) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_delete), null) },
+                                onClick = {
+                                    menu = false
+                                    remove()
+                                },
+                            )
+                        }
+                    }
+                }
+            },
         )
     }
     if (onRemove == null) {

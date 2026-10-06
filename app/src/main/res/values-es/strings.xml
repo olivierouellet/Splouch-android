@@ -8,6 +8,7 @@
     <string name="local_search_again">Buscar de nuevo</string>
     <string name="local_none_found">No se encontró ningún servidor</string>
     <string name="remove">Quitar</string>
+    <string name="more_options">Más opciones</string>
     <string name="checking">Comprobando…</string>
 
     <string name="server_unreachable">No se puede conectar con este servidor</string>
