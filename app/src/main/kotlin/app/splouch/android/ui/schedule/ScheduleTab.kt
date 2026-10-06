@@ -1,6 +1,13 @@
 package app.splouch.android.ui.schedule
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +38,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -46,15 +55,18 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.R
 import app.splouch.android.ui.common.EmptyState
+import app.splouch.android.ui.common.reduceMotion
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
 import app.splouch.core.schedule.EmptyState as ScheduleEmptyState
+import app.splouch.core.schedule.LaneTime
 import app.splouch.core.schedule.ScheduleFilter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.VisibleHeat
 import app.splouch.core.session.MeetState
 import app.splouch.core.strings.EventName
 import app.splouch.core.wire.ScheduleLane
+import kotlinx.coroutines.delay
 
 /**
  * The start list, filterable (app.md §5). Filters live only for the session (S-20) and
@@ -92,8 +104,8 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
     // about a phone screen; read aloud they are two letters a listener has to decode, and a
     // screen reader has no width problem to solve. Same table, long style (`T-04`).
     val spoken = t.labels("short") + meet.labels
-    // One seed column for the whole screen, not one per card — see `TimingCell`.
-    val seedTemplate = remember(visible) { ScheduleFilter.widestSeedTime(visible) }
+    // One time column for the whole screen, not one per card — see `TimingCell`.
+    val seedTemplate = remember(visible) { ScheduleFilter.widestTime(visible) }
 
     // S-06: scroll to the current heat once per appearance, re-armed on returning to the foreground.
     val listState = rememberLazyListState()
@@ -133,7 +145,7 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(visible, key = { it.heat.event + "/" + it.heat.heat }) { v ->
-                    HeatCard(v, labels, spoken, t.eventVocab, seedTemplate)
+                    HeatCard(v, labels, spoken, t.eventVocab, seedTemplate) { t.mobile(it) }
                 }
             }
         }
@@ -147,10 +159,23 @@ private fun HeatCard(
     spoken: Map<String, String>,
     vocab: Map<String, String>,
     seedTemplate: String,
+    /** The `[mobile]` words a screen reader says for a time's kind (`S-22`). */
+    word: (String) -> String,
 ) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val h = v.heat
+    // S-23: an official heat swaps its times for their gaps to the seed, and springs back
+    // after four seconds or a second tap. Keyed by heat, so a recycled card starts clean.
+    var showingDiff by remember(h.event, h.heat) { mutableStateOf(false) }
+    val diff = showingDiff && h.official
+    LaunchedEffect(diff) {
+        if (diff) {
+            delay(4_000)
+            showingDiff = false
+        }
+    }
+    val toggleDiff = { if (h.official) showingDiff = !showingDiff }
     // Past this the row reflows instead of shrinking: the heading takes the full width so
     // it breaks at a space rather than down a narrow gutter, and the scheduled time drops
     // to a line of its own — still trailing, still at its own width.
@@ -235,6 +260,15 @@ private fun HeatCard(
                 Modifier.fillMaxWidth().clearAndSetSemantics {
                     heading()
                     contentDescription = headingSpoken
+                    // S-23 for TalkBack: the hint glyph is drawing only, the action is here.
+                    if (h.official) {
+                        customActions = listOf(
+                            CustomAccessibilityAction(word("show_seed_diff")) {
+                                toggleDiff()
+                                true
+                            },
+                        )
+                    }
                 },
             ) {
                 if (roomy) {
@@ -249,6 +283,7 @@ private fun HeatCard(
                         // trailing edge, so a card reads as two runs rather than three:
                         // what the heat is on the left, when it swims on the right.
                         if (h.time.isNotEmpty()) scheduledTime()
+                        if (h.official) DiffHint()
                     }
                 } else {
                     // Every line gets the full width. The scheduled time used to sit beside
@@ -259,15 +294,20 @@ private fun HeatCard(
                     // No time, no row. A row holding only a ruler still had the ruler's
                     // height, which at these sizes is a blank line down every card whose
                     // heat is unscheduled.
-                    if (h.time.isNotEmpty()) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            scheduledTime()
+                    if (h.time.isNotEmpty() || h.official) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        ) {
+                            if (h.time.isNotEmpty()) scheduledTime()
+                            if (h.official) DiffHint()
                         }
                     }
                 }
             }
             v.lanes.forEach { lane ->
-                val laneSpoken = spokenLane(lane, spoken)
+                val cell = LaneTime.of(lane, diff)
+                val laneSpoken = spokenLane(lane, spoken, cell, word)
                 Row(
                     Modifier.fillMaxWidth().padding(top = 6.dp)
                         .clearAndSetSemantics { contentDescription = laneSpoken },
@@ -300,7 +340,7 @@ private fun HeatCard(
                             maxLines = 1,
                         )
                     }
-                    TimingCell(lane.seedTime, seedTemplate)
+                    TimingCell(cell, seedTemplate, if (h.official) toggleDiff else null)
                 }
             }
         }
@@ -308,9 +348,9 @@ private fun HeatCard(
 }
 
 /**
- * The seed-time column: as wide as the widest seed time on screen, with the lane's own
- * time at the trailing edge of it. Only a lane's seed time sits here — a heading's
- * scheduled time is a clock time, and draws at its own width.
+ * The time column: as wide as the widest time on screen, with the lane's own at the
+ * trailing edge of it. Only a lane's time sits here — a heading's scheduled time is a
+ * clock time, and draws at its own width.
  *
  * The club and the time used to be packed against the right edge at their natural widths,
  * so the club's position followed the width of the time beside it and the codes zig-zagged
@@ -324,35 +364,77 @@ private fun HeatCard(
  * because TalkBack reading every row's column width before its time would be worse than
  * the misalignment it fixes.
  *
- * Never wrapped: a seed time broken across two lines reads as two times.
+ * Which time, and its colour, is `S-22`'s: official (bolder), console, seed. On an official
+ * heat the cell is the tap target for `S-23`, and the swap is Compose's own
+ * `AnimatedContent` crossfade — none when the system's animations are off.
+ *
+ * Never wrapped: a time broken across two lines reads as two times.
  */
 @Composable
-private fun TimingCell(value: String, seedTemplate: String) {
-    // The template is the widest seed time on screen, so an empty one means no lane
-    // anywhere in the list carries a time: there is no column to keep, and `value` is
-    // empty too. A lane with no time inside a list that has them keeps its blank cell,
-    // which is what holds the clubs in line.
+private fun TimingCell(cell: LaneTime?, seedTemplate: String, onTap: (() -> Unit)?) {
+    // The template is the widest time on screen, so an empty one means no lane anywhere in
+    // the list carries a time: there is no column to keep, and `cell` is null too. A lane
+    // with no time inside a list that has them keeps its blank cell, which is what holds
+    // the clubs in line.
     if (seedTemplate.isEmpty()) return
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
-    Box(contentAlignment = Alignment.CenterEnd) {
+    val still = reduceMotion()
+    val tap = if (onTap != null) Modifier.clickable(onClick = onTap) else Modifier
+    Box(tap, contentAlignment = Alignment.CenterEnd) {
         Text(
             seedTemplate,
             style = MaterialTheme.typography.bodyMedium,
             fontFamily = fonts.timing,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
             softWrap = false,
             modifier = Modifier.alpha(0f).clearAndSetSemantics { },
         )
-        Text(
-            value,
-            color = colors.scheduleTime,
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = fonts.timing,
-            maxLines = 1,
-            softWrap = false,
-        )
+        AnimatedContent(
+            targetState = cell,
+            transitionSpec = {
+                if (still) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    fadeIn() togetherWith fadeOut()
+                }
+            },
+            contentAlignment = Alignment.CenterEnd,
+            label = "lane time",
+        ) { c ->
+            Text(
+                c?.text.orEmpty(),
+                color = when (c?.kind) {
+                    LaneTime.Kind.CONSOLE -> colors.scheduleConsole
+                    LaneTime.Kind.OFFICIAL -> colors.scheduleOfficial
+                    LaneTime.Kind.BETTER -> colors.deltaBetter
+                    LaneTime.Kind.WORSE -> colors.deltaWorse
+                    LaneTime.Kind.SEED, null -> colors.scheduleSeed
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                fontFamily = fonts.timing,
+                fontWeight = when (c?.kind) {
+                    LaneTime.Kind.SEED, LaneTime.Kind.CONSOLE, null -> FontWeight.Normal
+                    else -> FontWeight.Bold
+                },
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
     }
+}
+
+/** `S-23`'s visible hint on an official heat: its times can be tapped. Drawing only. */
+@Composable
+private fun DiffHint() {
+    Text(
+        "\u00B1",
+        color = LocalBoardColors.current.scheduleOfficial,
+        style = MaterialTheme.typography.titleSmall,
+        fontFamily = LocalBoardFonts.current.timing,
+        modifier = Modifier.clearAndSetSemantics { },
+    )
 }
 
 /**
@@ -363,12 +445,18 @@ private fun TimingCell(value: String, seedTemplate: String) {
  * the server's own column words the way `BoardGrid.spoken` is (`T-04`), so it is spoken in
  * the meet's language rather than the app's.
  */
-private fun spokenLane(lane: ScheduleLane, labels: Map<String, String>): String {
+private fun spokenLane(
+    lane: ScheduleLane,
+    labels: Map<String, String>,
+    cell: LaneTime?,
+    mobile: (String) -> String,
+): String {
     fun word(key: String) = labels[key].orEmpty()
     val parts = mutableListOf<String>()
     lane.lane?.let { parts += "${word("lane")} $it".trim() }
     parts += ScheduleFilter.displayName(lane)
     if (lane.club.isNotEmpty()) parts += "${word("club")} ${lane.club}".trim()
-    if (lane.seedTime.isNotEmpty()) parts += "${word("time")} ${lane.seedTime}".trim()
+    // The kind of time, named (`S-22`): colour alone says nothing aloud.
+    cell?.let { parts += if (it.speaksText) "${mobile(it.spokenKey)} ${it.text}".trim() else mobile(it.spokenKey) }
     return parts.joinToString(", ")
 }

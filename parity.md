@@ -314,6 +314,8 @@ that will never send one that `A-11` takes the tab away instead of rewording it.
 | ID | Feature | Level | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `S-21` | A new schedule from the Pi refreshes the list | must | `done` | `schedule_update` → re-fetch, the `S-09` index rebuilt with it, filters retained where names still exist |
+| `S-22` | Lane time = best one known: official result or status > console > seed, each its own colour, official bolder | should | `done` | `LaneTime.of` (core/…/schedule/LaneTime.kt) picks the cell; colours `schedule_seed` / `_console` / `_official` copied into `Theme` from `api.md` §6.1. `HH:MM:SS.hh` drawn without a leading `00:`. A `results_snapshot` patches its heat's `console_time` in place (`MeetSession.resultsFrames` → `LaneTime.applyConsoleTimes`), no re-fetch. TalkBack names the kind (`time_seed` / `time_console` / `time_official`, `status_*` spelled out). Column sized by `ScheduleFilter.widestTime`, counting the gaps too so a tap does not move it. String snapshot recaptured from the Splouch repo's cloud code ahead of the deploy. Not yet seen on screen. Tests: LaneTimeTests |
+| `S-23` | Official heat: tap its times → gaps to the seed, back after 4 s or a second tap | could | `done` | `HeatCard`: whole heat, `DeltaFormat` text in `delta_better` / `delta_worse`; a status lane shows its console time, a lane with no seed `NT`. Swap is `AnimatedContent` fade, none when animations are off (`reduceMotion()`). A `±` in the heading is the visible hint; TalkBack gets the heading's custom action `show_seed_diff`. Not yet seen on screen. Tests: LaneTimeTests |
 
 ## 6. Connection and session
 

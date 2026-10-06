@@ -1,5 +1,6 @@
 package app.splouch.core.session
 
+import app.splouch.core.schedule.LaneTime
 import app.splouch.core.schedule.SuggestionIndex
 import app.splouch.core.strings.BuiltInStrings
 import app.splouch.core.strings.BundleCache
@@ -12,6 +13,7 @@ import app.splouch.core.wire.LocaleEntry
 import app.splouch.core.wire.MeetConfig
 import app.splouch.core.wire.MeetSummary
 import app.splouch.core.wire.PickerConfig
+import app.splouch.core.wire.ResultsSnapshot
 import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ServerInfo
 import app.splouch.core.wire.ServerKind
@@ -667,6 +669,7 @@ class AppModel(
             scope.launch { session.reloads.collect { refetchConfig() } },
             scope.launch { session.reconnects.collect { refetchConfig() } },
             scope.launch { session.scheduleUpdates.collect { loadSchedule() } },
+            scope.launch { session.resultsFrames.collect { applyConsoleTimes(session, it) } },
             scope.launch { session.moves.collect { onMoved(session) } },
         )
         if (moved != null) refetchConfig() // the config in hand came from the old base
@@ -791,6 +794,15 @@ class AppModel(
         _state.update { s -> s.copy(meet = s.meet?.copy(context = session.context)) }
         refetchConfig(clearRefreshing = true)
         loadSchedule()
+    }
+
+    /** S-22: a heat's console times, patched into the schedule in hand. */
+    private fun applyConsoleTimes(session: MeetSession, snap: ResultsSnapshot) {
+        _state.update { s ->
+            val m = s.meet?.takeIf { it.session === session } ?: return@update s
+            val heats = m.schedule ?: return@update s
+            s.copy(meet = m.copy(schedule = LaneTime.applyConsoleTimes(heats, snap)))
+        }
     }
 
     fun loadSchedule() {

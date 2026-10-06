@@ -39,6 +39,8 @@ data class Theme(val colors: Map<String, String>, val fonts: Map<String, String>
             "time" to "#FFD700", "delta_better" to "#4CAF50", "delta_worse" to "#808080",
             "schedule_event" to "#3b9eff", "schedule_time" to "#FFD700",
             "schedule_name" to "#e0e0e0", "schedule_club" to "#666666",
+            // A lane's time by how far it has come (S-22): seed, console, official.
+            "schedule_seed" to "#e0e0e0", "schedule_console" to "#FFD700", "schedule_official" to "#4ade80",
         )
 
         /**
@@ -58,6 +60,7 @@ data class Theme(val colors: Map<String, String>, val fonts: Map<String, String>
             "time" to "#0055aa", "delta_better" to "#2e7d32", "delta_worse" to "#757575",
             "schedule_event" to "#0055cc", "schedule_time" to "#0055aa",
             "schedule_name" to "#111111", "schedule_club" to "#888888",
+            "schedule_seed" to "#111111", "schedule_console" to "#0055aa", "schedule_official" to "#2e7d32",
         )
 
         /** The palette a reader who chose dark, or light, is shown (`P-15`). */

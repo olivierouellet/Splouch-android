@@ -69,6 +69,10 @@ class MeetSession(
     val currentHeat: StateFlow<HeatRef?> = _currentHeat
 
     private val scheduleChannel = Channel<Unit>(Channel.CONFLATED)
+    private val resultsChannel = Channel<ResultsSnapshot>(Channel.UNLIMITED)
+
+    /** Every `results_snapshot`: its heat's console times belong on the Schedule too (S-22). */
+    val resultsFrames: Flow<ResultsSnapshot> = resultsChannel.receiveAsFlow()
 
     /** S-21: the start list changed; re-fetch it. */
     val scheduleUpdates: Flow<Unit> = scheduleChannel.receiveAsFlow()
@@ -268,6 +272,7 @@ class MeetSession(
                 "results_snapshot" -> ResultsSnapshot.fromJson(e.data)?.let { s ->
                     results.apply(s)
                     _currentHeat.value = HeatRef(s.event, s.heat)
+                    resultsChannel.trySend(s)
                 }
                 "meet_live" -> if (!MeetLive.fromJson(e.data).live) results.clear()
                 "reload" -> reloadChannel.trySend(Unit)

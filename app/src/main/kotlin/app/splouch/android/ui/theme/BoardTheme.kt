@@ -56,6 +56,11 @@ class BoardColors(val isDark: Boolean) {
     val scheduleName = c("schedule_name")
     val scheduleClub = c("schedule_club")
 
+    /** A lane's time by how far it has come (`S-22`): seed, console, official. */
+    val scheduleSeed = c("schedule_seed")
+    val scheduleConsole = c("schedule_console")
+    val scheduleOfficial = c("schedule_official")
+
     /**
      * A running time (`L-11`), dimmed against the row it sits on rather than against an
      * assumed black. It was a fixed `#A0A0A0` — the web's `.time-running` grey, from a

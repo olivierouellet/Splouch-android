@@ -464,12 +464,22 @@ data class ScheduleSwimmer(val name: String, val first: String) {
     }
 }
 
+/** A lane's three times (S-22, api.md §5.8), each `HH:MM:SS.hh` or "". */
 data class ScheduleLane(
     val lane: Int?,
     val name: String,
     val club: String,
     val seedTime: String,
     val swimmers: List<ScheduleSwimmer>,
+    /** The timing console's finish, provisional. */
+    val consoleTime: String = "",
+    /** Validated in Meet Manager. */
+    val resultTime: String = "",
+    /** `DSQ`, `DNS`, `DNF`, `WDR`, `SICK`, or "" for a finish. */
+    val resultStatus: String = "",
+    /** Official − seed, negative = faster; null with no seed, no official time, or a status. */
+    val resultDeltaSeconds: Double? = null,
+    val resultDeltaBetter: Boolean? = null,
 ) {
     companion object {
         fun fromJson(e: JsonElement?): ScheduleLane? {
@@ -480,6 +490,11 @@ data class ScheduleLane(
                 club = o["club"].asStringOrNull()?.trim().orEmpty(),
                 seedTime = o["seed_time"].asStringOrNull()?.trim().orEmpty(),
                 swimmers = o["swimmers"].asArrayOrNull()?.mapNotNull { ScheduleSwimmer.fromJson(it) } ?: emptyList(),
+                consoleTime = o["console_time"].asStringOrNull()?.trim().orEmpty(),
+                resultTime = o["result_time"].asStringOrNull()?.trim().orEmpty(),
+                resultStatus = o["result_status"].asStringOrNull()?.trim().orEmpty(),
+                resultDeltaSeconds = o["result_delta_seconds"].asDoubleOrNull(),
+                resultDeltaBetter = o["result_delta_better"].asBoolOrNull(),
             )
         }
     }
@@ -493,6 +508,8 @@ data class ScheduleHeat(
     val eventNameParts: EventNameParts?,
     val time: String,
     val lanes: List<ScheduleLane>,
+    /** Every lane with a swimmer has an official time or status (S-23). */
+    val official: Boolean = false,
 ) {
     companion object {
         fun fromJson(e: JsonElement?): ScheduleHeat? {
@@ -504,6 +521,7 @@ data class ScheduleHeat(
                 eventNameParts = EventNameParts.fromJson(o["event_name_parts"]),
                 time = o["time"].asStringOrNull()?.trim().orEmpty(),
                 lanes = o["lanes"].asArrayOrNull()?.mapNotNull { ScheduleLane.fromJson(it) } ?: emptyList(),
+                official = o["official"].asBoolOrNull() ?: false,
             )
         }
 

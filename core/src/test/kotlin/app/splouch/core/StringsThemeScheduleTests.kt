@@ -212,7 +212,7 @@ class StringsThemeScheduleTests {
         }.joinToString(",")
         fun widest(vararg times: List<String>): String {
             val list = ScheduleHeat.listFromJson(parseJsonOrNull("""{"heats":[${heats(*times)}]}"""))!!
-            return ScheduleFilter.widestSeedTime(ScheduleFilter.visible(list, ScheduleFilterState(), null))
+            return ScheduleFilter.widestTime(ScheduleFilter.visible(list, ScheduleFilterState(), null))
         }
         // Across cards, not within one: the column spans the whole screen.
         assertEquals("1:04.219", widest(listOf("NT", "57.40"), listOf("1:04.219")))
@@ -221,7 +221,7 @@ class StringsThemeScheduleTests {
         assertEquals("NT", widest(listOf("NT", "NT")))
         // Nothing on screen carries one: no column at all.
         assertEquals("", widest(listOf("", "")))
-        assertEquals("", ScheduleFilter.widestSeedTime(emptyList()))
+        assertEquals("", ScheduleFilter.widestTime(emptyList()))
         // A lane with no time still sits in the column the others set.
         assertEquals("1:02.41", widest(listOf("", "1:02.41")))
     }
@@ -257,6 +257,7 @@ class StringsThemeScheduleTests {
             "delta_worse" to "#808080", "podium_gold" to "#545454", "podium_silver" to "#424242",
             "podium_bronze" to "#343434", "schedule_event" to "#3b9eff",
             "schedule_time" to "#FFD700", "schedule_name" to "#e0e0e0", "schedule_club" to "#666666",
+            "schedule_seed" to "#e0e0e0", "schedule_console" to "#FFD700", "schedule_official" to "#4ade80",
         )
         val light = mapOf(
             "bg" to "#f8f8f8", "header_bg" to "#ffffff", "header_border" to "#dddddd",
@@ -266,6 +267,7 @@ class StringsThemeScheduleTests {
             "delta_worse" to "#757575", "podium_gold" to "#d0d0d0", "podium_silver" to "#dcdcdc",
             "podium_bronze" to "#e8e8e8", "schedule_event" to "#0055cc",
             "schedule_time" to "#0055aa", "schedule_name" to "#111111", "schedule_club" to "#888888",
+            "schedule_seed" to "#111111", "schedule_console" to "#0055aa", "schedule_official" to "#2e7d32",
         )
         Theme.DEFAULT_COLORS.forEach { (key, value) -> assertEquals(dark[key], value, "dark $key") }
         Theme.LIGHT_COLORS.forEach { (key, value) -> assertEquals(light[key], value, "light $key") }
