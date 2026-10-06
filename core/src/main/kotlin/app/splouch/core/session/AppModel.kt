@@ -73,9 +73,23 @@ data class PickerState(
     val query: String = "",
     /** The reader's language — chosen, else the device's — for country names (P-01, P-17). */
     val lang: String = "",
+    /** P-21: the stored filter, mirrored here so the list is one read. */
+    val filter: MeetFilter = MeetFilter(),
 ) {
     /** The search action is offered at all: only once there are enough meets to be worth searching. */
     val canSearch: Boolean get() = MeetSearch.shows(meets.size)
+
+    /**
+     * P-21: offered with P-17's search, and whenever a filter is standing, so a list it shrank
+     * always shows the control that can widen it again.
+     */
+    val canFilter: Boolean get() = canSearch || filter.isActive
+
+    /** P-21: what the filter leaves, before any query. */
+    val filteredMeets: List<MeetSummary> get() = filter.apply(meets)
+
+    /** P-21: how many meets the filter keeps off the list. */
+    val hiddenByFilter: Int get() = meets.size - filteredMeets.size
 
     /** The app bar is the search field. Not once a refresh has left too few meets to search. */
     val searchOpen: Boolean get() = searching && canSearch
@@ -84,7 +98,9 @@ data class PickerState(
      * The cards to draw, in the server's order. A query is ignored once the field is gone,
      * or it would hide meets with nothing on screen to say why.
      */
-    val shownMeets: List<MeetSummary> get() = if (searchOpen) MeetSearch.filter(meets, query, lang) else meets
+    val shownMeets: List<MeetSummary> get() = filteredMeets.let {
+        if (searchOpen) MeetSearch.filter(it, query, lang) else it
+    }
 
     /**
      * P-18: more than [COMPACT_ABOVE] meets → compact rows, no picker image. Counted on
@@ -304,7 +320,7 @@ class AppModel(
                 server = server,
                 isDefaultServer = isDefault(server),
                 pickerStrings = pickerTable(prefs),
-                picker = it.picker.copy(lang = prefs.lang ?: deviceLang),
+                picker = it.picker.copy(lang = prefs.lang ?: deviceLang, filter = prefs.meetFilter),
                 counting = vidStore.counting(server.origin),
             )
         }
@@ -327,7 +343,7 @@ class AppModel(
                 isDefaultServer = isDefault(address),
                 serverInfo = null,
                 serverError = null,
-                picker = PickerState(lang = readerLang()),
+                picker = PickerState(lang = readerLang(), filter = current.prefs.meetFilter),
                 contractNotice = null,
                 counting = vidStore.counting(address.origin),
             )
@@ -639,6 +655,12 @@ class AppModel(
     fun openPickerSearch() = _state.update { it.copy(picker = it.picker.copy(searching = true)) }
 
     fun setPickerQuery(query: String) = _state.update { it.copy(picker = it.picker.copy(query = query)) }
+
+    /** P-21: stored at once — the filter is the spectator's for every server and launch until cleared. */
+    fun setMeetFilter(filter: MeetFilter) {
+        savePrefs(current.prefs.copy(meetFilter = filter))
+        _state.update { it.copy(picker = it.picker.copy(filter = filter)) }
+    }
 
     /** Leaving search mode shows every meet again, so the query goes with it. */
     fun closePickerSearch() = _state.update { it.copy(picker = it.picker.copy(searching = false, query = "")) }

@@ -31,7 +31,8 @@ enum class Appearance {
 
 /**
  * What survives a relaunch, per device: the server, the language and style choices (T-08, T-09),
- * the appearance (P-15), the tab (A-04), and whether the introduction has been seen (P-20).
+ * the appearance (P-15), the tab (A-04), whether the introduction has been seen (P-20), and the
+ * picker's filter (P-21). The schedule's filters are deliberately not here (S-20).
  */
 data class Preferences(
     val server: String? = null,
@@ -50,6 +51,8 @@ data class Preferences(
     val tab: MeetTab? = null,
     /** P-20: finished or skipped once on this install. Never set by a launch that had no server to show it with. */
     val introSeen: Boolean = false,
+    /** P-21: one for the app, whichever server is in use. */
+    val meetFilter: MeetFilter = MeetFilter(),
 ) {
     /**
      * What the board actually renders (T-09). The control is withdrawn from the UI, so

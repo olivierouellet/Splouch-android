@@ -3,6 +3,7 @@ package app.splouch.android.platform
 import android.content.Context
 import androidx.core.content.edit
 import app.splouch.core.session.Appearance
+import app.splouch.core.session.MeetFilter
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.PreferencesStore
@@ -68,6 +69,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         appearance = Appearance.parse(prefs.getString("appearance", null)),
         tab = storedTab(),
         introSeen = prefs.getBoolean("intro_seen", false),
+        meetFilter = MeetFilter.decode(prefs.getString("meet_filter", null)),
     )
 
     /**
@@ -93,6 +95,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
             .putString("label_style", prefs.labelStyle)
             .putString("appearance", prefs.appearance.name)
             .putBoolean("intro_seen", prefs.introSeen)
+            .putString("meet_filter", MeetFilter.encode(prefs.meetFilter))
             .apply {
                 val tab = prefs.tab
                 if (tab == null) remove("tab") else putString("tab", tab.name)

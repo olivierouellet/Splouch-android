@@ -107,4 +107,15 @@
         <item quantity="one">Following %1$d</item>
         <item quantity="other">Following %1$d</item>
     </plurals>
+    <!-- P-21: the picker's filter is the app's, so its words are too. -->
+    <string name="meet_filter">Filter</string>
+    <string name="filter_country">Country</string>
+    <string name="filter_province">State or province</string>
+    <string name="filter_club">Club</string>
+    <string name="filter_clear">Clear filter</string>
+    <string name="filter_hides_all">No meets match the filter.</string>
+    <plurals name="filter_hidden">
+        <item quantity="one">%1$d meet hidden by the filter</item>
+        <item quantity="other">%1$d meets hidden by the filter</item>
+    </plurals>
 </resources>

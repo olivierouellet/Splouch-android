@@ -91,4 +91,16 @@
         <item quantity="many">%1$d suivis</item>
         <item quantity="other">%1$d suivis</item>
     </plurals>
+    <!-- P-21: the picker's filter is the app's, so its words are too. -->
+    <string name="meet_filter">Filtrer</string>
+    <string name="filter_country">Pays</string>
+    <string name="filter_province">Province ou État</string>
+    <string name="filter_club">Club</string>
+    <string name="filter_clear">Effacer le filtre</string>
+    <string name="filter_hides_all">Aucune compétition ne correspond au filtre.</string>
+    <plurals name="filter_hidden">
+        <item quantity="one">%1$d compétition masquée par le filtre</item>
+        <item quantity="many">%1$d de compétitions masquées par le filtre</item>
+        <item quantity="other">%1$d compétitions masquées par le filtre</item>
+    </plurals>
 </resources>

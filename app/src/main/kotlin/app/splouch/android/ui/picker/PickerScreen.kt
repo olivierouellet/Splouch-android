@@ -30,6 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +46,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -68,6 +71,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -85,6 +89,7 @@ import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.android.ui.common.rememberFocusReturn
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.MeetFilter
 import app.splouch.core.session.UiState
 import app.splouch.core.session.region
 import app.splouch.core.wire.ServerKind
@@ -111,10 +116,13 @@ fun PickerScreen(
 ) {
     val t = state.pickerStrings
     var showDisclaimer by remember { mutableStateOf(false) }
+    // P-21.
+    var showFilter by remember { mutableStateOf(false) }
     // X-10: Settings is a destination, so the picker is rebuilt on the way back and the
     // gear asks for focus once it is there; the disclaimer's sheet hands it back to the line.
     val gear = rememberFocusReturn()
     val disclaimerLine = rememberFocusReturn()
+    val filterAction = rememberFocusReturn()
     LaunchedEffect(refocusSettings) {
         if (refocusSettings) {
             gear.request()
@@ -162,6 +170,18 @@ fun PickerScreen(
                         }
                     },
                     actions = {
+                        // P-21: offered with search, and whenever a filter stands; a dot while it
+                        // does, so a shortened list never passes for the whole server.
+                        if (picker.canFilter && state.kind != ServerKind.PI && state.serverError == null) {
+                            IconButton(
+                                onClick = { showFilter = true },
+                                modifier = Modifier.focusRequester(filterAction.requester),
+                            ) {
+                                BadgedBox(badge = { if (picker.filter.isActive) Badge() }) {
+                                    Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.meet_filter))
+                                }
+                            }
+                        }
                         if (picker.canSearch) {
                             IconButton(onClick = {
                                 focusSearch = true
@@ -233,6 +253,7 @@ fun PickerScreen(
                             }
                         }
                         val meets = state.picker.meets
+                        val filtered = picker.filteredMeets
                         val shown = state.picker.shownMeets
                         if (meets.isEmpty() && state.picker.loaded) {
                             item {
@@ -242,8 +263,20 @@ fun PickerScreen(
                                 )
                             }
                         }
+                        // P-21's own empty state: the server has meets, the filter hid them all.
+                        // Not `no_meets`, and not P-17's — no query is to blame.
+                        if (meets.isNotEmpty() && filtered.isEmpty()) {
+                            item {
+                                EmptyState(
+                                    icon = painterResource(R.drawable.ic_filter),
+                                    title = stringResource(R.string.filter_hides_all),
+                                    actionLabel = stringResource(R.string.filter_clear),
+                                    onAction = { model.setMeetFilter(MeetFilter()) },
+                                )
+                            }
+                        }
                         // Not `no_meets`: the server has meets, the query hid them.
-                        if (meets.isNotEmpty() && shown.isEmpty()) {
+                        if (filtered.isNotEmpty() && shown.isEmpty()) {
                             item {
                                 EmptyState(
                                     icon = painterResource(R.drawable.ic_search_off),
@@ -287,10 +320,28 @@ fun PickerScreen(
                                 ) { model.openMeet(m.id) }
                             }
                         }
+                        // P-21: at the end of the list, how many meets the filter keeps off it.
+                        if (filtered.isNotEmpty() && picker.hiddenByFilter > 0) {
+                            item(key = "hidden-by-filter") {
+                                HiddenByFilter(picker.hiddenByFilter) { model.setMeetFilter(MeetFilter()) }
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+    if (showFilter) {
+        MeetFilterSheet(
+            filter = picker.filter,
+            meets = picker.meets,
+            lang = picker.lang,
+            onChange = model::setMeetFilter,
+            onDismiss = {
+                showFilter = false
+                filterAction.request()
+            },
+        )
     }
     if (showDisclaimer) {
         state.disclaimer?.let { d ->
@@ -360,6 +411,30 @@ private fun DisclaimerLine(short: String, modifier: Modifier, onClick: () -> Uni
     ) {
         Icon(painterResource(R.drawable.ic_hourglass_top), null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
         Text(short, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+    }
+}
+
+/** P-21: the line closing a filtered list — how many meets are hidden, and the way back to all. */
+@Composable
+private fun HiddenByFilter(hidden: Int, onClear: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(
+                painterResource(R.drawable.ic_filter),
+                null,
+                Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                pluralStringResource(R.plurals.filter_hidden, hidden, hidden),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextButton(onClick = onClear) { Text(stringResource(R.string.filter_clear)) }
     }
 }
 
