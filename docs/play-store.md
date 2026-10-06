@@ -36,8 +36,8 @@ Both languages: fr-CA (default) and en-CA.
 | Tablet screenshots | None (optional) |
 | Category | Sports |
 | Tags | Up to 5 from Play's list, chosen in the Console |
-| Contact email | <support@splouch.ca> |
-| Website | <https://splouch.ca> |
+| Contact email | <support@splouch.org> |
+| Website | <https://splouch.org> |
 
 How the store images are made: [`Screenshots/README.md`](../Screenshots/README.md).
 
@@ -99,7 +99,7 @@ Results shown are live and unofficial.
 
 | Section | Answer |
 | --- | --- |
-| Privacy policy | `https://splouch.ca/privacy` |
+| Privacy policy | `https://splouch.org/privacy` |
 | App access | All functionality available without special access; there is no login |
 | Ads | No ads |
 | Content rating | Questionnaire: reference/utility app. No violence, sexual content, profanity, drugs or gambling; no user-generated content, user interaction, location sharing or purchases. Expect *Everyone* / *PEGI 3* |
@@ -137,8 +137,8 @@ First release: live scoreboard, results and schedule for swim meets.
 
 The QR-code App Link (`parity.md` `P-16`) needs splouch.org and splouch.ca to serve
 `/.well-known/assetlinks.json` naming the **App signing** SHA-256 from the Console's
-*App signing* page, not the upload key's. As of 2026-10-05 splouch.ca returns 404 and
-splouch.org does not answer at all. Until both serve it,
+*App signing* page, not the upload key's. As of 2026-10-06 both return 404 for it
+(splouch.org is live, but does not serve the file yet). Until both serve it,
 a scanned code opens a chooser instead of the app. Once the listing is live, point the
 `/add` page's store link at
 `https://play.google.com/store/apps/details?id=app.splouch.android`. Both changes are
@@ -147,7 +147,7 @@ made in the `Splouch` repo.
 ## Before the first upload
 
 1. Back up the upload keystore and its password together, somewhere other than this Mac.
-2. Regenerate the string snapshot: `scripts/update-strings.sh https://splouch.ca`.
+2. Regenerate the string snapshot: `scripts/update-strings.sh https://splouch.org`.
 3. Build the AAB, create the app in the Console, and fill in the sections above.
 4. Upload to closed testing and recruit 12 testers for 14 days.
 5. Serve `assetlinks.json` with the App signing fingerprint.
