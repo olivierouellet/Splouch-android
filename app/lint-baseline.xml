@@ -13,17 +13,6 @@
     </issue>
 
     <issue
-        id="OldTargetApi"
-        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
-        errorLine1="        targetSdk = 36"
-        errorLine2="        ~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="31"
-            column="9"/>
-    </issue>
-
-    <issue
         id="UnusedAttribute"
         message="Attribute `enableOnBackInvokedCallback` is only used in API level 33 and higher (current min is 26)"
         errorLine1="        android:enableOnBackInvokedCallback=&quot;true&quot;"

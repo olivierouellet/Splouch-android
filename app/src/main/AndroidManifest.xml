@@ -4,6 +4,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- P-12, P-13, P-16: from Android 17 an app targeting 37 reaches a pool's server
+         (mDNS browse, `.local` name, private address) only with this runtime grant.
+         Asked where the reader reaches for the LAN: `LocalNetworkAccess`. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
     <!-- No backup, cloud or device-to-device: the default server's /privacy says the settings and
          each server's attendance id (C-10) stay on the device. `allowBackup` covers

@@ -105,7 +105,7 @@ Results shown are live and unofficial.
 | Content rating | Questionnaire: reference/utility app. No violence, sexual content, profanity, drugs or gambling; no user-generated content, user interaction, location sharing or purchases. Expect *Everyone* / *PEGI 3* |
 | Target audience | 13 and over. Not designed for children, so the Families policy does not apply |
 | News app | No |
-| Data safety | **No data collected or shared.** The app sends no identifiers; preferences stay on the device. Any attendance counting is anonymous and happens on the server |
+| Data safety | **Collected, not shared: Device or other IDs** — the attendance id (`C-10`), a random UUID per server sent when a meet opens. Purpose Analytics; optional (Settings › Privacy turns it off and deletes it); encrypted in transit (only the cloud receives it, over HTTPS); deletion on request per the policy. Play counts anything sent off the device as collected, anonymous or not, and the policy treats the id as personal information. Nothing else leaves the device. Matches the iOS App Privacy answer |
 | Government app | No |
 | Financial features | None |
 | Health | No |

@@ -15,6 +15,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.splouch.android.R
+import app.splouch.android.platform.LocalNetworkAccess
+import app.splouch.android.platform.rememberLocalNetworkAccess
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.InviteFailure
 import app.splouch.core.session.ServerInvite
@@ -36,6 +38,9 @@ import app.splouch.core.session.ServerInvite
 @Composable
 fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
     val address = invite.address
+    // P-16: a pool's server from a QR code is checked before it is added, which on Android 17
+    // needs the local network granted first.
+    val withLocalNetwork = rememberLocalNetworkAccess()
     val failure = invite.failure?.let { stringResource(it.message) }
     // A server already in use has nothing to agree to: the prompt tells the reader where
     // they are and gets out of the way. It still names the address, which is the whole
@@ -77,7 +82,16 @@ fun ServerInviteDialog(model: AppModel, invite: ServerInvite) {
             if (nothingToDo) {
                 TextButton(onClick = { model.dismissInvite() }) { Text(stringResource(R.string.ok)) }
             } else {
-                TextButton(onClick = { model.acceptInvite() }, enabled = !invite.checking) {
+                TextButton(
+                    onClick = {
+                        if (LocalNetworkAccess.isLocal(address)) {
+                            withLocalNetwork(model::acceptInvite)
+                        } else {
+                            model.acceptInvite()
+                        }
+                    },
+                    enabled = !invite.checking,
+                ) {
                     // The spinner takes the label's place rather than sitting beside it, so
                     // the dialog's buttons do not move under a finger that is already there.
                     if (invite.checking) {

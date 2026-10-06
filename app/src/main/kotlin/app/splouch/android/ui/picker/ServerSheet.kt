@@ -59,6 +59,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.splouch.android.R
+import app.splouch.android.platform.LocalNetworkAccess
+import app.splouch.android.platform.rememberLocalNetworkAccess
 import app.splouch.core.session.AddServerResult
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.KnownServer
@@ -91,6 +93,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
     val sheetSnackbar = remember { SnackbarHostState() }
     val removedMessage = stringResource(R.string.server_removed)
     val undoLabel = stringResource(R.string.undo)
+    val withLocalNetwork = rememberLocalNetworkAccess()
 
     // P-13: a swipe is one finger and a saved server is a typed address, so taking one
     // away has to be undoable. The snackbar carries the only way back; `restoreServer`
@@ -103,8 +106,8 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
         }
     }
 
-    fun add() {
-        if (busy || text.isBlank()) return
+    fun submit() {
+        if (busy) return
         busy = true
         error = null
         scope.launch {
@@ -121,6 +124,14 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
             }
             busy = false
         }
+    }
+
+    fun add() {
+        if (busy || text.isBlank()) return
+        // P-13: a pool's server typed by hand is checked before it is saved, and on Android 17
+        // that check needs the local network already granted.
+        val local = ServerAddress.parseOrNull(text)?.let(LocalNetworkAccess::isLocal) == true
+        if (local) withLocalNetwork(::submit) else submit()
     }
 
     // P-12: the browse lives no longer than the sheet that asked for it.
@@ -178,7 +189,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
                         }
                     LocalSearch.IDLE -> SearchButton(
                         stringResource(R.string.local_search),
-                        model::searchLocal,
+                        { withLocalNetwork(model::searchLocal) },
                         Modifier.padding(horizontal = 16.dp),
                     )
                     LocalSearch.DONE -> Row(
@@ -191,7 +202,9 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
-                        SearchButton(stringResource(R.string.local_search_again), model::searchLocal)
+                        SearchButton(stringResource(R.string.local_search_again), {
+                            withLocalNetwork(model::searchLocal)
+                        })
                     }
                 }
                 SectionHeader(stringResource(R.string.add_server))

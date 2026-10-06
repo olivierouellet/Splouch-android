@@ -1,6 +1,7 @@
 package app.splouch.android.ui
 
 import android.content.res.Configuration
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -33,6 +34,8 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.ImageCache
 import app.splouch.android.R
+import app.splouch.android.platform.LocalNetworkAccess
+import app.splouch.android.platform.rememberLocalNetworkAccess
 import app.splouch.android.ui.intro.IntroScreen
 import app.splouch.android.ui.picker.PickerScreen
 import app.splouch.android.ui.picker.ServerInviteDialog
@@ -67,12 +70,17 @@ fun SplouchRoot(model: AppModel, images: ImageCache) {
  * English. A chosen language is laid over the resources here, for every screen and sheet;
  * Automatic leaves the device's. A language with no `values-*` of its own falls back to
  * English, as T-05 says the native table does.
+ *
+ * The localized context is no longer the Activity, so what Compose finds by walking
+ * `LocalContext` up to it — the result registry a permission prompt is launched from
+ * (`rememberLocalNetworkAccess`) — is handed down explicitly.
  */
 @Composable
 private fun NativeLanguage(lang: String?, content: @Composable () -> Unit) {
     if (lang == null) return content()
     val context = LocalContext.current
     val base = LocalConfiguration.current
+    val registry = checkNotNull(LocalActivityResultRegistryOwner.current)
     val localized = remember(context, base, lang) {
         val config = Configuration(base).apply { setLocale(Locale.forLanguageTag(lang)) }
         context.createConfigurationContext(config)
@@ -81,6 +89,7 @@ private fun NativeLanguage(lang: String?, content: @Composable () -> Unit) {
         LocalContext provides localized,
         LocalConfiguration provides localized.resources.configuration,
         LocalResources provides localized.resources,
+        LocalActivityResultRegistryOwner provides registry,
         content = content,
     )
 }
@@ -97,6 +106,17 @@ private fun RootContent(model: AppModel, images: ImageCache, state: UiState) {
             model.dismissNotice()
         }
     }
+    // Android 17: a pool's server already in use — stored from an earlier run, or a grant
+    // since revoked in system settings — is reached only once the local network is granted.
+    // Asked on landing on it, and the server is dialled again on the answer; a cloud never asks.
+    val context = LocalContext.current
+    val withLocalNetwork = rememberLocalNetworkAccess()
+    LaunchedEffect(state.server) {
+        if (LocalNetworkAccess.isLocal(state.server) && !LocalNetworkAccess.granted(context)) {
+            withLocalNetwork(model::retry)
+        }
+    }
+
     // A-09: the meet went away; the picker is already back on screen.
     LaunchedEffect(state.meetGone) {
         if (state.meetGone) {
