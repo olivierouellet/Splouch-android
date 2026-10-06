@@ -1,5 +1,7 @@
 package app.splouch.core.session
 
+import app.splouch.core.follows.FollowRegistration
+import app.splouch.core.follows.FollowResult
 import app.splouch.core.wire.I18nBundle
 import app.splouch.core.wire.LocaleEntry
 import app.splouch.core.wire.MeetConfig
@@ -48,6 +50,29 @@ class SplouchApi(private val http: HttpClient, val server: ServerAddress) {
     /** A 404 on the cloud is the meet-gone signal (A-09); on a Pi the route always answers. */
     suspend fun meetConfig(context: MeetContext): ApiResult<MeetConfig> = getJson(context.configUrl) {
         if (context.kind == ServerKind.PI) MeetConfig.fromPiJson(it) else MeetConfig.fromCloudJson(it)
+    }
+
+    /**
+     * N-07: the swimmers this device follows at the meet, at its `base` (api.md §5.13).
+     * An empty list stops it. A `409` names another worker, which the caller follows.
+     */
+    suspend fun follow(context: MeetContext, registration: FollowRegistration): FollowResult {
+        val r = try {
+            http.put(
+                context.base.httpUrl("/meet/${MeetContext.enc(context.meetId)}/follow"),
+                registration.toJson().toString(),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return FollowResult.FAILED
+        }
+        return when {
+            r.isSuccess -> FollowResult.OK
+            r.status == 404 -> FollowResult.GONE
+            r.status == 409 -> FollowResult.MOVED
+            else -> FollowResult.FAILED
+        }
     }
 
     suspend fun schedule(context: MeetContext): ApiResult<List<ScheduleHeat>> =

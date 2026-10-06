@@ -21,6 +21,18 @@ val uploadKey = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
 }.takeIf { it.getProperty("splouch.upload.storeFile") != null }
 
+// app.md §10: the Firebase project heat notifications arrive through. Its four values are
+// per deployment — the cloud that sends must hold the same project's service account — so
+// they come from `local.properties` (`splouch.firebase.appId`, `.apiKey`, `.projectId`,
+// `.senderId`) or the environment (`FIREBASE_APP_ID`, …) and never from the repo. There
+// is no `google-services.json` and no Google Services plugin: the app initialises Firebase
+// itself from these. Absent, the build has no push and no bell (`N-01`).
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+fun firebase(key: String, env: String): String =
+    (localProps.getProperty("splouch.firebase.$key") ?: System.getenv(env)).orEmpty().replace("\"", "")
+
 android {
     namespace = "app.splouch.android"
     compileSdk = 37
@@ -31,6 +43,10 @@ android {
         targetSdk = 37
         versionCode = appVersionCode
         versionName = appVersionName
+        buildConfigField("String", "FIREBASE_APP_ID", "\"${firebase("appId", "FIREBASE_APP_ID")}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${firebase("apiKey", "FIREBASE_API_KEY")}\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firebase("projectId", "FIREBASE_PROJECT_ID")}\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"${firebase("senderId", "FIREBASE_SENDER_ID")}\"")
     }
 
     signingConfigs {
@@ -97,6 +113,11 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.process)
+
+    // app.md §10: Firebase Cloud Messaging only — no Analytics, no Crashlytics. The privacy
+    // policy names it (`[privacy] notify_1`).
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

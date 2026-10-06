@@ -1,5 +1,12 @@
 package app.splouch.core.session
 
+import app.splouch.core.follows.FollowRegistration
+import app.splouch.core.follows.FollowResult
+import app.splouch.core.follows.FollowStore
+import app.splouch.core.follows.HeatFocus
+import app.splouch.core.follows.InMemoryFollowStore
+import app.splouch.core.follows.MeetFollows
+import app.splouch.core.follows.PushPermission
 import app.splouch.core.schedule.LaneTime
 import app.splouch.core.schedule.SuggestionIndex
 import app.splouch.core.strings.BuiltInStrings
@@ -127,6 +134,10 @@ data class MeetState(
     val suggestions: SuggestionIndex = SuggestionIndex.EMPTY,
     val scheduleError: Boolean = false,
     val refreshing: Boolean = false,
+    /** N-02: who this device follows here. Saved per meet; deleted with the meet (N-09). */
+    val follows: MeetFollows = MeetFollows(),
+    /** N-08: a heat a tapped notification asked the Schedule tab to show, until it has. */
+    val focus: HeatFocus? = null,
 )
 
 data class UiState(
@@ -162,8 +173,22 @@ data class UiState(
      * are its words.
      */
     val introOpen: Boolean = false,
+    /** N-01: this build can receive pushes at all (Firebase is configured in it). */
+    val pushAvailable: Boolean = false,
+    /** N-04: whether the spectator lets the app notify. */
+    val pushPermission: PushPermission = PushPermission.NOT_ASKED,
+    /** N-08: a tapped notification's heat, until its meet is open. */
+    val pendingFocus: HeatFocus? = null,
 ) {
     val kind: ServerKind? get() = serverInfo?.kind
+
+    /**
+     * N-01: the bell is offered — a cloud meet whose node says it can reach Firebase
+     * (`GET /meet/{id}/config` → `push`), in a build that can receive. Never on a Pi.
+     */
+    val canNotify: Boolean get() = meet?.let {
+        pushAvailable && it.context.kind == ServerKind.CLOUD && it.context.meetId != null && "fcm" in it.config.push
+    } ?: false
 
     /**
      * P-11: the server as the picker names it — only when it is not the app's default. On the
@@ -248,6 +273,7 @@ class AppModel(
     private val deviceLang: String,
     private val timing: SplouchSocket.Timing = SplouchSocket.Timing(),
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
+    private val followStore: FollowStore = InMemoryFollowStore(),
 ) {
     private val _state = MutableStateFlow(UiState(defaultServer, isDefaultServer = true))
     val state: StateFlow<UiState> = _state
@@ -259,6 +285,10 @@ class AppModel(
 
     /** P-12: set by the platform once, after construction — the browse reports back into this model. */
     var serverBrowser: ServerBrowser? = null
+
+    /** N-07: asks the platform for this device's push token; it comes back through [setPushToken]. */
+    var requestPushToken: (() -> Unit)? = null
+    private var pushToken: String? = null
     private var meetJobs: List<Job> = emptyList()
     private var inForeground = true
     private var generation = 0
@@ -516,6 +546,8 @@ class AppModel(
                     } else {
                         refreshPicker()
                         loadDirectory()
+                        // N-08: launched by a tapped notification.
+                        current.pendingFocus?.let { openMeet(it.meetId) }
                     }
                     refreshLocales()
                     refreshStrings(server, current.prefs.lang ?: deviceLang, forPicker = true)
@@ -629,7 +661,8 @@ class AppModel(
             when (val r = api.meetConfig(context)) {
                 is ApiResult.Ok -> if (gen == generation) startMeet(context, r.value)
                 ApiResult.NotFound -> if (gen == generation) {
-                    _state.update { it.copy(meetGone = true) }
+                    meetId?.let { forgetFollows(server, it) }
+                    _state.update { it.copy(meetGone = true, pendingFocus = null) }
                     refreshPicker()
                 }
                 is ApiResult.Failure -> if (gen == generation) {
@@ -660,7 +693,10 @@ class AppModel(
                     Labels.resolve(config.settings, prefs.lang, prefs.effectiveLabelStyle, strings),
                     Labels.resolve(config.settings, prefs.lang, Labels.SHORT, strings),
                     Theme.from(config.settings),
+                    follows = context.meetId?.let { followStore.get(context.server.origin, it) } ?: MeetFollows(),
+                    focus = it.pendingFocus?.takeIf { f -> f.meetId == context.meetId },
                 ),
+                pendingFocus = null,
             )
         }
         session.start()
@@ -674,6 +710,8 @@ class AppModel(
         )
         if (moved != null) refetchConfig() // the config in hand came from the old base
         loadSchedule()
+        // N-07: every open re-sends, which heals a node that lost the row.
+        if (current.meet?.follows?.isEmpty == false) registerFollows()
         refreshStrings(context.server, lang, forPicker = false)
     }
 
@@ -760,6 +798,7 @@ class AppModel(
                     )
                 }
                 ApiResult.NotFound -> if (meet.context.kind == ServerKind.CLOUD) {
+                    meet.context.meetId?.let { forgetFollows(meet.context.server, it) }
                     closeMeet()
                     _state.update { it.copy(meetGone = true) }
                     refreshPicker()
@@ -848,6 +887,8 @@ class AppModel(
                 )
             }
             refreshStrings(m.context.server, newLang, forPicker = false)
+            // N-07: the notifications are composed in this language.
+            if (!m.follows.isEmpty) registerFollows()
         }
     }
 
@@ -927,6 +968,121 @@ class AppModel(
             }
         }
     }
+
+    // ── heat notifications (app.md §10) ───────────────────────────────────────
+
+    /** N-01: set once by the platform — false in a build with no Firebase configuration. */
+    fun setPushAvailable(available: Boolean) = _state.update { it.copy(pushAvailable = available) }
+
+    /**
+     * N-04: the system's answer, as it stands — it can change in Settings at any time.
+     * Allowed asks for the token; what waited on the device is sent once it arrives.
+     */
+    fun setPushPermission(permission: PushPermission) {
+        _state.update { it.copy(pushPermission = permission) }
+        if (permission == PushPermission.ALLOWED) {
+            if (pushToken == null) requestPushToken?.invoke() else registerFollows()
+        }
+    }
+
+    /** N-07: Firebase handed over a token. A new one is sent for every meet followed. */
+    fun setPushToken(token: String) {
+        if (token == pushToken) return
+        pushToken = token
+        registerAllFollows()
+    }
+
+    /** N-02: store the new list for the open meet and send it. */
+    fun setFollows(follows: MeetFollows) {
+        val meet = current.meet ?: return
+        val meetId = meet.context.meetId ?: return
+        followStore.set(meet.context.server.origin, meetId, follows)
+        _state.update { s -> s.copy(meet = s.meet?.takeIf { it.session === meet.session }?.copy(follows = follows)) }
+        registerFollows()
+    }
+
+    /**
+     * N-07: one `PUT` with every swimmer, at the meet's `base`. Nothing goes while there is
+     * no token, and a non-empty list waits for permission (N-04); an empty one stops the
+     * server whatever the permission. A `409` names another worker: the config there says
+     * which, the sockets follow (C-12), and the list is sent again.
+     */
+    fun registerFollows() {
+        val meet = current.meet ?: return
+        if (!current.canNotify) return
+        val token = pushToken ?: return
+        val follows = meet.follows
+        if (!follows.isEmpty && current.pushPermission != PushPermission.ALLOWED) return
+        val registration = FollowRegistration(token, meet.lang, follows)
+        scope.launch {
+            var context = meet.session.context
+            var r = api.follow(context, registration)
+            if (r == FollowResult.MOVED) {
+                val config = api.meetConfig(context) as? ApiResult.Ok ?: return@launch
+                MeetBase.parse(config.value.base)?.let { context = context.copy(base = it) }
+                followBase(meet.session, config.value)
+                r = api.follow(context, registration)
+            }
+            if (r != FollowResult.OK || follows.isEmpty) return@launch
+            val base = context.base.url
+            if (follows.base != base) {
+                val stored = follows.copy(base = base)
+                followStore.set(context.server.origin, context.meetId ?: return@launch, stored)
+                _state.update { s ->
+                    s.copy(meet = s.meet?.takeIf { it.session === meet.session }?.copy(follows = stored))
+                }
+            }
+        }
+    }
+
+    /**
+     * N-07: a new token goes to every meet with follows, at the `base` each was last
+     * registered at, the open one included. A meet that answers 404 is gone, and its follows
+     * with it (N-09).
+     */
+    fun registerAllFollows() {
+        val token = pushToken ?: return
+        if (current.pushPermission != PushPermission.ALLOWED) return
+        val lang = current.meet?.lang ?: readerLang()
+        scope.launch {
+            for ((key, follows) in followStore.load()) {
+                val (origin, meetId) = FollowStore.split(key) ?: continue
+                val server = ServerAddress.parseOrNull(origin) ?: continue
+                val base = MeetBase.parse(follows.base) ?: MeetBase.of(server)
+                val r = SplouchApi(http, server)
+                    .follow(
+                        MeetContext(server, ServerKind.CLOUD, meetId, base),
+                        FollowRegistration(token, lang, follows),
+                    )
+                if (r == FollowResult.GONE) followStore.set(origin, meetId, null)
+            }
+        }
+    }
+
+    /**
+     * N-08: open the notification's meet on its Schedule tab, at its heat. The meet already
+     * open is kept; another is closed first. Before the server has answered, the request
+     * waits for the handshake ([connectServer]).
+     */
+    fun openFromNotification(focus: HeatFocus) {
+        setTab(MeetTab.SCHEDULE)
+        val meet = current.meet
+        if (meet != null && meet.context.meetId == focus.meetId) {
+            _state.update { s -> s.copy(meet = s.meet?.copy(focus = focus)) }
+            return
+        }
+        _state.update { it.copy(pendingFocus = focus) }
+        if (current.kind == ServerKind.CLOUD) {
+            closeMeet()
+            openMeet(focus.meetId)
+        }
+    }
+
+    /** N-08: the Schedule tab has shown the heat. */
+    fun focusShown() = _state.update { s -> s.copy(meet = s.meet?.copy(focus = null)) }
+
+    /** N-09: the meet is gone, and with it what this device followed there. */
+    private fun forgetFollows(server: ServerAddress, meetId: String) = followStore.set(server.origin, meetId, null)
 
     // ── platform signals ──────────────────────────────────────────────────────
 

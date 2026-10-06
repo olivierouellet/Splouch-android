@@ -13,8 +13,10 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Dispatcher
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody
 import okhttp3.WebSocket
@@ -69,6 +71,15 @@ class OkHttpTransport(
         }
     }
 
+    override suspend fun put(url: String, json: String): HttpResponse {
+        val req = Request.Builder().url(url).put(json.toRequestBody(JSON)).build()
+        return try {
+            client.newCall(req).await { r -> HttpResponse(r.code, r.body.text(MAX_TEXT_BYTES)) }
+        } catch (e: IOException) {
+            throw HttpFailure(e.message ?: "network error", e)
+        }
+    }
+
     /** Raw bytes, for the picker images (P-02, P-05). Null on any fault, or past [limit]. */
     suspend fun bytes(url: String, limit: Long): ByteArray? = try {
         client.newCall(Request.Builder().url(url).build()).await { r ->
@@ -85,6 +96,7 @@ class OkHttpTransport(
          * largest real one is a big meet's schedule, well under this.
          */
         const val MAX_TEXT_BYTES = 16L * 1024 * 1024
+        val JSON = "application/json; charset=utf-8".toMediaType()
     }
 }
 

@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.splouch.android.R
+import app.splouch.core.follows.FollowedSwimmer
+import app.splouch.core.follows.MeetFollows
 import app.splouch.core.schedule.Filter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.Suggestion
@@ -74,6 +76,8 @@ fun FilterSheet(
     state: ScheduleFilterState,
     onChange: (ScheduleFilterState) -> Unit,
     onDismiss: () -> Unit,
+    /** N-03: follow the swimmer chips; null where the meet cannot notify this phone. */
+    onNotify: ((List<FollowedSwimmer>) -> Unit)? = null,
 ) {
     val t = meet.strings
     var query by remember { mutableStateOf("") }
@@ -178,6 +182,20 @@ fun FilterSheet(
                                     },
                                 )
                             }
+                        }
+                    }
+                    // N-03: each swimmer chip with the club the start list gives it.
+                    val toFollow = remember(state.filters, meet.schedule) {
+                        state.filters.filter { it.type == SuggestionType.SWIMMER }
+                            .flatMap { MeetFollows.swimmersNamed(it.name, meet.schedule.orEmpty()) }
+                    }
+                    if (onNotify != null && toFollow.isNotEmpty()) {
+                        TextButton(
+                            onClick = { onNotify(toFollow) },
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        ) {
+                            Icon(painterResource(R.drawable.ic_notifications), null, Modifier.size(18.dp))
+                            Text(stringResource(R.string.notify_these_swimmers), Modifier.padding(start = 8.dp))
                         }
                     }
                     // S-16 and S-17, on one row — and in a FlowRow, so a long translation

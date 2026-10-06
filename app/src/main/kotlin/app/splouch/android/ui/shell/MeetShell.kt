@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.splouch.android.R
@@ -50,6 +52,7 @@ import app.splouch.android.ui.board.BoardBarHeader
 import app.splouch.android.ui.board.BoardMetrics
 import app.splouch.android.ui.results.ResultsTab
 import app.splouch.android.ui.schedule.FilterSheet
+import app.splouch.android.ui.schedule.NotificationsSheet
 import app.splouch.android.ui.schedule.ScheduleTab
 import app.splouch.android.ui.scoreboard.ScoreboardTab
 import app.splouch.android.ui.useNavigationRail
@@ -121,6 +124,15 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     // is in the app bar, so the state it drives has to be at least as high up.
     var filter by remember(meet.session) { mutableStateOf(ScheduleFilterState()) }
     var showFilter by remember { mutableStateOf(false) }
+    // N-01: the Notifications sheet, and N-03's way into it from the filter.
+    var showNotifications by remember { mutableStateOf(false) }
+
+    // N-08: a tapped notification lands on the Schedule tab.
+    LaunchedEffect(meet.focus) {
+        if (meet.focus == null) return@LaunchedEffect
+        val index = tabs.indexOf(MeetTab.SCHEDULE)
+        if (index >= 0 && pager.currentPage != index) pager.scrollToPage(index)
+    }
 
     // S-21: a refreshed start list keeps the filters whose names still exist.
     val heats = meet.schedule
@@ -260,6 +272,33 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     }
                 },
                 actions = {
+                    // N-01: beside the filter, where the meet's node can notify this phone.
+                    // Active while someone is followed, with the count — the filter's way.
+                    if (tab == MeetTab.SCHEDULE && state.canNotify) {
+                        val following = meet.follows.swimmers.size
+                        IconButton(onClick = { showNotifications = true }) {
+                            BadgedBox(badge = { if (following > 0) Badge { Text(following.toString()) } }) {
+                                Icon(
+                                    painterResource(
+                                        if (following >
+                                            0
+                                        ) {
+                                            R.drawable.ic_notifications_active
+                                        } else {
+                                            R.drawable.ic_notifications
+                                        },
+                                    ),
+                                    // The count is read out as well as drawn.
+                                    if (following > 0) {
+                                        stringResource(R.string.notifications) + ", " +
+                                            pluralStringResource(R.plurals.notify_following, following, following)
+                                    } else {
+                                        stringResource(R.string.notifications)
+                                    },
+                                )
+                            }
+                        }
+                    }
                     // S-08: the filter opens from the top bar, and only on the tab it filters.
                     if (tab == MeetTab.SCHEDULE) {
                         IconButton(onClick = { showFilter = true }) {
@@ -316,9 +355,12 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                                 // in view, so neither draws its own band.
                                 MeetTab.SCOREBOARD -> ScoreboardTab(meet, wide, metrics, headerInBar)
                                 MeetTab.RESULTS -> ResultsTab(meet, wide, metrics, headerInBar)
-                                MeetTab.SCHEDULE -> ScheduleTab(meet, filter, onResetFilters = {
-                                    filter = filter.reset()
-                                })
+                                MeetTab.SCHEDULE -> ScheduleTab(
+                                    meet,
+                                    filter,
+                                    onResetFilters = { filter = filter.reset() },
+                                    onFocusShown = { model.focusShown() },
+                                )
                             }
                         }
                     }
@@ -328,6 +370,30 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     }
 
     if (showFilter) {
-        FilterSheet(meet, filter, onChange = { filter = it }, onDismiss = { showFilter = false })
+        FilterSheet(
+            meet,
+            filter,
+            onChange = { filter = it },
+            onDismiss = { showFilter = false },
+            // N-03: only where the bell is.
+            onNotify = if (state.canNotify) {
+                { swimmers ->
+                    model.setFollows(swimmers.fold(meet.follows) { f, s -> f.add(s) })
+                    showFilter = false
+                    showNotifications = true
+                }
+            } else {
+                null
+            },
+        )
+    }
+    if (showNotifications) {
+        NotificationsSheet(
+            model,
+            state,
+            meet,
+            privacyUrl = state.server.httpUrl("/privacy"),
+            onDismiss = { showNotifications = false },
+        )
     }
 }

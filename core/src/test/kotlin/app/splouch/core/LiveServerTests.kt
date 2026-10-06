@@ -56,6 +56,17 @@ class LiveServerTests {
             return HttpResponse(r.statusCode(), r.body(), r.headers().map().mapValues { it.value.joinToString(",") })
         }
 
+        override suspend fun put(url: String, json: String): HttpResponse {
+            val req = HttpRequest.newBuilder(URI(url)).PUT(HttpRequest.BodyPublishers.ofString(json))
+                .header("Content-Type", "application/json").build()
+            val r = try {
+                client.send(req, BodyHandlers.ofString())
+            } catch (e: Exception) {
+                throw HttpFailure(e.message ?: "io", e)
+            }
+            return HttpResponse(r.statusCode(), r.body())
+        }
+
         override fun connect(url: String, listener: WebSocketTransport.Listener): WebSocketTransport.Handle {
             var live: WebSocket? = null
             val fut: CompletableFuture<WebSocket> = client.newWebSocketBuilder().buildAsync(

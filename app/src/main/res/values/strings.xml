@@ -75,7 +75,36 @@
     <string name="intro_tabs_title">Three tabs</string>
     <string name="intro_tabs_body">%1$s shows the heat in the water, %2$s the finished heats, %3$s the start lists. Swipe to move between them.</string>
     <string name="intro_follow_title">Follow a swimmer or club</string>
-    <string name="intro_follow_body">In %1$s, %2$s keeps only the swimmers or clubs you pick. Turn on %3$s to see when they swim next.</string>
+    <string name="intro_follow_body">In %1$s, %2$s keeps only the swimmers or clubs you pick. Turn on %3$s to see when they swim next. Where the meet allows it, the bell tells you when their heat is near.</string>
     <string name="intro_counting_title">Attendance counting</string>
     <string name="intro_counting_where">You can change this any time in Settings › Privacy.</string>
+
+    <!-- Heat notifications (app.md §10). App-only — the web has none — so native (T-05). -->
+    <string name="notifications">Notifications</string>
+    <string name="notify_swimmers">Swimmers</string>
+    <string name="notify_add">Add a swimmer</string>
+    <string name="notify_none">Follow a swimmer to be told when their heat is near.</string>
+    <string name="notify_before">Before the heat</string>
+    <string name="notify_by_minutes">Minutes</string>
+    <string name="notify_by_heats">Heats</string>
+    <string name="notify_minutes_value">About %1$d min</string>
+    <string name="notify_selected">Heat on the console</string>
+    <string name="notify_selected_footer">Also when the operator puts the heat on the timing console.</string>
+    <string name="notify_privacy">The names and clubs you follow, a notification token and the app\'s language go to this meet\'s server, which keeps them only until the meet is over.</string>
+    <string name="notify_denied">Notifications are off for Splouch.</string>
+    <string name="notify_open_settings">Turn on in settings</string>
+    <string name="notify_these_swimmers">Notify me for these swimmers</string>
+    <string name="notify_remove">Stop following %1$s</string>
+    <string name="channel_upcoming">Upcoming heats</string>
+    <string name="channel_upcoming_description">A followed swimmer\'s heat is a few minutes or heats away.</string>
+    <string name="channel_selected">Heat on the console</string>
+    <string name="channel_selected_description">A followed swimmer\'s heat has been put on the timing console.</string>
+    <plurals name="notify_heats_value">
+        <item quantity="one">%1$d heat</item>
+        <item quantity="other">%1$d heats</item>
+    </plurals>
+    <plurals name="notify_following">
+        <item quantity="one">Following %1$d</item>
+        <item quantity="other">Following %1$d</item>
+    </plurals>
 </resources>

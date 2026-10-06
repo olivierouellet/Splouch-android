@@ -78,7 +78,12 @@ import kotlinx.coroutines.delay
  * was four points under every other app's body text.
  */
 @Composable
-fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: () -> Unit) {
+fun ScheduleTab(
+    meet: MeetState,
+    filter: ScheduleFilterState,
+    onResetFilters: () -> Unit,
+    onFocusShown: () -> Unit = {},
+) {
     val t = meet.strings
     val current by meet.session.currentHeat.collectAsStateWithLifecycle()
     val heats = meet.schedule
@@ -114,8 +119,19 @@ fun ScheduleTab(meet: MeetState, filter: ScheduleFilterState, onResetFilters: ()
         needsScroll = true
         onPauseOrDispose { }
     }
+    // N-08: a tapped notification's heat, once the list shows it. It takes S-06's turn, so
+    // the current heat does not scroll it away.
+    LaunchedEffect(visible, meet.focus) {
+        val focus = meet.focus ?: return@LaunchedEffect
+        val idx = visible.indexOfFirst { it.heat.event == focus.event && it.heat.heat == focus.heat }
+        if (idx >= 0) {
+            needsScroll = false
+            listState.animateScrollToItem(idx)
+            onFocusShown()
+        }
+    }
     LaunchedEffect(visible, needsScroll) {
-        if (!needsScroll) return@LaunchedEffect
+        if (!needsScroll || meet.focus != null) return@LaunchedEffect
         val idx = visible.indexOfFirst { it.isCurrent }
         if (idx >= 0) {
             listState.animateScrollToItem(idx)

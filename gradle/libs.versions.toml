@@ -10,6 +10,7 @@ lifecycle = "2.11.0"
 coreKtx = "1.19.1"
 junit = "4.13.2"
 kover = "0.9.10"
+firebaseBom = "34.19.0"
 spotless = "8.10.3"
 ktlint = "1.8.0"
 
@@ -31,6 +32,8 @@ compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material3-window-size = { module = "androidx.compose.material3:material3-window-size-class" }
 junit = { module = "junit:junit", version.ref = "junit" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

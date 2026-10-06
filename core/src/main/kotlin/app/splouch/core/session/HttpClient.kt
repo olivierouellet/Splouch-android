@@ -4,6 +4,9 @@ package app.splouch.core.session
 interface HttpClient {
     /** Resolves for any HTTP status; throws only when no response arrived at all. */
     suspend fun get(url: String, headers: Map<String, String> = emptyMap()): HttpResponse
+
+    /** A JSON `PUT` — app.md `N-07`'s registration. Resolves for any status, as [get] does. */
+    suspend fun put(url: String, json: String): HttpResponse
 }
 
 data class HttpResponse(val status: Int, val body: String, val headers: Map<String, String> = emptyMap()) {

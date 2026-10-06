@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import app.splouch.android.platform.Push
 import app.splouch.android.ui.SplouchRoot
 import app.splouch.core.session.Appearance
 import app.splouch.core.session.ServerAddress
@@ -84,6 +85,12 @@ class MainActivity : ComponentActivity() {
                 intent.removeExtra("server")
                 app.model.selectServer(it)
             }
+        }
+        // N-08: a tapped heat notification.
+        Push.focusOf(intent)?.let { focus ->
+            intent.action = null
+            app.model.openFromNotification(focus)
+            return
         }
         if (intent.action == Intent.ACTION_VIEW) {
             intent.data?.toString()?.let { url ->

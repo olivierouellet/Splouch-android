@@ -57,7 +57,38 @@
     <string name="intro_tabs_title">Tres pestañas</string>
     <string name="intro_tabs_body">%1$s muestra la serie en el agua, %2$s las series terminadas, %3$s las listas de salida. Desliza para pasar de una a otra.</string>
     <string name="intro_follow_title">Seguir a un nadador o un club</string>
-    <string name="intro_follow_body">En %1$s, %2$s deja solo los nadadores o clubes que elijas. Activa %3$s para ver cuándo nadan.</string>
+    <string name="intro_follow_body">En %1$s, %2$s deja solo los nadadores o clubes que elijas. Activa %3$s para ver cuándo nadan. Cuando la competición lo permite, la campana le avisa cuando su serie se acerca.</string>
     <string name="intro_counting_title">Recuento de asistencia</string>
     <string name="intro_counting_where">Puedes cambiarlo cuando quieras en Ajustes › Privacidad.</string>
+
+    <!-- Heat notifications (app.md §10). App-only — the web has none — so native (T-05). -->
+    <string name="notifications">Notificaciones</string>
+    <string name="notify_swimmers">Nadadores</string>
+    <string name="notify_add">Añadir un nadador</string>
+    <string name="notify_none">Siga a un nadador para recibir un aviso cuando su serie se acerque.</string>
+    <string name="notify_before">Antes de la serie</string>
+    <string name="notify_by_minutes">Minutos</string>
+    <string name="notify_by_heats">Series</string>
+    <string name="notify_minutes_value">Unos %1$d min</string>
+    <string name="notify_selected">Serie en la consola</string>
+    <string name="notify_selected_footer">También cuando el operador pone la serie en la consola de cronometraje.</string>
+    <string name="notify_privacy">Los nombres y clubes que sigue, un token de notificación y el idioma de la aplicación van al servidor de esta competición, que los guarda solo hasta que termine.</string>
+    <string name="notify_denied">Las notificaciones están desactivadas para Splouch.</string>
+    <string name="notify_open_settings">Activar en los ajustes</string>
+    <string name="notify_these_swimmers">Avisarme de estos nadadores</string>
+    <string name="notify_remove">Dejar de seguir a %1$s</string>
+    <string name="channel_upcoming">Series próximas</string>
+    <string name="channel_upcoming_description">La serie de un nadador seguido está a pocos minutos o series.</string>
+    <string name="channel_selected">Serie en la consola</string>
+    <string name="channel_selected_description">La serie de un nadador seguido se ha puesto en la consola de cronometraje.</string>
+    <plurals name="notify_heats_value">
+        <item quantity="one">%1$d serie</item>
+        <item quantity="many">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
+    <plurals name="notify_following">
+        <item quantity="one">%1$d seguido</item>
+        <item quantity="many">%1$d seguidos</item>
+        <item quantity="other">%1$d seguidos</item>
+    </plurals>
 </resources>

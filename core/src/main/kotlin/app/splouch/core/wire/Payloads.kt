@@ -251,6 +251,8 @@ data class MeetConfig(
     val settings: MeetSettings,
     /** A-09, C-12: where the meet is reached now, cloud only; `""` when the server does not say. */
     val base: String = "",
+    /** N-01: the platforms the meet's node can notify — `apns`, `fcm`. Empty from a Pi, and from a node that cannot. */
+    val push: List<String> = emptyList(),
 ) {
     /** A-08's rule for the shell title: `app_window_title`, then `name`, then `Splouch`. */
     val title: String get() = appWindowTitle.trim().ifEmpty { name.trim().ifEmpty { "Splouch" } }
@@ -267,6 +269,7 @@ data class MeetConfig(
                 live = o["live"].asBoolOrNull(),
                 settings = MeetSettings.fromJson(o["settings"]),
                 base = o["base"].asStringOrNull()?.trim().orEmpty(),
+                push = o["push"].asArrayOrNull()?.mapNotNull { it.asStringOrNull() }.orEmpty(),
             )
         }
 

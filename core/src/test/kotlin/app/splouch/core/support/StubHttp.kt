@@ -17,6 +17,14 @@ class StubHttp : HttpClient {
         routes[url] = HttpResponse(status, body, headers)
     }
 
+    /** Every `PUT`, with its body, in order. */
+    val puts = ArrayList<Pair<String, String>>()
+
+    override suspend fun put(url: String, json: String): HttpResponse {
+        puts += url to json
+        return routes[url] ?: throw HttpFailure("no route for $url")
+    }
+
     override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
         calls += url to headers
         if (url in hanging) awaitCancellation()

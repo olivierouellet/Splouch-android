@@ -12,8 +12,10 @@ import app.splouch.android.platform.FileBundleCache
 import app.splouch.android.platform.NetworkWatcher
 import app.splouch.android.platform.NsdBrowser
 import app.splouch.android.platform.OkHttpTransport
+import app.splouch.android.platform.PrefsFollowStore
 import app.splouch.android.platform.PrefsPreferencesStore
 import app.splouch.android.platform.PrefsVidStore
+import app.splouch.android.platform.Push
 import app.splouch.android.platform.dropNoticeFolds
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.ServerAddress
@@ -49,12 +51,18 @@ class SplouchApp : Application() {
             bundleCache = FileBundleCache(this),
             scope = scope,
             deviceLang = Locale.getDefault().language.ifEmpty { "en" },
+            followStore = PrefsFollowStore(this),
         )
+        // app.md §10. A build without a Firebase project has no bell at all (N-01).
+        model.setPushAvailable(Push.start(this))
+        model.requestPushToken = { Push.requestToken(this) }
         model.serverBrowser = NsdBrowser(this) { model.setDiscovered(it) }
         NetworkWatcher(this) { model.networkRestored() }.start()
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 model.foreground()
+                // N-04: the answer can change in Settings while the app is away.
+                if (model.current.pushAvailable) model.setPushPermission(Push.permission(this@SplouchApp))
             }
             override fun onStop(owner: LifecycleOwner) {
                 model.background()

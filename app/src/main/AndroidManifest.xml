@@ -8,6 +8,8 @@
          (mDNS browse, `.local` name, private address) only with this runtime grant.
          Asked where the reader reaches for the LAN: `LocalNetworkAccess`. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- app.md N-04: asked at the first swimmer followed, never at launch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- No backup, cloud or device-to-device: the default server's /privacy says the settings and
          each server's attendance id (C-10) stay on the device. `allowBackup` covers
@@ -25,6 +27,20 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Splouch">
+        <!-- app.md N-04, N-09: no push token is made before the spectator follows someone.
+             `Push.requestToken` turns this on once they have allowed notifications. -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <!-- Heat notifications arrive here as data messages; the app posts them itself, in
+             the channel for their kind (`N-06`). -->
+        <service
+            android:name=".platform.PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <!-- `singleTask`: a QR code scanned while the app is already open reaches the
              running Activity through `onNewIntent`, rather than stacking a second copy of
              the app over the meet the reader was watching. The one `AppModel` lives on the
