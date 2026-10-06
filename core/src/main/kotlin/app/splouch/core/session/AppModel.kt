@@ -737,6 +737,7 @@ class AppModel(
             if (gen != generation || current.meet?.session !== meet.session) return@launch
             // C-12 by way of A-09: the config came from a base the meet has left.
             if (r is ApiResult.Ok && followBase(meet.session, r.value)) return@launch
+            if (r is ApiResult.Ok) meet.session.resize(r.value.settings.numLanes)
             when (r) {
                 is ApiResult.Ok -> _state.update { s ->
                     val m = s.meet ?: return@update s
@@ -934,7 +935,12 @@ class AppModel(
     /** C-05: the network came back. */
     fun networkRestored() {
         current.meet?.session?.wake()
-        if (current.serverInfo == null && !current.checkingServer) connectServer()
+        if (current.serverInfo == null && !current.checkingServer) {
+            connectServer()
+        } else if (current.picker.error != null && !current.picker.loading) {
+            // The handshake held but the meet list did not: that list is what is on screen.
+            refreshPicker()
+        }
     }
 
     private fun savePrefs(prefs: Preferences) {

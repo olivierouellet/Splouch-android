@@ -25,19 +25,34 @@ class MainActivity : ComponentActivity() {
         // read a preference, so it carries the default (dark). A reader who chose Light got
         // a black flash on every cold start; repaint the window once the stored choice is
         // known. `AUTO` asks the device, the same question `SplouchRoot` asks Compose.
-        val dark = when (app.model.current.prefs.appearance) {
-            Appearance.DARK -> true
-            Appearance.LIGHT -> false
-            Appearance.AUTO ->
-                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        }
-        val bg = Theme.parseArgb(Theme.palette(dark).getValue("bg"))!!.toInt()
-        window.setBackgroundDrawable(ColorDrawable(bg))
+        paintWindow(resources.configuration)
         // Only on a fresh start: an Intent survives process death and comes back with the
         // restored Activity, and a QR code must not ask its question a second time because
         // the system reclaimed the app while the reader was reading it.
         if (savedInstanceState == null) consume(intent)
         setContent { SplouchRoot(app.model, app.images) }
+    }
+
+    /**
+     * `uiMode` is in the manifest's `configChanges`, so a system switch between light and
+     * dark arrives here instead of recreating the Activity. Compose redraws itself; the
+     * window behind it — what shows during a resize or the IME's slide — is repainted here,
+     * or under Automatic it would keep the scheme the app was started in.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        paintWindow(newConfig)
+    }
+
+    private fun paintWindow(config: Configuration) {
+        val dark = when ((application as SplouchApp).model.current.prefs.appearance) {
+            Appearance.DARK -> true
+            Appearance.LIGHT -> false
+            Appearance.AUTO ->
+                (config.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+        val bg = Theme.parseArgb(Theme.palette(dark).getValue("bg"))!!.toInt()
+        window.setBackgroundDrawable(ColorDrawable(bg))
     }
 
     /**

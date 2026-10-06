@@ -3,17 +3,6 @@
 
     <issue
         id="NewApi"
-        message="Call requires version 17 of the T Extensions SDK (current min is 0): `android.net.nsd.NsdServiceInfo#getHostname`"
-        errorLine1="                    val host = if (Build.VERSION.SDK_INT >= 34) serviceInfo.hostname else null"
-        errorLine2="                                                                            ~~~~~~~~">
-        <location
-            file="src/main/kotlin/app/splouch/android/platform/NsdBrowser.kt"
-            line="55"
-            column="77"/>
-    </issue>
-
-    <issue
-        id="NewApi"
         message="`android:windowLayoutInDisplayCutoutMode` requires API level 27 (current min is 26)"
         errorLine1="        &lt;item name=&quot;android:windowLayoutInDisplayCutoutMode&quot;>shortEdges&lt;/item>"
         errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -30,7 +19,7 @@
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="13"
+            line="31"
             column="9"/>
     </issue>
 
@@ -41,7 +30,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="13"
+            line="22"
             column="9"/>
     </issue>
 
@@ -52,19 +41,19 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/app/splouch/android/ui/board/BoardGrid.kt"
-            line="551"
+            line="909"
             column="19"/>
     </issue>
 
     <issue
         id="ModifierParameter"
         message="Optional Modifier parameter should have a default value of `Modifier`"
-        errorLine1="internal fun SectionHeader(text: String, modifier: Modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {"
-        errorLine2="                                         ~~~~~~~~">
+        errorLine1="    modifier: Modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),"
+        errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/app/splouch/android/ui/picker/ServerSheet.kt"
-            line="159"
-            column="42"/>
+            line="230"
+            column="5"/>
     </issue>
 
     <issue
@@ -99,22 +88,11 @@
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="        prefs.getString(origin, null)?.takeIf { it.isNotEmpty() } ?: VidStore.fresh().also { prefs.edit().putString(origin, it).apply() }"
-        errorLine2="                                                                                             ~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/app/splouch/android/platform/AndroidStores.kt"
-            line="24"
-            column="94"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?"
         errorLine1="        this.prefs.edit()"
         errorLine2="        ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/app/splouch/android/platform/AndroidStores.kt"
-            line="59"
+            line="89"
             column="9"/>
     </issue>
 
@@ -125,7 +103,7 @@
         errorLine2="                                     ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/app/splouch/android/MainActivity.kt"
-            line="35"
+            line="55"
             column="38"/>
     </issue>
 

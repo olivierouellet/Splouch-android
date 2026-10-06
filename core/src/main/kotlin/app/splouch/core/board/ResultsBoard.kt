@@ -7,7 +7,15 @@ import app.splouch.core.wire.ResultsSnapshot
  * The Results tab's grid (app.md §4): the last `results_snapshot`, held still, mapped
  * onto `numLanes` rows by lane or by place.
  */
-class ResultsBoard(val numLanes: Int) {
+class ResultsBoard(numLanes: Int) {
+
+    /** L-04's row count here too; [resize] follows a re-fetched config (C-08). */
+    var numLanes: Int = numLanes
+        private set
+
+    fun resize(lanes: Int) {
+        numLanes = lanes
+    }
 
     data class Row(
         /** The lane number, or `—` for an unfilled rank in place sort. */

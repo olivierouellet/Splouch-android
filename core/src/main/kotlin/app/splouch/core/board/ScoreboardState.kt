@@ -15,7 +15,11 @@ import app.splouch.core.wire.ScoreboardFrame
  *
  * Not thread-safe: drive it from one thread and read [view] there.
  */
-class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
+class ScoreboardState(numLanes: Int, val clock: RaceClock) {
+
+    /** L-04: one row per lane — changed by [resize] when a re-fetched config says so (C-08). */
+    var numLanes: Int = numLanes
+        private set
 
     enum class TimeStyle { NORMAL, RUNNING, LOCKED }
 
@@ -113,6 +117,18 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
         currentEvent, currentHeat, eventName, eventNameParts, meetLive, clock.isRunning, lanes.toList(), namesVersion,
         expectedSplits, splitStep,
     )
+
+    /**
+     * C-08: the config now names [lanes] lanes. Lanes that remain keep what they show; new
+     * ones start blank, and the next frame fills them as it fills any lane.
+     */
+    fun resize(lanes: Int) {
+        if (lanes == numLanes) return
+        while (this.lanes.size > lanes) this.lanes.removeAt(this.lanes.lastIndex)
+        while (this.lanes.size < lanes) this.lanes += Lane(this.lanes.size + 1)
+        numLanes = lanes
+        refreshPulses()
+    }
 
     /**
      * The socket (re)connected. The next event and heat are a baseline, not a change;

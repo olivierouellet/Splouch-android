@@ -7,8 +7,11 @@ import app.splouch.core.session.ServerAddress
 import app.splouch.core.transport.WebSocketTransport
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,6 +28,9 @@ class OkHttpTransport(
         .addInterceptor(LocalCleartextOnly)
         .addNetworkInterceptor(LocalCleartextOnly)
         .addNetworkInterceptor(SameOriginRedirects)
+        // Calls are enqueued (see [await]), and OkHttp holds a sixth to one host until one
+        // of five ends — a meet's config, schedule, strings and images all share a host.
+        .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
         .build(),
 ) : WebSocketTransport,
     HttpClient {
@@ -51,10 +57,10 @@ class OkHttpTransport(
         }
     }
 
-    override suspend fun get(url: String, headers: Map<String, String>): HttpResponse = withContext(Dispatchers.IO) {
+    override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
         val req = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
-        try {
-            client.newCall(req).execute().use { r ->
+        return try {
+            client.newCall(req).await { r ->
                 val headers = r.headers.names().associateWith { r.header(it).orEmpty() }
                 HttpResponse(r.code, r.body.text(MAX_TEXT_BYTES), headers)
             }
@@ -64,14 +70,12 @@ class OkHttpTransport(
     }
 
     /** Raw bytes, for the picker images (P-02, P-05). Null on any fault, or past [limit]. */
-    suspend fun bytes(url: String, limit: Long): ByteArray? = withContext(Dispatchers.IO) {
-        try {
-            client.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                if (r.isSuccessful) r.body.capped(limit) else null
-            }
-        } catch (_: IOException) {
-            null
+    suspend fun bytes(url: String, limit: Long): ByteArray? = try {
+        client.newCall(Request.Builder().url(url).build()).await { r ->
+            if (r.isSuccessful) r.body.capped(limit) else null
         }
+    } catch (_: IOException) {
+        null
     }
 
     private companion object {
@@ -82,6 +86,25 @@ class OkHttpTransport(
          */
         const val MAX_TEXT_BYTES = 16L * 1024 * 1024
     }
+}
+
+/**
+ * Runs the call and [read]s its response off the main thread, **cancellably**: a caller
+ * that gives up — A-12's 4-second timeout, a back gesture abandoned — cancels the call,
+ * which aborts the connect, the wait for headers and the body read alike. A blocking
+ * `execute()` under `withContext` would instead hold the caller until the socket's own
+ * timeouts, up to half a minute.
+ */
+private suspend fun <T> Call.await(read: (Response) -> T): T = suspendCancellableCoroutine { cont ->
+    cont.invokeOnCancellation { cancel() }
+    enqueue(
+        object : Callback {
+            override fun onFailure(call: Call, e: IOException) = cont.resumeWithException(e)
+            override fun onResponse(call: Call, response: Response) {
+                cont.resumeWith(runCatching { response.use(read) })
+            }
+        },
+    )
 }
 
 /** The body, refused with an [IOException] once it passes [limit] bytes. */

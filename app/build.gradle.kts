@@ -62,6 +62,15 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    bundle {
+        // T-08: the reader picks the app's language in Settings, over the device's. Play
+        // splits an App Bundle by language by default and installs only the device's, so
+        // French chosen on an English phone would find no `values-fr` and read English.
+        language {
+            enableSplit = false
+        }
+    }
+
     lint {
         // Every issue Lint reported when this was written is recorded here, and each of
         // the errors among them is a decision (see the Lint step in ci.yml). Anything

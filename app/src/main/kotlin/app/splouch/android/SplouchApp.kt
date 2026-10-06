@@ -3,6 +3,7 @@ package app.splouch.android
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import android.util.LruCache
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -78,15 +79,22 @@ class ImageCache(private val transport: OkHttpTransport) {
     private val cache = object : LruCache<String, Bitmap>(CACHE_BYTES) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
     }
-    private val failed = HashSet<String>()
+
+    /**
+     * When each URL last failed. A failure is remembered for [RETRY_AFTER_MS] so a list
+     * redrawing does not re-ask a dead URL on every frame, and no longer: a picker image
+     * that failed on the pool's wifi must come back once the network does.
+     */
+    private val failed = HashMap<String, Long>()
 
     suspend fun load(url: String): Bitmap? {
         cache.get(url)?.let { return it }
-        if (url in failed) return null
+        failed[url]?.let { if (SystemClock.elapsedRealtime() - it < RETRY_AFTER_MS) return null }
         val bmp = transport.bytes(url, MAX_BYTES)?.let(::decode) ?: run {
-            failed += url
+            failed[url] = SystemClock.elapsedRealtime()
             return null
         }
+        failed.remove(url)
         cache.put(url, bmp)
         return bmp
     }
@@ -105,5 +113,6 @@ class ImageCache(private val transport: OkHttpTransport) {
         const val MAX_BYTES = 4L * 1024 * 1024
         const val MAX_SIDE = 1024
         const val CACHE_BYTES = 32 * 1024 * 1024
+        const val RETRY_AFTER_MS = 30_000L
     }
 }

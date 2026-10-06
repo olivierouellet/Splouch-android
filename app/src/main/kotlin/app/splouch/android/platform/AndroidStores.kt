@@ -13,7 +13,9 @@ import app.splouch.core.strings.CachedBundle
 import app.splouch.core.strings.Labels
 import app.splouch.core.wire.I18nBundle
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.Executors
 
 /**
  * C-10's storage, per normalised server origin: the id under the origin itself (where
@@ -99,9 +101,18 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
     }
 }
 
-/** T-10's disk cache: the last `GET /i18n/{lang}` body per server and language, with its ETag. */
+/**
+ * T-10's disk cache: the last `GET /i18n/{lang}` body per server and language, with its ETag.
+ *
+ * The model reads it on the main thread every time it builds a string table, so each file
+ * is read and parsed at most once per process and served from memory after that; a write
+ * lands in memory at once and on disk on [io]. What is left on the main thread is the
+ * first read of each language, a few kilobytes.
+ */
 class FileBundleCache(context: Context) : BundleCache {
-    private val dir = File(context.filesDir, "i18n").apply { mkdirs() }
+    private val dir = File(context.filesDir, "i18n")
+    private val memory = HashMap<String, CachedBundle?>()
+    private val io = Executors.newSingleThreadExecutor()
 
     private fun base(origin: String, lang: String): String {
         val h = MessageDigest.getInstance("SHA-1").digest(origin.toByteArray()).joinToString("") {
@@ -110,19 +121,31 @@ class FileBundleCache(context: Context) : BundleCache {
         return "${h}_${lang.filter { it.isLetterOrDigit() || it == '-' }}"
     }
 
+    @Synchronized
     override fun read(origin: String, lang: String): CachedBundle? {
         val b = base(origin, lang)
-        val body = File(dir, "$b.json").takeIf { it.isFile }?.readText() ?: return null
-        val bundle = I18nBundle.fromText(body) ?: return null
-        val etag = File(dir, "$b.etag").takeIf { it.isFile }?.readText()?.takeIf { it.isNotBlank() }
-        return CachedBundle(bundle, etag)
+        if (b in memory) return memory[b]
+        val body = File(dir, "$b.json").takeIf { it.isFile }?.readText()
+        val cached = body?.let(I18nBundle::fromText)?.let { bundle ->
+            CachedBundle(bundle, File(dir, "$b.etag").takeIf { it.isFile }?.readText()?.takeIf { it.isNotBlank() })
+        }
+        memory[b] = cached
+        return cached
     }
 
+    @Synchronized
     override fun write(origin: String, lang: String, text: String, etag: String?) {
-        if (I18nBundle.fromText(text) == null) return
+        val bundle = I18nBundle.fromText(text) ?: return
         val b = base(origin, lang)
-        File(dir, "$b.json").writeText(text)
-        val e = File(dir, "$b.etag")
-        if (etag.isNullOrBlank()) e.delete() else e.writeText(etag)
+        memory[b] = CachedBundle(bundle, etag?.takeIf { it.isNotBlank() })
+        io.execute {
+            // A full disk loses the cache, not the app: memory holds it for this process.
+            try {
+                dir.mkdirs()
+                File(dir, "$b.json").writeText(text)
+                val e = File(dir, "$b.etag")
+                if (etag.isNullOrBlank()) e.delete() else e.writeText(etag)
+            } catch (_: IOException) { }
+        }
     }
 }

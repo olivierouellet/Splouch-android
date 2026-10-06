@@ -26,6 +26,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
@@ -522,6 +523,43 @@ class AppModelTests {
         r.model.acceptInvite()
         runCurrent()
         assertEquals(InviteFailure.NOT_SPLOUCH, r.model.current.invite?.failure)
+    }
+
+    @Test fun `C-08 a re-fetched config with another lane count resizes both boards in place`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.model.start()
+        runCurrent()
+        r.model.openMeet("m1")
+        runCurrent()
+        val session = r.model.current.meet!!.session
+        assertEquals(6, session.scoreboard.value.lanes.size)
+
+        r.http.on(
+            "https://c.example/meet/m1/config",
+            body = """{"name":"Meet One","live":true,"settings":{"num_lanes":8,"locale":"en"}}""",
+        )
+        r.model.refreshMeet()
+        runCurrent()
+        assertSame(session, r.model.current.meet!!.session)
+        assertEquals((1..8).toList(), session.scoreboard.value.lanes.map { it.number })
+        assertEquals(8, session.resultsView.value.rows.size)
+        assertEquals(3, r.transport.connections.count { !it.closed })
+    }
+
+    @Test fun `C-05 a network back retries a meet list that failed under a server that answered`() = runTest {
+        val r = Rig(this)
+        r.http.cloudRoutes()
+        r.http.routes.remove("https://c.example/meets")
+        r.model.start()
+        runCurrent()
+        assertNotNull(r.model.current.picker.error)
+
+        r.http.cloudRoutes()
+        r.model.networkRestored()
+        runCurrent()
+        assertNull(r.model.current.picker.error)
+        assertEquals(listOf("m1", "m2"), r.model.current.picker.meets.map { it.id })
     }
 
     @Test fun `an unreachable server is an error, not a crash, and the tab choice persists`() = runTest {

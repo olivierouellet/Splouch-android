@@ -155,6 +155,15 @@ class MeetSession(
         moveTo(base)
     }
 
+    /** C-08: a re-fetched config changed `num_lanes` — both boards take the new row count. */
+    fun resize(numLanes: Int) {
+        if (numLanes == board.numLanes && numLanes == results.numLanes) return
+        board.resize(numLanes)
+        results.resize(numLanes)
+        publishScoreboard()
+        _resultsView.value = results.view()
+    }
+
     /** C-05: foreground or network restored — probe every socket. */
     fun wake() = sockets.forEach { it.wake() }
 

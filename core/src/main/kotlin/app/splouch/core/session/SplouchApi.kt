@@ -62,6 +62,8 @@ class SplouchApi(private val http: HttpClient, val server: ServerAddress) {
         val headers = if (etag.isNullOrBlank()) emptyMap() else mapOf("If-None-Match" to etag)
         val r = try {
             http.get(server.httpUrl("/i18n/${MeetContext.enc(lang)}"), headers)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             return I18nResult.Failure(e.message ?: e.javaClass.simpleName)
         }

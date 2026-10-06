@@ -38,7 +38,7 @@ what it does instead and why, and say in the PR that `app.md` needs the matching
 | **Time on a real device** | Nearly all of `parity.md` was confirmed on one AVD — a 411×914dp Pixel-8 viewport. A real phone, a tablet, a foldable, or anything that isn't a mainstream 6-inch screen is the most useful thing you can bring. |
 | **Reports from a real meet** | Anything that surprised you in the gallery: a board that stopped updating, a reconnect that didn't, a name that clipped. |
 | **Accessibility** | TalkBack order, labels and merge points; font scale at 2.0×; both themes. §8 of `parity.md` says what has been read in the semantics tree and what has actually been *heard* — the gap between those two is real work. |
-| **Older Android** | `minSdk` is 26. Bonjour's host name only arrives on Android 14, so `P-12`'s nearby servers are empty below it and the Pi is added by hand — confirming how that feels on an older device is worth a report. |
+| **Older Android** | `minSdk` is 26. Bonjour's host name only arrives on Android 16, or on 13–15 with a recent Mainline update, so `P-12`'s nearby servers are empty without it and the Pi is added by hand — confirming how that feels on an older device is worth a report. |
 | **Languages** | The native words live in `app/src/main/res/values{,-fr,-es}/strings.xml`. The served words belong to the server — see [Strings](#strings). |
 
 ---
