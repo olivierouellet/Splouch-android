@@ -245,33 +245,32 @@ class ScoreboardStateTests {
         assertNull(b.lap(1, LapSettings.OFF))
     }
 
-    @Test fun `L-23 counting down shows the whole distance once the lane runs, and an empty lane shows nothing`() =
-        runTest {
-            val b = board()
-            b.apply(
-                frame(
-                    """{"current_event":"1","current_heat":"1","expected_splits":8,"split_step":2,"lane_name1":"Ann","lane_name2":" "}""",
-                ),
-            )
-            // A loaded heat is not a race: nothing yet, in either direction.
-            assertNull(b.lap(1, down))
-            assertNull(b.lap(1, up))
-            // A frame carrying only the running flag puts the whole distance up.
-            b.apply(frame("""{"lane_running1":true}"""))
-            assertEquals("8", b.lap(1, down)?.text)
-            // Counting up still waits for the first wall.
-            assertNull(b.lap(1, up))
-            // But it needs a swimmer to say it about: an empty lane in a short heat must not
-            // advertise eight lengths nobody is swimming — in either direction, running or not.
-            b.apply(frame("""{"lane_running2":true}"""))
-            assertNull(b.lap(2, down))
-            assertNull(b.lap(2, up))
-            b.apply(frame("""{"lane_splits1":2}"""))
-            assertEquals("6", b.lap(1, down)?.text)
-            // Clamped at 0: a console that over-counts reads as the last length, never a negative.
-            b.apply(frame("""{"lane_splits1":11}"""))
-            assertEquals("0", b.lap(1, down)?.text)
-        }
+    @Test fun `L-23 counting down shows the whole distance once the lane runs, and an empty lane shows nothing`() = runTest {
+        val b = board()
+        b.apply(
+            frame(
+                """{"current_event":"1","current_heat":"1","expected_splits":8,"split_step":2,"lane_name1":"Ann","lane_name2":" "}""",
+            ),
+        )
+        // A loaded heat is not a race: nothing yet, in either direction.
+        assertNull(b.lap(1, down))
+        assertNull(b.lap(1, up))
+        // A frame carrying only the running flag puts the whole distance up.
+        b.apply(frame("""{"lane_running1":true}"""))
+        assertEquals("8", b.lap(1, down)?.text)
+        // Counting up still waits for the first wall.
+        assertNull(b.lap(1, up))
+        // But it needs a swimmer to say it about: an empty lane in a short heat must not
+        // advertise eight lengths nobody is swimming — in either direction, running or not.
+        b.apply(frame("""{"lane_running2":true}"""))
+        assertNull(b.lap(2, down))
+        assertNull(b.lap(2, up))
+        b.apply(frame("""{"lane_splits1":2}"""))
+        assertEquals("6", b.lap(1, down)?.text)
+        // Clamped at 0: a console that over-counts reads as the last length, never a negative.
+        b.apply(frame("""{"lane_splits1":11}"""))
+        assertEquals("0", b.lap(1, down)?.text)
+    }
 
     @Test fun `L-23 the delta reclaims the cell at the finish, and so does a place with no delta ever`() = runTest {
         val b = board()
