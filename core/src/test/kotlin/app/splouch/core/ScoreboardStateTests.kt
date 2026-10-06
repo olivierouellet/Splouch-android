@@ -245,7 +245,7 @@ class ScoreboardStateTests {
         assertNull(b.lap(1, LapSettings.OFF))
     }
 
-    @Test fun `L-23 counting down shows the whole distance before anyone has swum, and an empty lane shows nothing`() =
+    @Test fun `L-23 counting down shows the whole distance once the lane runs, and an empty lane shows nothing`() =
         runTest {
             val b = board()
             b.apply(
@@ -253,10 +253,17 @@ class ScoreboardStateTests {
                     """{"current_event":"1","current_heat":"1","expected_splits":8,"split_step":2,"lane_name1":"Ann","lane_name2":" "}""",
                 ),
             )
-            // Counting down has the whole race to report from the moment the heat loads.
+            // A loaded heat is not a race: nothing yet, in either direction.
+            assertNull(b.lap(1, down))
+            assertNull(b.lap(1, up))
+            // A frame carrying only the running flag puts the whole distance up.
+            b.apply(frame("""{"lane_running1":true}"""))
             assertEquals("8", b.lap(1, down)?.text)
+            // Counting up still waits for the first wall.
+            assertNull(b.lap(1, up))
             // But it needs a swimmer to say it about: an empty lane in a short heat must not
-            // advertise eight lengths nobody is swimming — in either direction.
+            // advertise eight lengths nobody is swimming — in either direction, running or not.
+            b.apply(frame("""{"lane_running2":true}"""))
             assertNull(b.lap(2, down))
             assertNull(b.lap(2, up))
             b.apply(frame("""{"lane_splits1":2}"""))
@@ -358,7 +365,10 @@ class ScoreboardStateTests {
         b.apply(frame("""{"current_heat":"2","lane_name1":"Bo"}"""))
         assertEquals(0, b.lane(1).splits)
         assertNull(b.lap(1, up))
-        // The countdown has a fresh race to report, and reads the whole distance again.
+        // The countdown has a fresh race to report, and reads the whole distance again — once
+        // that race starts, not while the new heat sits loaded.
+        assertNull(b.lap(1, down))
+        b.apply(frame("""{"lane_running1":true}"""))
         assertEquals("8", b.lap(1, down)?.text)
 
         // A reconnect puts all three inputs back to "nothing known": a stale `expected_splits`

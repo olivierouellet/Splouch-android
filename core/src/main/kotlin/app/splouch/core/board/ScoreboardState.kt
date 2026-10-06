@@ -79,9 +79,10 @@ class ScoreboardState(val numLanes: Int, val clock: RaceClock) {
             val countingDown = settings.direction == LapDirection.DOWN && expectedSplits > 0
             // Counting up waits for the first wall — a column of noughts under a start list is
             // noise. Counting down has the whole race to report and shows from the moment the
-            // heat loads, but it needs a swimmer to say it about: an empty lane in a short heat
-            // must not advertise lengths nobody is swimming.
-            if (lane.splits <= 0 && !(countingDown && lane.name.isNotBlank())) return null
+            // lane starts running — not when the heat loads, where a full countdown under a
+            // start list reads as a race already under way. It needs a swimmer to say it about
+            // too: an empty lane in a short heat must not advertise lengths nobody is swimming.
+            if (lane.splits <= 0 && !(countingDown && lane.running && lane.name.isNotBlank())) return null
 
             // Clamped at 0 so a console that over-counts reads as the last length rather than a
             // negative one.
