@@ -83,8 +83,16 @@ class MeetFilterTests {
         assertTrue("Gone" in o.clubs)
     }
 
-    @Test fun `a province is named with its country`() {
-        assertEquals("QC, Canada", Province("CA", "QC").label("en"))
+    @Test fun `a province is named in full with its country`() {
+        assertEquals("Québec, Canada", Province("CA", "QC").label("en"))
+        assertEquals("BY, Germany", Province("DE", "BY").label("en"))
+    }
+
+    @Test fun `spellings of one known province are one choice`() {
+        val spelled = listOf(meet("a", "CA", "QC"), meet("b", "CA", "Québec"), meet("c", "CA", "quebec"))
+        val o = MeetFilter().options(spelled, "en")
+        assertEquals(1, o.provinces.size)
+        assertEquals(3, MeetFilter(provinces = setOf(o.provinces[0])).apply(spelled).size)
     }
 
     // ── remembered ─────────────────────────────────────────────────────────────

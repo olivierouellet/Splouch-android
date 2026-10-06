@@ -30,12 +30,18 @@ data class MeetFilter(
      */
     @Serializable
     data class Province(val country: String, val name: String) {
-        /** What two spellings of one province share. */
-        internal val key: String get() = country.uppercase() + "/" + SearchFold.fold(name)
+        /**
+         * What two spellings of one province share: its code when the app knows it, so `QC`
+         * and `Québec` are one choice; else the folded text.
+         */
+        internal val key: String get() = Subdivisions.lookup(country, name)
+            ?.let { country.uppercase() + "#" + it.code }
+            ?: (country.uppercase() + "/" + SearchFold.fold(name))
 
-        /** `QC, Canada`, as P-01 names a meet's region. */
-        fun label(lang: String): String =
-            listOf(name, countryName(country, lang)).filter { it.isNotBlank() }.joinToString(", ")
+        /** `Québec, Canada`, as P-01 names a meet's region. */
+        fun label(lang: String): String = listOf(Subdivisions.name(country, name), countryName(country, lang)).filter {
+            it.isNotBlank()
+        }.joinToString(", ")
     }
 
     val isActive: Boolean get() = countries.isNotEmpty() || provinces.isNotEmpty() || clubs.isNotEmpty()
@@ -128,9 +134,7 @@ data class MeetFilter(
         return Options(
             countries = codes.sortedWith(compareBy(collator) { countryName(it, lang) }),
             provinces = shownProvinces.sortedWith(
-                compareBy(collator) {
-                    it.name + " " + countryName(it.country, lang)
-                },
+                compareBy(collator) { it.label(lang) },
             ),
             clubs = clubByKey.values.sortedWith(collator),
         )

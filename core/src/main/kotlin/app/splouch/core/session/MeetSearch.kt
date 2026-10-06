@@ -19,7 +19,8 @@ object MeetSearch {
     /**
      * What one meet is searched on. The organizer is not on the card but is searched,
      * because a spectator may know a meet by the club running it. The country is searched
-     * by its code and by its name in [lang], the reader's language; the province as sent.
+     * by its code and by its name in [lang], the reader's language; the province as sent and
+     * by its full name ([Subdivisions]).
      */
     fun text(m: MeetSummary, lang: String = ""): String = listOf(
         m.name,
@@ -28,6 +29,7 @@ object MeetSearch {
         m.sport,
         m.organizer,
         m.province,
+        Subdivisions.lookup(m.country, m.province)?.name.orEmpty(),
         m.country,
         countryName(m.country, lang),
     ).filter { it.isNotEmpty() }.joinToString(" ")
@@ -64,6 +66,11 @@ fun countryName(code: String, lang: String): String {
     return region.getDisplayCountry(reader).ifBlank { code }
 }
 
-/** P-01, P-18: the organizer's province and country, as a row shows them — `QC, Canada`. */
+/**
+ * P-01, P-18: the organizer's province and country, as a row shows them — `Québec, Canada`:
+ * the province in full when the app knows it ([Subdivisions]), else as sent.
+ */
 fun MeetSummary.region(lang: String): String =
-    listOf(province, countryName(country, lang)).filter { it.isNotBlank() }.joinToString(", ")
+    listOf(Subdivisions.name(country, province), countryName(country, lang)).filter {
+        it.isNotBlank()
+    }.joinToString(", ")
