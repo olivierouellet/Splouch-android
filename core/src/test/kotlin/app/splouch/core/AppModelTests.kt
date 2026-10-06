@@ -42,7 +42,6 @@ class AppModelTests {
         scope: TestScope,
         prefs: Preferences = Preferences(),
         val vids: InMemoryVidStore = InMemoryVidStore(),
-        formerDefaults: List<String> = emptyList(),
     ) {
         val http = StubHttp()
         val transport = FakeTransport()
@@ -51,7 +50,6 @@ class AppModelTests {
             ServerAddress.parseOrNull("https://c.example")!!, http, transport, vids, prefsStore,
             InMemoryBundleCache(), scope.backgroundScope, deviceLang = "fr",
             timeSource = scope.testScheduler.timeSource,
-            formerDefaults = formerDefaults.map { ServerAddress.parseOrNull(it)!! },
         )
     }
 
@@ -372,7 +370,7 @@ class AppModelTests {
 
     @Test fun `a QR link parses only on the app's own host, and only as an address`() {
         val host = "c.example"
-        fun p(url: String) = ServerLink.parse(url, setOf(host))
+        fun p(url: String) = ServerLink.parse(url, host)
         assertEquals(
             ServerAddress.parseOrNull(pi),
             (p("https://c.example/add?server=http%3A%2F%2Fpi.local%3A5000") as ServerLink.Result.Ok).address,
@@ -394,64 +392,7 @@ class AppModelTests {
         assertEquals(ServerLink.Result.Invalid, p("https://c.example/add?servers=$pi"))
     }
 
-    @Test fun `P-16 a QR link on a former default's host is still the app's own`() {
-        val hosts = setOf("splouch.org", "splouch.ca")
-        fun p(url: String) = ServerLink.parse(url, hosts)
-        assertIs<ServerLink.Result.Ok>(p("https://splouch.org/add?server=$pi"))
-        // Codes printed before 2026-10-05 name the old default.
-        assertIs<ServerLink.Result.Ok>(p("https://Splouch.CA/add?server=$pi"))
-        assertEquals(ServerLink.Result.Invalid, p("https://splouch.com/add?server=$pi"))
-        assertEquals(ServerLink.Result.Invalid, p("https://ca.splouch.org/add?server=$pi"))
-    }
-
-    @Test fun `P-16 the model accepts links on the default's host and a former default's`() = runTest {
-        val r = Rig(this, formerDefaults = listOf("https://old.example"))
-        r.http.cloudRoutes()
-        r.model.start()
-        runCurrent()
-        r.model.openServerLink("https://old.example/add?server=$pi")
-        assertEquals(ServerAddress.parseOrNull(pi), r.model.current.invite!!.address)
-        r.model.dismissInvite()
-        r.model.openServerLink("https://c.example/add?server=$pi")
-        assertEquals(ServerAddress.parseOrNull(pi), r.model.current.invite!!.address)
-        r.model.dismissInvite()
-        r.model.openServerLink("https://elsewhere.example/add?server=$pi")
-        assertEquals(InviteFailure.BAD_LINK, r.model.current.invite!!.failure)
-    }
-
-    // ── P-11: the default moved (app.md v3, amended, later the same day) ──────
-
-    @Test fun `P-11 a stored former default becomes the default, without its vid, keeping hand-added servers`() = runTest {
-        val old = "https://old.example"
-        val vids = InMemoryVidStore()
-        val oldVid = vids.vid(old)!!
-        val r = Rig(
-            this,
-            Preferences(server = old, servers = listOf(pi)),
-            vids = vids,
-            formerDefaults = listOf(old),
-        )
-        r.http.cloudRoutes()
-        r.model.start()
-        runCurrent()
-        assertEquals(cloud, r.model.current.server.origin)
-        assertTrue(r.model.current.isDefaultServer)
-        // Stored as no selection, as the default always is, and written back at once.
-        assertNull(r.prefsStore.load().server)
-        assertEquals(listOf(pi), r.prefsStore.load().servers)
-        // C-10: the new default's vid is its own, never the old one carried over.
-        assertNull(vids.entries[cloud])
-        assertNotEquals(oldVid, vids.vid(cloud))
-    }
-
-    @Test fun `P-11 a stored server that was never a default is left alone`() = runTest {
-        val r = Rig(this, Preferences(server = pi), formerDefaults = listOf("https://old.example"))
-        r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v3"}}""")
-        r.model.start()
-        runCurrent()
-        assertEquals(pi, r.model.current.server.origin)
-        assertEquals(pi, r.prefsStore.load().server)
-    }
+    // ── P-11: the picker and the default ─────────────────────────────────────
 
     @Test fun `P-11 the picker names the server only when it is not the default`() = runTest {
         val other = "https://x.example"

@@ -135,10 +135,9 @@ First release: live scoreboard, results and schedule for swim meets.
 
 ## After the first upload
 
-The QR-code App Link (`parity.md` `P-16`) needs splouch.org and splouch.ca to serve
+The QR-code App Link (`parity.md` `P-16`) needs splouch.org to serve
 `/.well-known/assetlinks.json` naming the **App signing** SHA-256 from the Console's
-*App signing* page, not the upload key's. As of 2026-10-06 both return 404 for it
-(splouch.org is live, but does not serve the file yet). Until both serve it,
+*App signing* page, not the upload key's. As of 2026-10-06 it returns 404. Until it does,
 a scanned code opens a chooser instead of the app. Once the listing is live, point the
 `/add` page's store link at
 `https://play.google.com/store/apps/details?id=app.splouch.android`. Both changes are

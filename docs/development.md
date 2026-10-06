@@ -68,9 +68,9 @@ alike. `ServerAddress.isLocalName` decides, and `OkHttpTransport` enforces it on
 request; see `app/src/main/res/xml/network_security_config.xml` and app.md `P-12`.
 
 A server can also arrive by QR code (`parity.md` `P-16`): the code carries
-`https://splouch.org/add?server=<origin>` (or `splouch.ca`, the default until 2026-10-05),
-a verified App Link, and the app prompts before it adds anything. **The web half lives in
-the sibling `Splouch` repo and the feature is inert without it** — both hosts have to serve
+`https://splouch.org/add?server=<origin>`, a verified App Link, and the app prompts
+before it adds anything. **The web half lives in the sibling `Splouch` repo and the
+feature is inert without it** — splouch.org has to serve
 `/.well-known/assetlinks.json` and the
 `/add` page that offers the Play Store when the app is not installed. `P-16`'s row says
 exactly what those two must contain.

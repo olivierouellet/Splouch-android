@@ -246,17 +246,8 @@ class AppModel(
     private val deviceLang: String,
     private val timing: SplouchSocket.Timing = SplouchSocket.Timing(),
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
-    /**
-     * P-11: servers that used to be the default (`https://splouch.ca` until 2026-10-05). A
-     * stored selection of one is moved to [defaultServer] on launch, and P-16 links on their
-     * hosts are still the app's own while their printed codes are in circulation.
-     */
-    private val formerDefaults: List<ServerAddress> = emptyList(),
 ) {
     private val _state = MutableStateFlow(UiState(defaultServer, isDefaultServer = true))
-
-    /** P-16: the hosts a QR link may name — the default's, then any former default's. */
-    private val linkHosts: Set<String> = (listOf(defaultServer) + formerDefaults).mapTo(LinkedHashSet()) { it.host }
     val state: StateFlow<UiState> = _state
 
     private var api = SplouchApi(http, defaultServer)
@@ -273,7 +264,7 @@ class AppModel(
     val current: UiState get() = _state.value
 
     fun start() {
-        val prefs = migrateDefault(prefsStore.load())
+        val prefs = prefsStore.load()
         val server = prefs.server?.let { ServerAddress.parseOrNull(it) } ?: defaultServer
         _state.update {
             it.copy(
@@ -293,18 +284,6 @@ class AppModel(
 
     /** P-11: by normalised origin, so `https://Splouch.org/` is the default too. */
     private fun isDefault(address: ServerAddress): Boolean = address.origin == defaultServer.origin
-
-    /**
-     * P-11: a stored selection of a former default becomes the default — stored as no
-     * selection, as the default always is. Its `vid` stays with its origin and is not copied
-     * (C-10: never derived from another), so the new default makes its own on the first join.
-     * Hand-added servers are left as they are. Idempotent: once rewritten there is nothing to do.
-     */
-    private fun migrateDefault(prefs: Preferences): Preferences {
-        val stored = prefs.server?.let { ServerAddress.parseOrNull(it) } ?: return prefs
-        if (formerDefaults.none { it.origin == stored.origin }) return prefs
-        return prefs.copy(server = null).also(prefsStore::save)
-    }
 
     fun selectServer(address: ServerAddress) {
         if (address == current.server && current.serverInfo != null) return
@@ -391,7 +370,7 @@ class AppModel(
      * than a code that fails, because the reader has no way to tell it from a dead app.
      */
     fun openServerLink(url: String) {
-        val invite = when (val r = ServerLink.parse(url, linkHosts)) {
+        val invite = when (val r = ServerLink.parse(url, defaultServer.host)) {
             is ServerLink.Result.Ok -> ServerInvite(
                 r.address,
                 standing = when {

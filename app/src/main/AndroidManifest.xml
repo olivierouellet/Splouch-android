@@ -37,26 +37,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- app.md P-16: `https://splouch.org/add?server=<origin>`, the link a QR code
-                 carries — or `https://splouch.ca/add?…`, the default until 2026-10-05, whose
-                 printed codes are still in circulation (`SplouchApp.FORMER_DEFAULTS`).
-                 `autoVerify` is what makes the stock camera open the app instead of offering
-                 a chooser, and it only holds while `https://<host>/.well-known/assetlinks.json`
-                 names this package and this signing certificate — see `parity.md` P-16.
-                 **Both hosts must serve it:** Android 12+ verifies each host on its own, but
-                 Android 6–11 verifies the app's hosts all or nothing, so one host without the
-                 file leaves every link on those versions to the chooser. Without the app
-                 installed nothing intercepts the link at all: the browser lands on the page,
-                 which is where the Play Store hand-off lives (`P-10`).
+                 carries. `autoVerify` is what makes the stock camera open the app instead
+                 of offering a chooser, and it only holds while
+                 `https://splouch.org/.well-known/assetlinks.json` names this package and
+                 this signing certificate — see `parity.md` P-16. Without the app installed
+                 nothing intercepts the link at all: the browser lands on the page, which
+                 is where the Play Store hand-off lives (`P-10`).
 
-                 The hosts are the app's own (default and former default) and the path is
-                 exact: `pathPrefix` would also swallow `/address` and anything else
-                 beginning those four characters. -->
+                 The host is the app's default server and the path is exact: `pathPrefix`
+                 would also swallow `/address` and anything else beginning those four
+                 characters. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="splouch.org" android:path="/add" />
-                <data android:scheme="https" android:host="splouch.ca" android:path="/add" />
             </intent-filter>
         </activity>
     </application>

@@ -4,7 +4,7 @@ import java.net.URI
 import java.net.URLDecoder
 
 /**
- * P-16: the address behind a QR code, `https://<app's host>/add?server=<origin>`.
+ * P-16: the address behind a QR code, `https://<default host>/add?server=<origin>`.
  *
  * **Why an `https` link on the app's own host and not a `splouch://` scheme.** The reader
  * uses the camera they already have — the stock Android scanner, Lens, a third-party app —
@@ -16,10 +16,9 @@ import java.net.URLDecoder
  * `parity.md` `P-16` for what it must serve, including the `assetlinks.json` without
  * which Android shows a chooser instead of opening the app.
  *
- * **The host is the app's own** — its default server ([AppModel.defaultServer]), the one URL
- * the app ships knowing (`P-11`), or a former default whose printed codes are still in
- * circulation (`splouch.ca`, the default until 2026-10-05). The manifest verifies the App
- * Link for the same names. A link naming any other host is not ours and does not parse — a server cannot mint a
+ * **The host is the app's own default server** ([AppModel.defaultServer]), the one URL the
+ * app ships knowing (`P-11`), and the manifest's verified App Link host is the same name.
+ * A link naming any other host is not ours and does not parse — a server cannot mint a
  * code that adds a *different* server, and the poster at a pool carries the pool's Pi in
  * the query rather than in the authority.
  *
@@ -48,17 +47,17 @@ object ServerLink {
     }
 
     /**
-     * [url] is what the intent carried; [hosts] are the app's own hosts — its default
-     * server's and any former default's — the only authorities a link may name.
+     * [url] is what the intent carried; [host] is the app's default server's host, the only
+     * authority a link may name.
      */
-    fun parse(url: String, hosts: Set<String>): Result {
+    fun parse(url: String, host: String): Result {
         val uri = try {
             URI(url.trim())
         } catch (_: Exception) {
             return Result.Invalid
         }
         if (uri.scheme?.lowercase() != "https") return Result.Invalid
-        if (hosts.none { uri.host.equals(it, ignoreCase = true) }) return Result.Invalid
+        if (!uri.host.equals(host, ignoreCase = true)) return Result.Invalid
         if (uri.path?.trimEnd('/') != PATH) return Result.Invalid
         val server = param(uri.rawQuery, PARAM) ?: return Result.Invalid
         return when (val r = ServerAddress.parse(server)) {

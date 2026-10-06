@@ -66,8 +66,7 @@ cd ../Splouch/cloud  && DATA_DIR=/tmp/splouch-cloud uv run uvicorn cloud_server:
 
 ## Scanning a QR code without a camera (`P-16`)
 
-The App Link a code carries is `https://splouch.org/add?server=<origin>` (codes printed
-before 2026-10-05 carry `splouch.ca`, which the app still accepts). Deliver that
+The App Link a code carries is `https://splouch.org/add?server=<origin>`. Deliver that
 Intent by hand, naming the package so it goes to the app whether or not the link has
 been verified:
 
