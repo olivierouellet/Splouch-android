@@ -17,6 +17,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -34,8 +36,15 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import app.splouch.android.R
 import app.splouch.android.ui.settings.CountingSwitch
 import app.splouch.core.session.AppModel
@@ -155,11 +164,64 @@ private fun Page(icon: Int, title: String, body: String, extra: @Composable () -
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
-        if (body.isNotEmpty()) {
-            Text(body, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
-        }
+        if (body.isNotEmpty()) BodyWithIcons(body)
         extra()
     }
+}
+
+/**
+ * The controls a page names, drawn as they look on screen: `{filter}` in the text becomes
+ * the filter's own icon, `{plusminus}` the schedule's `±`. A name not listed stays as
+ * written, so a server's text with braces in it is left alone.
+ */
+internal val INTRO_ICONS = mapOf(
+    "filter" to R.drawable.ic_filter,
+    "gear" to R.drawable.ic_settings,
+    "bell" to R.drawable.ic_notifications,
+)
+internal const val PLUS_MINUS = "plusminus"
+private val TOKEN = Regex("""\{(\w+)\}""")
+
+/** What TalkBack reads: the words alone, since each names its control already — except `±`. */
+internal fun spokenIntro(text: String): String = SPOKEN_TOKEN.replace(text) { m ->
+    when (m.groupValues[2]) {
+        PLUS_MINUS -> m.groupValues[1] + "\u00B1"
+        in INTRO_ICONS -> ""
+        else -> m.value
+    }
+}
+private val SPOKEN_TOKEN = Regex("""(\s?)\{(\w+)\}""")
+
+@Composable
+private fun BodyWithIcons(body: String) {
+    val primary = MaterialTheme.colorScheme.primary
+    val text = buildAnnotatedString {
+        var at = 0
+        TOKEN.findAll(body).forEach { m ->
+            append(body.substring(at, m.range.first))
+            val name = m.groupValues[1]
+            when (name) {
+                in INTRO_ICONS -> appendInlineContent(name, " ")
+                PLUS_MINUS -> withStyle(SpanStyle(color = primary, fontWeight = FontWeight.Bold)) { append("\u00B1") }
+                else -> append(m.value)
+            }
+            at = m.range.last + 1
+        }
+        append(body.substring(at))
+    }
+    val inline = INTRO_ICONS.mapValues { (_, icon) ->
+        InlineTextContent(Placeholder(1.25.em, 1.25.em, PlaceholderVerticalAlign.TextCenter)) {
+            Icon(painterResource(icon), null, Modifier.fillMaxSize(), tint = primary)
+        }
+    }
+    val spoken = spokenIntro(body)
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyLarge,
+        textAlign = TextAlign.Center,
+        inlineContent = inline,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = spoken },
+    )
 }
 
 /** The page dots: drawn for the eye, and one "Page 2 of 4" to TalkBack rather than four glyphs. */

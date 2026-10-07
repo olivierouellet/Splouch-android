@@ -73,13 +73,13 @@
     <string name="intro_page">Page %1$d of %2$d</string>
     <string name="intro_results_title">Unofficial results</string>
     <string name="intro_meets_title">Find your meet</string>
-    <string name="intro_meets_body">Meets are listed by day.\n\nThe filter keeps only the meets of your club, country or province. It stays set until you clear it.\n\nThe gear opens Settings: language, appearance and privacy.</string>
+    <string name="intro_meets_body">Meets are listed by day.\n\nThe filter {filter} keeps only the meets of your club, country or province. It stays set until you clear it.\n\nThe gear {gear} opens Settings: language, appearance and privacy.</string>
     <string name="intro_tabs_title">Three tabs</string>
     <string name="intro_tabs_body">%1$s shows the heat in the water, %2$s the finished heats, and %3$s the start lists.\n\nSwipe to move between them.</string>
     <string name="intro_times_title">Times in the schedule</string>
-    <string name="intro_times_body">Each lane shows its seed time, then its console time once swum, then its official time, each in its own colour.\n\nTap a heat marked ± to see each lane\'s gap to its seed.</string>
+    <string name="intro_times_body">Each lane shows its seed time, then its console time once swum, then its official time, each in its own colour.\n\nTap a heat marked {plusminus} to see each lane\'s gap to its seed.</string>
     <string name="intro_follow_title">Follow a swimmer or club</string>
-    <string name="intro_follow_body">In %1$s, %2$s keeps only the swimmers or clubs you pick.\n\nTurn on %3$s to see when they swim next.\n\nWhere the meet allows it, the bell at the top of %1$s tells you when their heat is near.</string>
+    <string name="intro_follow_body">In %1$s, %2$s {filter} keeps only the swimmers or clubs you pick.\n\nTurn on %3$s to see when they swim next.\n\nWhere the meet allows it, the bell {bell} at the top of %1$s tells you when their heat is near.</string>
     <string name="intro_counting_title">Attendance counting</string>
     <string name="intro_counting_where">You can turn it off at any time, here or in Settings › Privacy.</string>
 

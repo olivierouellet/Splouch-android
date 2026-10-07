@@ -55,13 +55,13 @@
     <string name="intro_page">Página %1$d de %2$d</string>
     <string name="intro_results_title">Resultados no oficiales</string>
     <string name="intro_meets_title">Encuentra tu competición</string>
-    <string name="intro_meets_body">Las competiciones se listan por día.\n\nEl filtro deja solo las de tu club, país o provincia. Queda activo hasta que lo borres.\n\nEl engranaje abre los Ajustes: idioma, apariencia y privacidad.</string>
+    <string name="intro_meets_body">Las competiciones se listan por día.\n\nEl filtro {filter} deja solo las de tu club, país o provincia. Queda activo hasta que lo borres.\n\nEl engranaje {gear} abre los Ajustes: idioma, apariencia y privacidad.</string>
     <string name="intro_tabs_title">Tres pestañas</string>
     <string name="intro_tabs_body">%1$s muestra la serie en el agua, %2$s las series terminadas y %3$s las listas de salida.\n\nDesliza para pasar de una a otra.</string>
     <string name="intro_times_title">Los tiempos en el programa</string>
-    <string name="intro_times_body">Cada carril muestra su tiempo de inscripción, luego el tiempo de la consola una vez nadado y luego el tiempo oficial, cada uno con su color.\n\nToca una serie marcada con ± para ver la diferencia de cada carril con su inscripción.</string>
+    <string name="intro_times_body">Cada carril muestra su tiempo de inscripción, luego el tiempo de la consola una vez nadado y luego el tiempo oficial, cada uno con su color.\n\nToca una serie marcada con {plusminus} para ver la diferencia de cada carril con su inscripción.</string>
     <string name="intro_follow_title">Seguir a un nadador o un club</string>
-    <string name="intro_follow_body">En %1$s, %2$s deja solo los nadadores o clubes que elijas.\n\nActiva %3$s para ver cuándo nadan.\n\nCuando la competición lo permite, la campana en la parte superior de %1$s te avisa cuando su serie se acerca.</string>
+    <string name="intro_follow_body">En %1$s, %2$s {filter} deja solo los nadadores o clubes que elijas.\n\nActiva %3$s para ver cuándo nadan.\n\nCuando la competición lo permite, la campana {bell} en la parte superior de %1$s te avisa cuando su serie se acerca.</string>
     <string name="intro_counting_title">Conteo de asistencia</string>
     <string name="intro_counting_where">Puedes desactivarlo cuando quieras, aquí o en Ajustes › Privacidad.</string>
 
