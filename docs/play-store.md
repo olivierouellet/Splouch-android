@@ -122,7 +122,7 @@ Results shown are live and unofficial.
 | Play App Signing | Accept (Google holds the app signing key) |
 | Track | Closed testing first, then production after 14 days with 12 testers |
 | Countries | Canada only |
-| Release name | 2026.10.1 (versionCode 202610001) |
+| Release name | 2026.10.2 (versionCode 202610002) |
 
 Release notes, first release:
 
