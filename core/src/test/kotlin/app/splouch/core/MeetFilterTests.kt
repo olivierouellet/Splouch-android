@@ -66,15 +66,27 @@ class MeetFilterTests {
         assertEquals(setOf(Province("US", "NY")), f.provinces)
     }
 
-    @Test fun `options come from the list, sorted as read`() {
+    /** Clubs from the list; every country and province the app knows, whether or not a meet of the list is there. */
+    @Test fun `options offer every known region, sorted as read`() {
         val o = MeetFilter().options(meets, "en")
-        assertEquals(listOf("CA", "US"), o.countries)
-        assertEquals(listOf("NY", "ON", "QC"), o.provinces.map { it.name })
+        assertEquals(listOf("CA", "MX", "US"), o.countries)
+        assertEquals(13 + 32 + 56, o.provinces.size)
+        assertEquals("Aguascalientes, Mexico", o.provinces.first().label("en"))
         assertEquals(listOf("Asphalt Green", "CAMO", "Etobicoke", "Rouge et Or"), o.clubs)
     }
 
     @Test fun `provinces narrow to the chosen countries`() {
-        assertEquals(listOf(Province("US", "NY")), MeetFilter(countries = setOf("US")).options(meets, "en").provinces)
+        val o = MeetFilter(countries = setOf("CA")).options(meets, "en")
+        assertEquals(13, o.provinces.size)
+        assertTrue(o.provinces.all { it.country == "CA" })
+        assertEquals("Alberta, Canada", o.provinces.first().label("en"))
+    }
+
+    /** A region the app does not know is offered once the list holds it. */
+    @Test fun `an unknown region the list holds is offered`() {
+        val o = MeetFilter().options(listOf(meet("muc", "DE", "BY")), "en")
+        assertTrue("DE" in o.countries)
+        assertTrue(Province("DE", "BY") in o.provinces)
     }
 
     @Test fun `a chosen value the list no longer holds is still offered`() {
@@ -90,9 +102,9 @@ class MeetFilterTests {
 
     @Test fun `spellings of one known province are one choice`() {
         val spelled = listOf(meet("a", "CA", "QC"), meet("b", "CA", "Québec"), meet("c", "CA", "quebec"))
-        val o = MeetFilter().options(spelled, "en")
-        assertEquals(1, o.provinces.size)
-        assertEquals(3, MeetFilter(provinces = setOf(o.provinces[0])).apply(spelled).size)
+        val quebec = MeetFilter().options(spelled, "en").provinces.filter { it.label("en") == "Québec, Canada" }
+        assertEquals(1, quebec.size)
+        assertEquals(3, MeetFilter(provinces = setOf(quebec[0])).apply(spelled).size)
     }
 
     // ── remembered ─────────────────────────────────────────────────────────────

@@ -106,9 +106,10 @@ data class MeetFilter(
     }
 
     /**
-     * What the sheet offers: the values the list holds, plus any chosen value it no longer
-     * holds, so it can still be unchecked. Provinces only of the chosen countries once one is
-     * chosen. Each sorted by what the reader sees, in [lang].
+     * What the sheet offers: clubs the list holds; every country and province the app knows,
+     * plus any other the list holds; plus any chosen value, so it can still be unchecked.
+     * Provinces only of the chosen countries once one is chosen. Each sorted by what the
+     * reader sees, in [lang].
      */
     data class Options(val countries: List<String>, val provinces: List<Province>, val clubs: List<String>)
 
@@ -116,10 +117,17 @@ data class MeetFilter(
         val reader = if (lang.isBlank()) Locale.getDefault() else Locale.forLanguageTag(lang)
         val collator = Collator.getInstance(reader).apply { strength = Collator.SECONDARY }
 
-        val codes = (meets.map { it.country.uppercase() }.filter { it.isNotBlank() } + countries).toSet()
+        val codes = (meets.map { it.country.uppercase() }.filter { it.isNotBlank() } + countries).toSet() +
+            Subdivisions.countries
 
         val provinceByKey = LinkedHashMap<String, Province>()
         provinces.forEach { provinceByKey[it.key] = it }
+        codes.forEach { code ->
+            Subdivisions.all(code).forEach {
+                val p = Province(code, it.code)
+                provinceByKey.putIfAbsent(p.key, p)
+            }
+        }
         meets.filter { it.province.isNotBlank() }.forEach {
             val p = Province(it.country.uppercase(), it.province)
             provinceByKey.putIfAbsent(p.key, p)

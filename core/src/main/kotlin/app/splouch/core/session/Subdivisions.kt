@@ -51,6 +51,12 @@ object Subdivisions {
         }
     }
 
+    /** P-21: every country the table knows, ISO 3166-1 alpha-2, upper-cased. */
+    val countries: Set<String> get() = table.keys
+
+    /** P-21: every subdivision of [country] the table knows, once each. */
+    fun all(country: String): List<Entry> = table[country.uppercase()].orEmpty().values.distinctBy { it.code }
+
     /**
      * The subdivision [province] spells in [country], matched by code or any listed spelling,
      * folded as S-09 folds; null when the table has no such one.
