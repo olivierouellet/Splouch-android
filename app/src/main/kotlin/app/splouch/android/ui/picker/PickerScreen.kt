@@ -3,11 +3,6 @@ package app.splouch.android.ui.picker
 import android.graphics.Bitmap
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,7 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,18 +51,22 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -92,6 +91,7 @@ import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.android.ui.common.rememberFocusReturn
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.LiveDot
 import app.splouch.core.session.MeetDay
 import app.splouch.core.session.MeetFilter
 import app.splouch.core.session.UiState
@@ -303,7 +303,10 @@ fun PickerScreen(
                         // P-22: the server's word for a test meet, after its name.
                         val testBadge = cfg?.strings?.get("test_meet") ?: t.mobile("test_meet")
                         // P-01: the meets under their day, the day said once above them.
+                        var rank = 0
                         for (day in MeetDay.group(shown)) {
+                            val first = rank
+                            rank += day.meets.size
                             item(key = "day-" + day.date) {
                                 DayHeading(
                                     dayHeading(day.date, picker.lang)
@@ -311,7 +314,7 @@ fun PickerScreen(
                                         ?: t.mobile("date_unknown"),
                                 )
                             }
-                            items(day.meets, key = { it.id }) { m ->
+                            itemsIndexed(day.meets, key = { _, m -> m.id }) { i, m ->
                                 // P-01: city, state/province code, country code; what the filter
                                 // pins to one is left off.
                                 val meta = m.place(picker.filter) + listOf(if (m.offline) offline else "")
@@ -321,6 +324,7 @@ fun PickerScreen(
                                         name = m.name.ifBlank { unnamed },
                                         meta = meta,
                                         live = !m.offline,
+                                        rank = first + i,
                                         badge = testBadge.takeIf { m.test },
                                     ) { model.openMeet(m.id) }
                                 } else {
@@ -332,6 +336,7 @@ fun PickerScreen(
                                             remoteBitmap(images, url)
                                         },
                                         reserveImage = picker.reserveImage,
+                                        rank = first + i,
                                         badge = testBadge.takeIf { m.test },
                                     ) { model.openMeet(m.id) }
                                 }
@@ -553,6 +558,7 @@ private fun MeetCard(
     live: Boolean,
     image: Bitmap?,
     reserveImage: Boolean,
+    rank: Int = 0,
     badge: String? = null,
     onClick: () -> Unit,
 ) {
@@ -566,7 +572,7 @@ private fun MeetCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatusDot(live)
+            StatusDot(live, rank)
             if (image != null) {
                 Image(
                     image.asImageBitmap(),
@@ -674,6 +680,7 @@ private fun CompactMeetRow(
     name: String,
     meta: List<String>,
     live: Boolean,
+    rank: Int,
     badge: String? = null,
     onClick: () -> Unit,
 ) {
@@ -688,7 +695,7 @@ private fun CompactMeetRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatusDot(live)
+            StatusDot(live, rank)
             Column(Modifier.weight(1f)) {
                 NameWithBadge(badge) {
                     Text(
@@ -714,27 +721,46 @@ private fun CompactMeetRow(
 }
 
 /**
- * P-03: a live meet glows; a retained one keeps its place with a dimmed, hollow dot.
- * Silent to TalkBack, as on iOS: a retained meet's word is in the row's details line, in the
- * reader's language, and a live meet is the ordinary case and needs none.
+ * P-03: a live meet breathes; a retained one keeps its place with a hollow ring that holds still.
+ * Both are the same 8dp, and only the layer moves, so a breathing dot never shifts the image or
+ * the text beside it. Silent to TalkBack, as on iOS: a retained meet's word is in the row's
+ * details line, in the reader's language, and a live meet is the ordinary case and needs none.
  */
 @Composable
-private fun StatusDot(live: Boolean) {
+private fun StatusDot(live: Boolean, rank: Int) {
     if (!live) {
-        Box(
-            Modifier.size(10.dp).alpha(0.4f)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
-        )
+        Box(Modifier.size(8.dp).border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
         return
     }
     // The dot is the product's own green, not a Material role: "this meet is running now"
     // is the same statement whatever the device's colours are.
     val still = reduceMotion()
-    val pulse = rememberInfiniteTransition(label = "live")
-    val alpha by pulse.animateFloat(1f, 0.45f, infiniteRepeatable(tween(1000), RepeatMode.Reverse), label = "alpha")
+    // On the frame clock rather than from when the row was composed, so a row scrolled back in
+    // picks up where it was instead of restarting; read in the layer, so a frame redraws the dot
+    // without recomposing it.
+    val nanos = remember { mutableLongStateOf(0L) }
+    if (!still) {
+        LaunchedEffect(Unit) {
+            while (true) withFrameNanos { nanos.longValue = it }
+        }
+    }
     Box(
-        Modifier.size(10.dp).alpha(if (still) 1f else alpha)
-            .background(LiveGreen, CircleShape),
+        Modifier.size(8.dp)
+            .graphicsLayer {
+                val mix = if (still) 0f else LiveDot.breath(nanos.longValue / 1e9, rank).toFloat()
+                alpha = 1 - 0.55f * mix
+                scaleX = 1 - 0.22f * mix
+                scaleY = scaleX
+            }
+            .drawBehind {
+                // The glow, as iOS's 3pt shadow: it breathes with the dot.
+                val glow = size.minDimension / 2 + 3.dp.toPx()
+                drawCircle(
+                    Brush.radialGradient(listOf(LiveGreen.copy(alpha = 0.7f), Color.Transparent), radius = glow),
+                    glow,
+                )
+                drawCircle(LiveGreen)
+            },
     )
 }
 
