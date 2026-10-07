@@ -181,17 +181,20 @@ private fun HeatCard(
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
     val h = v.heat
-    // S-23: an official heat swaps its times for their gaps to the seed, and springs back
-    // after four seconds or a second tap. Keyed by heat, so a recycled card starts clean.
-    var showingDiff by remember(h.event, h.heat) { mutableStateOf(false) }
-    val diff = showingDiff && h.official
+    // S-23: a heat swaps its times — official, or the console's before then — for their gaps
+    // to the seed, and springs back after four seconds or a second tap. Keyed by heat, so a
+    // recycled card starts clean, and by `official`, which changes which gap a swap shows:
+    // the swap ends rather than jumping from the console's gaps to the result's.
+    var showingDiff by remember(h.event, h.heat, h.official) { mutableStateOf(false) }
+    val swaps = LaneTime.swaps(h.official, v.lanes)
+    val diff = showingDiff && swaps
     LaunchedEffect(diff) {
         if (diff) {
             delay(4_000)
             showingDiff = false
         }
     }
-    val toggleDiff = { if (h.official) showingDiff = !showingDiff }
+    val toggleDiff = { if (swaps) showingDiff = !showingDiff }
     // Past this the row reflows instead of shrinking: the heading takes the full width so
     // it breaks at a space rather than down a narrow gutter, and the scheduled time drops
     // to a line of its own — still trailing, still at its own width.
@@ -277,7 +280,7 @@ private fun HeatCard(
                     heading()
                     contentDescription = headingSpoken
                     // S-23 for TalkBack: the hint glyph is drawing only, the action is here.
-                    if (h.official) {
+                    if (swaps) {
                         customActions = listOf(
                             CustomAccessibilityAction(word("show_seed_diff")) {
                                 toggleDiff()
@@ -299,7 +302,7 @@ private fun HeatCard(
                         // trailing edge, so a card reads as two runs rather than three:
                         // what the heat is on the left, when it swims on the right.
                         if (h.time.isNotEmpty()) scheduledTime()
-                        if (h.official) DiffHint()
+                        if (swaps) DiffHint(h.official, toggleDiff)
                     }
                 } else {
                     // Every line gets the full width. The scheduled time used to sit beside
@@ -310,13 +313,13 @@ private fun HeatCard(
                     // No time, no row. A row holding only a ruler still had the ruler's
                     // height, which at these sizes is a blank line down every card whose
                     // heat is unscheduled.
-                    if (h.time.isNotEmpty() || h.official) {
+                    if (h.time.isNotEmpty() || swaps) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                         ) {
                             if (h.time.isNotEmpty()) scheduledTime()
-                            if (h.official) DiffHint()
+                            if (swaps) DiffHint(h.official, toggleDiff)
                         }
                     }
                 }
@@ -356,7 +359,7 @@ private fun HeatCard(
                             maxLines = 1,
                         )
                     }
-                    TimingCell(cell, seedTemplate, if (h.official) toggleDiff else null)
+                    TimingCell(cell, seedTemplate, if (swaps) toggleDiff else null)
                 }
             }
         }
@@ -381,7 +384,7 @@ private fun HeatCard(
  * the misalignment it fixes.
  *
  * Which time, and its colour, is `S-22`'s: official (bolder), console, seed. On an official
- * heat the cell is the tap target for `S-23`, and the swap is Compose's own
+ * heat, or one the console has timed, the cell is the tap target for `S-23`, and the swap is Compose's own
  * `AnimatedContent` crossfade — none when the system's animations are off.
  *
  * Never wrapped: a time broken across two lines reads as two times.
@@ -441,15 +444,20 @@ private fun TimingCell(cell: LaneTime?, seedTemplate: String, onTap: (() -> Unit
     }
 }
 
-/** `S-23`'s visible hint on an official heat: its times can be tapped. Drawing only. */
+/**
+ * `S-23`'s visible hint on an official or console-timed heat, in that time's colour: its
+ * times can be tapped, and so can the hint.
+ * Out of the accessibility tree — the heading's custom action is TalkBack's way in.
+ */
 @Composable
-private fun DiffHint() {
+private fun DiffHint(official: Boolean, onTap: () -> Unit) {
+    val colors = LocalBoardColors.current
     Text(
         "\u00B1",
-        color = LocalBoardColors.current.scheduleOfficial,
+        color = if (official) colors.scheduleOfficial else colors.scheduleConsole,
         style = MaterialTheme.typography.titleSmall,
         fontFamily = LocalBoardFonts.current.timing,
-        modifier = Modifier.clearAndSetSemantics { },
+        modifier = Modifier.clickable(onClick = onTap).clearAndSetSemantics { },
     )
 }
 

@@ -67,6 +67,33 @@ class LaneTimeTests {
         assertEquals("NT", LaneTime.of(lane(seed = "", result = "00:00:30.12"), diff = true)?.text)
     }
 
+    @Test fun `the console time's gap before the result`() {
+        assertEquals(
+            LaneTime("-0.85", LaneTime.Kind.BETTER, "seed_diff"),
+            LaneTime.of(lane(console = "00:00:30.15"), diff = true),
+        )
+        assertEquals("+1.25", LaneTime.of(lane(seed = "30.15", console = "00:00:31.40"), diff = true)?.text)
+        // The server's rule: level with the seed is not better.
+        assertEquals(LaneTime.Kind.WORSE, LaneTime.of(lane(console = "00:00:31.00"), diff = true)?.kind)
+        assertEquals("NT", LaneTime.of(lane(seed = "", console = "00:00:30.15"), diff = true)?.text)
+    }
+
+    @Test fun `a time is read in hundredths`() {
+        assertEquals(6234, LaneTime.hundredths("00:01:02.34"))
+        assertEquals(6234, LaneTime.hundredths("1:02.34"))
+        assertEquals(5821, LaneTime.hundredths("58.21"))
+        assertEquals(360_000, LaneTime.hundredths("01:00:00.00"))
+        assertNull(LaneTime.hundredths(""))
+        assertNull(LaneTime.hundredths("NT"))
+        assertNull(LaneTime.hundredths("00:00:00.00"))
+    }
+
+    @Test fun `which heats swap`() {
+        assertTrue(LaneTime.swaps(true, listOf(lane())))
+        assertTrue(LaneTime.swaps(false, listOf(lane(), lane(console = "00:00:30.15"))))
+        assertFalse(LaneTime.swaps(false, listOf(lane())))
+    }
+
     @Test fun `a results frame patches its heat's console times`() {
         val heats = ScheduleHeat.listFromJson(
             parseJsonOrNull("""{"heats":[{"event":1,"heat":2,"lanes":[{"lane":3,"name":"N","seed_time":""}]}]}"""),

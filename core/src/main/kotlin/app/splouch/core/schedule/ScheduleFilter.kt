@@ -72,9 +72,9 @@ object ScheduleFilter {
 
     /**
      * The widest time cell among the cards on screen (S-22), as the string to size the
-     * time column from — counting what an official heat shows while it gives its gaps to
-     * the seed (S-23), so the column does not jump on a tap. Empty when no lane on screen
-     * has a time, which is the signal to draw no column at all.
+     * time column from — counting what a heat shows while swapped to its gaps to the seed
+     * (S-23), so the column does not jump on a tap. Empty when no lane on screen has a
+     * time, which is the signal to draw no column at all.
      *
      * Longest by character count rather than by measured width: every face the timing slot
      * can take is monospaced (`Theme.BUNDLED_FONTS`, and the fallback is
@@ -86,10 +86,11 @@ object ScheduleFilter {
      */
     fun widestTime(visible: List<VisibleHeat>): String = visible.asSequence()
         .flatMap { v ->
+            val swaps = LaneTime.swaps(v.heat.official, v.lanes)
             v.lanes.asSequence().flatMap { lane ->
                 sequenceOf(
                     LaneTime.of(lane)?.text,
-                    if (v.heat.official) LaneTime.of(lane, diff = true)?.text else null,
+                    if (swaps) LaneTime.of(lane, diff = true)?.text else null,
                 ).filterNotNull()
             }
         }

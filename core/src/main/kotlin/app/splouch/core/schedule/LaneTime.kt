@@ -7,8 +7,9 @@ import app.splouch.core.wire.ScheduleLane
 
 /**
  * What a Schedule lane's time cell shows (app.md S-22, S-23): the best time known —
- * official result or its status, else the console's, else the seed — or, while an official
- * heat is showing its gaps, the gap to the seed.
+ * official result or its status, else the console's, else the seed — or, while a heat is
+ * swapped (S-23), the gap to the seed: the official result's once there is one, else the
+ * console time's.
  *
  * [spokenKey] is the `[mobile]` word a screen reader says for the cell, before [text] when
  * [speaksText] — "Official time 30.12", but "Disqualified" alone.
@@ -32,8 +33,37 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
             return "${two(h / 360000)}:${two(h / 6000 % 60)}:${two(h / 100 % 60)}.${two(h % 100)}"
         }
 
+        /**
+         * S-23: a heat whose times swap on a tap for their gaps to the seed — an official
+         * one, or one the console has timed.
+         */
+        fun swaps(official: Boolean, lanes: List<ScheduleLane>): Boolean =
+            official || lanes.any { it.consoleTime.isNotEmpty() }
+
+        private val LONG = Regex("""^\s*(\d+):(\d{2}):(\d{2})\.(\d{2})\s*$""")
+
+        /**
+         * A time in hundredths: `HH:MM:SS.hh` as the schedule carries it, or a seed as Hytek
+         * wrote it (`58.21`, `1:02.34`) — the server's own `parse_time_hundredths`. Null when
+         * empty, zero or not a time.
+         */
+        fun hundredths(time: String): Int? {
+            val total = LONG.matchEntire(time)?.destructured?.let { (h, m, s, c) ->
+                ((h.toInt() * 60 + m.toInt()) * 60 + s.toInt()) * 100 + c.toInt()
+            } ?: CONSOLE.matchEntire(time)?.destructured?.let { (m, s, c) ->
+                (m.ifEmpty { "0" }.toInt() * 60 + s.toInt()) * 100 + c.toInt()
+            }
+            return total?.takeIf { it > 0 }
+        }
+
         fun of(lane: ScheduleLane, diff: Boolean = false): LaneTime? {
             val status = lane.resultStatus
+            // Not official yet: the console's own gap, on the server's rule.
+            val consoleGap = if (diff && lane.resultTime.isEmpty()) {
+                hundredths(lane.consoleTime)?.let { c -> hundredths(lane.seedTime)?.let { c - it } }
+            } else {
+                null
+            }
             if (diff) {
                 when {
                     status.isNotEmpty() ->
@@ -43,6 +73,11 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
                     lane.resultDeltaSeconds != null -> return LaneTime(
                         DeltaFormat.text(lane.resultDeltaSeconds),
                         if (lane.resultDeltaBetter == true) Kind.BETTER else Kind.WORSE,
+                        "seed_diff",
+                    )
+                    consoleGap != null -> return LaneTime(
+                        DeltaFormat.text(consoleGap / 100.0),
+                        if (consoleGap < 0) Kind.BETTER else Kind.WORSE,
                         "seed_diff",
                     )
                     else -> return LaneTime(
