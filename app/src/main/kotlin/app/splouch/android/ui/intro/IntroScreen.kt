@@ -43,23 +43,23 @@ import app.splouch.core.session.UiState
 import kotlinx.coroutines.launch
 
 /** P-20's pages, in order. [COUNTING] only while the server counts. */
-private enum class IntroPage { RESULTS, TABS, FOLLOW, COUNTING }
+private enum class IntroPage { RESULTS, MEETS, TABS, TIMES, FOLLOW, COUNTING }
 
 /**
- * P-20: four short pages — icon, title, one or two sentences — paged with dots, skippable
- * from the first, ending on the picker. Shown by the root only once `GET /picker/config`
- * has answered, so pages 1 and 4 carry the server's words; the rest are the app's, with the
+ * P-20: up to six short pages — icon, title, a sentence per line — paged with dots,
+ * skippable from the first, ending on the picker. Shown by the root only once
+ * `GET /picker/config` has answered, so the first and last pages carry the server's words; the rest are the app's, with the
  * server's own names for the tabs, the filter and *All heats* quoted inside them so the
  * page and the screen it describes agree.
  *
  * **Not consent.** Skip and Done both only mark it seen; counting stays as it was, and the
- * switch on page 4 is the same setting as Settings › Privacy.
+ * switch on the last page is the same setting as Settings › Privacy.
  */
 @Composable
 fun IntroScreen(model: AppModel, state: UiState) {
     val t = state.pickerStrings
     val pages = buildList {
-        addAll(listOf(IntroPage.RESULTS, IntroPage.TABS, IntroPage.FOLLOW))
+        addAll(listOf(IntroPage.RESULTS, IntroPage.MEETS, IntroPage.TABS, IntroPage.TIMES, IntroPage.FOLLOW))
         if (state.countingOffered) add(IntroPage.COUNTING)
     }
     val pager = rememberPagerState { pages.size }
@@ -85,6 +85,11 @@ fun IntroScreen(model: AppModel, state: UiState) {
                         stringResource(R.string.intro_results_title),
                         state.disclaimer?.full.orEmpty(),
                     )
+                    IntroPage.MEETS -> Page(
+                        R.drawable.ic_search,
+                        stringResource(R.string.intro_meets_title),
+                        stringResource(R.string.intro_meets_body),
+                    )
                     IntroPage.TABS -> Page(
                         R.drawable.ic_tab_scoreboard,
                         stringResource(R.string.intro_tabs_title),
@@ -94,6 +99,11 @@ fun IntroScreen(model: AppModel, state: UiState) {
                             t.mobile("results"),
                             t.mobile("schedule"),
                         ),
+                    )
+                    IntroPage.TIMES -> Page(
+                        R.drawable.ic_tab_schedule,
+                        stringResource(R.string.intro_times_title),
+                        stringResource(R.string.intro_times_body),
                     )
                     IntroPage.FOLLOW -> Page(
                         R.drawable.ic_filter,

@@ -54,12 +54,16 @@
     <string name="intro_done">Terminé</string>
     <string name="intro_page">Page %1$d sur %2$d</string>
     <string name="intro_results_title">Résultats non officiels</string>
+    <string name="intro_meets_title">Trouver votre compétition</string>
+    <string name="intro_meets_body">Les compétitions sont classées par jour.\n\nLe filtre ne garde que celles de votre club, pays ou province. Il reste actif jusqu\'à ce que vous l\'effaciez.\n\nL\'engrenage ouvre les Paramètres : langue, apparence et confidentialité.</string>
     <string name="intro_tabs_title">Trois onglets</string>
-    <string name="intro_tabs_body">%1$s montre la série dans l\'eau, %2$s les séries terminées, %3$s les listes de départ. Balayez pour passer de l\'un à l\'autre.</string>
+    <string name="intro_tabs_body">%1$s montre la série dans l\'eau, %2$s les séries terminées et %3$s les listes de départ.\n\nBalayez pour passer de l\'un à l\'autre.</string>
+    <string name="intro_times_title">Les temps à l\'horaire</string>
+    <string name="intro_times_body">Chaque couloir montre son temps d\'inscription, puis le temps de la console une fois nagé, puis le temps officiel, chacun de sa couleur.\n\nTouchez une série marquée ± pour voir l\'écart de chaque couloir avec son inscription.</string>
     <string name="intro_follow_title">Suivre un nageur ou un club</string>
-    <string name="intro_follow_body">Dans %1$s, %2$s ne garde que les nageurs ou les clubs choisis. Activez %3$s pour savoir quand ils nagent. Quand la compétition le permet, la cloche vous prévient quand leur série approche.</string>
+    <string name="intro_follow_body">Dans %1$s, %2$s ne garde que les nageurs ou les clubs choisis.\n\nActivez %3$s pour savoir quand ils nagent.\n\nQuand la compétition le permet, la cloche en haut de l\'onglet %1$s vous prévient quand leur série approche.</string>
     <string name="intro_counting_title">Comptage de l\'assistance</string>
-    <string name="intro_counting_where">Vous pouvez le changer en tout temps dans Paramètres › Confidentialité.</string>
+    <string name="intro_counting_where">Vous pouvez le désactiver en tout temps, ici ou dans Paramètres › Confidentialité.</string>
 
     <!-- Heat notifications (app.md §10). App-only — the web has none — so native (T-05). -->
     <string name="notifications">Notifications</string>
