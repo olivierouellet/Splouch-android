@@ -31,10 +31,13 @@ fun MeetSummary.place(filter: MeetFilter = MeetFilter()): List<String> = listOf(
     if (filter.pinsCountry) "" else country.uppercase(),
 ).filter { it.isNotBlank() }
 
-/** One country chosen, or provinces of only one: every meet shown is in it. */
+/**
+ * Countries and provinces of only one country, and no club (a club's meets may be anywhere):
+ * every meet shown is in it.
+ */
 val MeetFilter.pinsCountry: Boolean
-    get() = countries.size == 1 ||
-        (provinces.isNotEmpty() && provinces.map { it.country.uppercase() }.toSet().size == 1)
+    get() = clubs.isEmpty() && (countries + provinces.map { it.country.uppercase() }).toSet().size == 1
 
-/** One state/province chosen, however many spellings of it the list held. */
-val MeetFilter.pinsProvince: Boolean get() = provinces.map { it.key }.toSet().size == 1
+/** One state/province chosen and nothing else, however many spellings of it the list held. */
+val MeetFilter.pinsProvince: Boolean
+    get() = clubs.isEmpty() && countries.isEmpty() && provinces.map { it.key }.toSet().size == 1

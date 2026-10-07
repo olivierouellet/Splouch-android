@@ -33,9 +33,10 @@ class MeetFilterTests {
         assertEquals(listOf("mtl", "tor"), ids(MeetFilter(clubs = setOf("CAMO", "Etobicoke")).apply(meets)))
     }
 
-    @Test fun `facets are all required`() {
-        val f = MeetFilter(countries = setOf("CA"), clubs = setOf("CAMO", "Asphalt Green"))
-        assertEquals(listOf("mtl"), ids(f.apply(meets)))
+    /** A country, a province and a club: a meet holding any one of them shows. */
+    @Test fun `facets are alternatives too`() {
+        val f = MeetFilter(setOf("US"), setOf(Province("CA", "ON")), setOf("CAMO"))
+        assertEquals(listOf("mtl", "tor", "nyc"), ids(f.apply(meets)))
     }
 
     @Test fun `an empty field fails an active facet`() {
@@ -60,10 +61,26 @@ class MeetFilterTests {
         assertFalse(once.toggleClub("camo").isActive)
     }
 
-    @Test fun `dropping a country drops its provinces`() {
-        val f = MeetFilter(setOf("CA", "US"), setOf(Province("CA", "QC"), Province("US", "NY"))).toggleCountry("CA")
-        assertEquals(setOf("US"), f.countries)
-        assertEquals(setOf(Province("US", "NY")), f.provinces)
+    /** Provinces are choices of their own: dropping their country keeps them. */
+    @Test fun `dropping a country keeps its provinces`() {
+        val f = MeetFilter(setOf("CA"), setOf(Province("CA", "QC"))).toggleCountry("CA")
+        assertTrue(f.countries.isEmpty())
+        assertEquals(setOf(Province("CA", "QC")), f.provinces)
+    }
+
+    /** Typed letters kept upper-cased, without spaces or symbols. */
+    @Test fun `a typed club is kept as its official letters`() {
+        assertEquals("CAMO", MeetFilter.clubLetters("  c.a.m.o "))
+        assertEquals("ROUGEETOR", MeetFilter.clubLetters("Rouge-et-Or!"))
+        val f = MeetFilter().addClubLetters(" camo ").addClubLetters("C A M O").addClubLetters(" .- ")
+        assertEquals(setOf("CAMO"), f.clubs)
+        assertEquals(listOf("mtl"), ids(f.apply(meets)))
+    }
+
+    /** `C.A.M.O.` on the meet is the `CAMO` chosen. */
+    @Test fun `clubs match by letters and digits only`() {
+        assertTrue(MeetFilter(clubs = setOf("CAMO")).matches(meet("x", organizer = "C.A.M.O.")))
+        assertFalse(MeetFilter(clubs = setOf("CAMO")).matches(meet("x", organizer = "CAMOX")))
     }
 
     /** Clubs from the list; every country and province the app knows, whether or not a meet of the list is there. */
@@ -75,11 +92,9 @@ class MeetFilterTests {
         assertEquals(listOf("Asphalt Green", "CAMO", "Etobicoke", "Rouge et Or"), o.clubs)
     }
 
-    @Test fun `provinces narrow to the chosen countries`() {
-        val o = MeetFilter(countries = setOf("CA")).options(meets, "en")
-        assertEquals(13, o.provinces.size)
-        assertTrue(o.provinces.all { it.country == "CA" })
-        assertEquals("Alberta, Canada", o.provinces.first().label("en"))
+    /** Any province may widen what a country lets through, so all stay offered. */
+    @Test fun `provinces stay offered whatever the countries`() {
+        assertEquals(13 + 32 + 56, MeetFilter(countries = setOf("CA")).options(meets, "en").provinces.size)
     }
 
     /** A region the app does not know is offered once the list holds it. */

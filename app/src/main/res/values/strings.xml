@@ -116,6 +116,9 @@
     <string name="filter_country">Country</string>
     <string name="filter_province">State or province</string>
     <string name="filter_club">Club</string>
+    <string name="filter_club_letters">Club\'s official letters</string>
+    <string name="filter_club_letters_hint">Must be the club\'s official letters, e.g. CAMO.</string>
+    <string name="filter_club_add">Add club</string>
     <string name="filter_clear">Clear filter</string>
     <string name="filter_hides_all">No meets match the filter.</string>
     <plurals name="filter_hidden">

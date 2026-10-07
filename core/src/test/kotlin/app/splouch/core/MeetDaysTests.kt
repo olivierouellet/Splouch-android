@@ -36,5 +36,9 @@ class MeetDaysTests {
         // Two spellings of one province are one choice.
         assertEquals(listOf("Pool"), qc.place(MeetFilter(provinces = setOf(quebec, qcCode))))
         assertEquals(listOf("Pool", "QC"), qc.place(MeetFilter(provinces = setOf(quebec, on))))
+        // Every value is an alternative: a club's meets, or another country's, may show too.
+        assertEquals(listOf("Pool", "QC", "CA"), qc.place(MeetFilter(setOf("CA"), clubs = setOf("CAMO"))))
+        assertEquals(listOf("Pool", "QC"), qc.place(MeetFilter(setOf("CA"), setOf(qcCode))))
+        assertEquals(listOf("Pool", "QC", "CA"), qc.place(MeetFilter(setOf("US"), setOf(qcCode))))
     }
 }

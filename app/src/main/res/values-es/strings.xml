@@ -100,6 +100,9 @@
     <string name="filter_country">País</string>
     <string name="filter_province">Estado o provincia</string>
     <string name="filter_club">Club</string>
+    <string name="filter_club_letters">Siglas oficiales del club</string>
+    <string name="filter_club_letters_hint">Deben ser las siglas oficiales del club, p. ej. CAMO.</string>
+    <string name="filter_club_add">Añadir el club</string>
     <string name="filter_clear">Borrar el filtro</string>
     <string name="filter_hides_all">Ninguna competición coincide con el filtro.</string>
     <plurals name="filter_hidden">

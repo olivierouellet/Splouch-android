@@ -12,16 +12,16 @@ import kotlinx.serialization.json.Json
  * across launches and servers. A spectator follows one region or club for a season, so
  * unlike the schedule's (S-20) it is stored.
  *
- * Several values per facet: a meet passes a facet when it holds any of its values (OR), and
- * the filter when it passes every active facet (AND). A meet whose field is empty fails that
- * facet while it is active.
+ * Several values per facet, every one an alternative: a meet passes when it holds any chosen
+ * country, province or club (OR within and across facets). A meet whose field is empty never
+ * holds that facet's values.
  */
 @Serializable
 data class MeetFilter(
     /** ISO 3166-1 alpha-2, upper-cased. */
     val countries: Set<String> = emptySet(),
     val provinces: Set<Province> = emptySet(),
-    /** The organizer as first chosen; compared folded, as S-09 compares a club. */
+    /** The organizer as first chosen, or letters the spectator typed; compared by [clubKey]. */
     val clubs: Set<String> = emptySet(),
 ) {
     /**
@@ -47,43 +47,22 @@ data class MeetFilter(
 
     val isActive: Boolean get() = countries.isNotEmpty() || provinces.isNotEmpty() || clubs.isNotEmpty()
 
-    fun matches(m: MeetSummary): Boolean {
-        if (countries.isNotEmpty() && m.country.uppercase() !in countries) return false
-        if (provinces.isNotEmpty()) {
-            val key = Province(m.country, m.province).key
-            if (m.province.isBlank() || provinces.none { it.key == key }) return false
-        }
-        if (clubs.isNotEmpty()) {
-            val key = SearchFold.fold(m.organizer)
-            if (key.isBlank() || clubs.none { SearchFold.fold(it) == key }) return false
-        }
-        return true
-    }
+    /** Any chosen value the meet holds lets it through; an empty filter, every meet. */
+    fun matches(m: MeetSummary): Boolean = !isActive ||
+        (m.country.isNotBlank() && has(m.country)) ||
+        (m.province.isNotBlank() && has(Province(m.country, m.province))) ||
+        (clubKey(m.organizer).isNotEmpty() && hasClub(m.organizer))
 
     /** The meets the filter leaves, in the server's order. */
     fun apply(meets: List<MeetSummary>): List<MeetSummary> = if (isActive) meets.filter(::matches) else meets
 
     fun has(country: String): Boolean = country.uppercase() in countries
     fun has(province: Province): Boolean = provinces.any { it.key == province.key }
-    fun hasClub(club: String): Boolean = SearchFold.fold(club).let { key -> clubs.any { SearchFold.fold(it) == key } }
+    fun hasClub(club: String): Boolean = clubKey(club).let { key -> clubs.any { clubKey(it) == key } }
 
-    /**
-     * Taking a country away takes its provinces with it: the sheet no longer lists them, and
-     * kept they would hide every meet of the countries left.
-     */
     fun toggleCountry(country: String): MeetFilter {
         val code = country.uppercase()
-        return if (code in countries) {
-            copy(
-                countries = countries - code,
-                provinces = provinces.filterTo(mutableSetOf()) {
-                    it.country.uppercase() !=
-                        code
-                },
-            )
-        } else {
-            copy(countries = countries + code)
-        }
+        return copy(countries = if (code in countries) countries - code else countries + code)
     }
 
     fun toggleProvince(province: Province): MeetFilter {
@@ -100,16 +79,24 @@ data class MeetFilter(
     }
 
     fun toggleClub(club: String): MeetFilter {
-        val key = SearchFold.fold(club)
-        val held = clubs.firstOrNull { SearchFold.fold(it) == key }
+        val key = clubKey(club)
+        val held = clubs.firstOrNull { clubKey(it) == key }
         return copy(clubs = if (held != null) clubs - held else clubs + club)
+    }
+
+    /**
+     * Chooses the club whose official letters the spectator typed; letters already chosen, or
+     * none left once cleaned, change nothing.
+     */
+    fun addClubLetters(typed: String): MeetFilter {
+        val letters = clubLetters(typed)
+        return if (letters.isEmpty() || hasClub(letters)) this else copy(clubs = clubs + letters)
     }
 
     /**
      * What the sheet offers: clubs the list holds; every country and province the app knows,
      * plus any other the list holds; plus any chosen value, so it can still be unchecked.
-     * Provinces only of the chosen countries once one is chosen. Each sorted by what the
-     * reader sees, in [lang].
+     * Each sorted by what the reader sees, in [lang].
      */
     data class Options(val countries: List<String>, val provinces: List<Province>, val clubs: List<String>)
 
@@ -132,17 +119,16 @@ data class MeetFilter(
             val p = Province(it.country.uppercase(), it.province)
             provinceByKey.putIfAbsent(p.key, p)
         }
-        val shownProvinces = provinceByKey.values.filter { countries.isEmpty() || it.country.uppercase() in countries }
 
         val clubByKey = LinkedHashMap<String, String>()
-        clubs.forEach { clubByKey[SearchFold.fold(it)] = it }
+        clubs.forEach { clubByKey[clubKey(it)] = it }
         meets.filter {
-            it.organizer.isNotBlank()
-        }.forEach { clubByKey.putIfAbsent(SearchFold.fold(it.organizer), it.organizer) }
+            clubKey(it.organizer).isNotEmpty()
+        }.forEach { clubByKey.putIfAbsent(clubKey(it.organizer), it.organizer) }
 
         return Options(
             countries = codes.sortedWith(compareBy(collator) { countryName(it, lang) }),
-            provinces = shownProvinces.sortedWith(
+            provinces = provinceByKey.values.sortedWith(
                 compareBy(collator) { it.label(lang) },
             ),
             clubs = clubByKey.values.sortedWith(collator),
@@ -150,6 +136,15 @@ data class MeetFilter(
     }
 
     companion object {
+        /** Two spellings of one club: folded as S-09 folds, then letters and digits only, so `C.A.M.O.` is `CAMO`. */
+        internal fun clubKey(club: String): String = SearchFold.fold(club).filter { it.isLetterOrDigit() }
+
+        /**
+         * A club typed by the spectator, as kept: its official letters upper-cased, spaces and
+         * symbols dropped (` c.a.m.o ` → `CAMO`).
+         */
+        fun clubLetters(typed: String): String = typed.uppercase().filter { it.isLetterOrDigit() }
+
         private val json = Json { ignoreUnknownKeys = true }
 
         fun encode(filter: MeetFilter): String = json.encodeToString(serializer(), filter)
