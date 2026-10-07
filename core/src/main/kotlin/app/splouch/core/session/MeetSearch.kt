@@ -17,8 +17,8 @@ object MeetSearch {
     fun shows(meetCount: Int): Boolean = meetCount >= THRESHOLD
 
     /**
-     * What one meet is searched on. The organizer is not on the card but is searched,
-     * because a spectator may know a meet by the club running it. The country is searched
+     * What one meet is searched on. The day, sport and organizer are not on the card but are
+     * searched, because a spectator may know a meet by them. The country is searched
      * by its code and by its name in [lang], the reader's language; the province as sent and
      * by its full name in [lang] ([Subdivisions]).
      */
@@ -42,7 +42,7 @@ object MeetSearch {
         return words.all { it in folded }
     }
 
-    /** [meets] in the server's order, less the ones [query] hides. */
+    /** [meets] in the server's order — by date, then city — less the ones [query] hides. */
     fun filter(meets: List<MeetSummary>, query: String, lang: String = ""): List<MeetSummary> =
         meets.filter { matches(text(it, lang), query) }
 
@@ -52,7 +52,7 @@ object MeetSearch {
 }
 
 /**
- * P-01: an ISO 3166-1 alpha-2 code named in [lang] (`CA` → `Canada`, `Canada`, `Canadá`).
+ * P-17: an ISO 3166-1 alpha-2 code named in [lang] (`CA` → `Canada`, `Canada`, `Canadá`).
  * `""` for no code; the code itself when the platform has no name for it.
  */
 fun countryName(code: String, lang: String): String {
@@ -65,12 +65,3 @@ fun countryName(code: String, lang: String): String {
     val reader = if (lang.isBlank()) Locale.getDefault() else Locale.forLanguageTag(lang)
     return region.getDisplayCountry(reader).ifBlank { code }
 }
-
-/**
- * P-01, P-18: the organizer's province and country, as a row shows them — `Québec, Canada`:
- * the province in full when the app knows it ([Subdivisions]), else as sent.
- */
-fun MeetSummary.region(lang: String): String =
-    listOf(Subdivisions.name(country, province, lang), countryName(country, lang)).filter {
-        it.isNotBlank()
-    }.joinToString(", ")

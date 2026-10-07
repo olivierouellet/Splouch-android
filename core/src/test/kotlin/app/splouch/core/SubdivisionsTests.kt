@@ -3,7 +3,6 @@ package app.splouch.core
 import app.splouch.core.session.MeetFilter
 import app.splouch.core.session.MeetSearch
 import app.splouch.core.session.Subdivisions
-import app.splouch.core.session.region
 import app.splouch.core.wire.MeetSummary
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,7 +54,6 @@ class SubdivisionsTests {
         val m = MeetSummary("m", "Invitational", "", "", "", "", offline = false, hasPickerImage = false, "CA", "QC")
         assertEquals(1, MeetSearch.filter(listOf(m), "québec").size)
         val bc = MeetSummary("b", "Invitational", "", "", "", "", offline = false, hasPickerImage = false, "CA", "BC")
-        assertEquals("Colombie-Britannique, Canada", bc.region("fr"))
         assertEquals(1, MeetSearch.filter(listOf(bc), "colombie", "fr").size)
         assertEquals("Colombie-Britannique, Canada", MeetFilter.Province("CA", "BC").label("fr"))
     }

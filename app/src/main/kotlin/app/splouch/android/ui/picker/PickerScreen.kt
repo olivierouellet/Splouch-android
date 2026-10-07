@@ -1,6 +1,7 @@
 package app.splouch.android.ui.picker
 
 import android.graphics.Bitmap
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -37,8 +39,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -89,10 +89,15 @@ import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.android.ui.common.rememberFocusReturn
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.MeetDay
 import app.splouch.core.session.MeetFilter
 import app.splouch.core.session.UiState
-import app.splouch.core.session.region
+import app.splouch.core.session.place
 import app.splouch.core.wire.ServerKind
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.Locale
 
 /**
  * The launch screen (app.md §1): the meet list on a cloud, the one meet on a Pi.
@@ -292,32 +297,37 @@ fun PickerScreen(
                         // P-03: a retained meet says so in words, the server's (`mobile.offline`),
                         // as on iOS — the dot alone is colour, and colour says nothing out loud.
                         val offline = t.mobile("offline")
-                        items(shown, key = { it.id }) { m ->
-                            // P-01: the organizer's province and country, the country named in the
-                            // reader's language.
-                            val region = m.region(picker.lang)
-                            if (picker.compact) {
-                                CompactMeetRow(
-                                    name = m.name.ifBlank { unnamed },
-                                    meta = listOf(m.meetDate, m.location, region, if (m.offline) offline else "")
-                                        .filter { it.isNotBlank() },
-                                    live = !m.offline,
-                                ) { model.openMeet(m.id) }
-                            } else {
-                                MeetCard(
-                                    name = m.name.ifBlank { unnamed },
-                                    meta = listOf(
-                                        m.meetDate,
-                                        m.location,
-                                        region,
-                                        m.sport,
-                                        if (m.offline) offline else "",
-                                    )
-                                        .filter { it.isNotBlank() },
-                                    live = !m.offline,
-                                    image = picker.imageUrl(state.server, m)?.let { url -> remoteBitmap(images, url) },
-                                    reserveImage = picker.reserveImage,
-                                ) { model.openMeet(m.id) }
+                        // P-01: the meets under their day, the day said once above them.
+                        for (day in MeetDay.group(shown)) {
+                            item(key = "day-" + day.date) {
+                                DayHeading(
+                                    dayHeading(day.date, picker.lang)
+                                        ?: cfg?.strings?.get("date_unknown")
+                                        ?: t.mobile("date_unknown"),
+                                )
+                            }
+                            items(day.meets, key = { it.id }) { m ->
+                                // P-01: city, state/province code, country code; what the filter
+                                // pins to one is left off.
+                                val meta = m.place(picker.filter) + listOf(if (m.offline) offline else "")
+                                    .filter { it.isNotBlank() }
+                                if (picker.compact) {
+                                    CompactMeetRow(
+                                        name = m.name.ifBlank { unnamed },
+                                        meta = meta,
+                                        live = !m.offline,
+                                    ) { model.openMeet(m.id) }
+                                } else {
+                                    MeetCard(
+                                        name = m.name.ifBlank { unnamed },
+                                        meta = meta,
+                                        live = !m.offline,
+                                        image = picker.imageUrl(state.server, m)?.let { url ->
+                                            remoteBitmap(images, url)
+                                        },
+                                        reserveImage = picker.reserveImage,
+                                    ) { model.openMeet(m.id) }
+                                }
                             }
                         }
                         // P-21: at the end of the list, how many meets the filter keeps off it.
@@ -524,7 +534,11 @@ private fun SearchAppBar(
     )
 }
 
-/** P-01: one meet, as a card the platform draws — container, ripple, press state and all. */
+/**
+ * P-01: one meet, as a card the platform draws — container, ripple, press state and all. The
+ * name on two lines at most, shrinking a little before the ellipsis, then [meta] on one line.
+ * One height for every card: one line of name leaves it padding, a second takes it back.
+ */
 @Composable
 private fun MeetCard(
     name: String,
@@ -539,38 +553,72 @@ private fun MeetCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            leadingContent = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    StatusDot(live)
-                    if (image != null) {
-                        Image(
-                            image.asImageBitmap(),
-                            null,
-                            Modifier.size(56.dp).clip(MaterialTheme.shapes.small),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else if (reserveImage) {
-                        Spacer(Modifier.size(56.dp))
-                    }
-                }
-            },
-            headlineContent = { Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 2) },
-            supportingContent = if (meta.isEmpty()) {
-                null
-            } else {
-                (
-                    {
-                        Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                    }
+        Row(
+            Modifier.heightIn(min = 88.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StatusDot(live)
+            if (image != null) {
+                Image(
+                    image.asImageBitmap(),
+                    null,
+                    Modifier.size(56.dp).clip(MaterialTheme.shapes.small),
+                    contentScale = ContentScale.Crop,
+                )
+            } else if (reserveImage) {
+                Spacer(Modifier.size(56.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                val title = MaterialTheme.typography.titleMedium
+                Text(
+                    name,
+                    style = title,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    autoSize = TextAutoSize.StepBased(
+                        minFontSize = title.fontSize * 0.85f,
+                        maxFontSize = title.fontSize,
+                    ),
+                )
+                if (meta.isNotEmpty()) {
+                    Text(
+                        meta.joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-            },
-        )
+                }
+            }
+        }
     }
+}
+
+/** P-01: a day above its meets — `Tuesday, October 6` — read out as a heading. */
+@Composable
+private fun DayHeading(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 12.dp).semantics { heading() },
+    )
+}
+
+/**
+ * P-01: `Tuesday, October 6` in [lang], the year only when it is not this one; null for no
+ * date or one that does not parse, which the list heads with `date_unknown`.
+ */
+private fun dayHeading(date: String, lang: String): String? {
+    val day = try {
+        LocalDate.parse(date)
+    } catch (_: DateTimeParseException) {
+        return null
+    }
+    val locale = if (lang.isBlank()) Locale.getDefault() else Locale.forLanguageTag(lang)
+    val skeleton = if (day.year == LocalDate.now().year) "EEEEMMMMd" else "EEEEMMMMdy"
+    return DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale).format(day)
 }
 
 /**

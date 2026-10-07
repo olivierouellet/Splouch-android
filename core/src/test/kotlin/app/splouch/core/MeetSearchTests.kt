@@ -4,7 +4,6 @@ import app.splouch.core.session.MeetSearch
 import app.splouch.core.session.PickerState
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.countryName
-import app.splouch.core.session.region
 import app.splouch.core.wire.MeetSummary
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -100,16 +99,11 @@ class MeetSearchTests {
         assertEquals(listOf("qc"), shown("canada coupe", "fr"))
     }
 
-    @Test fun `P-01 the region reads province then country, named in the reader's language`() {
+    @Test fun `P-17 the country is named in the reader's language`() {
         assertEquals("Allemagne", countryName("DE", "fr"))
         assertEquals("Germany", countryName("de", "en"))
         assertEquals("", countryName("", "en"))
         assertEquals("C1", countryName("C1", "en"))
-        assertEquals("Québec, Canada", located("a", "", "CA", "QC").region("en"))
-        assertEquals("BY, Germany", located("a", "", "DE", "BY").region("en"))
-        assertEquals("Canada", located("a", "", "CA", "").region("en"))
-        assertEquals("QC", located("a", "", "", "QC").region("en"))
-        assertEquals("", located("a", "", "", "").region("en"))
     }
 
     @Test fun `P-18 ten meets are cards with their images, eleven are compact rows that fetch none`() {
