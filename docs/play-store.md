@@ -58,11 +58,12 @@ Full:
 ```text
 Splouch met le tableau d'affichage de la piscine dans votre poche.
 
-Choisissez une compétition dans la liste, ou connectez-vous au serveur de la piscine sur le wifi de l'installation, et suivez la course depuis les estrades :
+Choisissez une compétition dans la liste, filtrable par club, pays ou province, ou connectez-vous au serveur de la piscine sur le wifi de l'installation, et suivez la course depuis les estrades :
 
 • Tableau en direct : chronomètre de course, temps de passage et classements à mesure qu'ils arrivent
 • Résultats de chaque série
 • Horaire de la compétition, filtrable par nageur ou par club
+• Notifications pour les nageurs que vous suivez : quand leur série approche et quand elle passe à la console
 • Ajout d'un serveur en scannant un code QR affiché à la piscine
 
 L'application est offerte en français, en anglais et en espagnol, reprend le thème de chaque compétition, en clair ou en sombre, et fonctionne sur téléphone et tablette.
@@ -83,11 +84,12 @@ Full:
 ```text
 Splouch puts the pool's scoreboard in your pocket.
 
-Pick a meet from the list, or connect to the pool's own server on the venue's wifi, and follow along from the stands:
+Pick a meet from the list, filtered by club, country or province, or connect to the pool's own server on the venue's wifi, and follow along from the stands:
 
 • Live scoreboard: race clock, splits and places as they land
 • Results for every heat
 • The meet schedule, filterable by swimmer or club
+• Notifications for the swimmers you follow: when their heat is coming up and when it reaches the console
 • Add a server by scanning a QR code posted at the pool
 
 The app speaks English, French and Spanish, follows each meet's own theme in light or dark, and runs on phones and tablets.
@@ -120,7 +122,7 @@ Results shown are live and unofficial.
 | Play App Signing | Accept (Google holds the app signing key) |
 | Track | Closed testing first, then production after 14 days with 12 testers |
 | Countries | Canada only |
-| Release name | 2026.10.0 (versionCode 202610000) |
+| Release name | 2026.10.1 (versionCode 202610001) |
 
 Release notes, first release:
 
