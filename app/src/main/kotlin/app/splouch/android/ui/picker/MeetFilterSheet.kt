@@ -29,7 +29,7 @@ import app.splouch.core.wire.MeetSummary
 
 /**
  * P-21: the picker's filter, Android's way — a `ModalBottomSheet` of checkbox rows in three
- * sections, country, state/province and club, offering what the list holds. Every tap writes
+ * sections, club, country and state/province, offering what the list holds. Every tap writes
  * straight to the stored filter, so the list behind is already filtered when the sheet goes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,6 +61,12 @@ fun MeetFilterSheet(
                     },
                 )
             }
+            if (options.clubs.isNotEmpty()) {
+                item { SectionTitle(stringResource(R.string.filter_club)) }
+                items(options.clubs, key = { "k/$it" }) { club ->
+                    CheckRow(club, filter.hasClub(club)) { onChange(filter.toggleClub(club)) }
+                }
+            }
             if (options.countries.isNotEmpty()) {
                 item { SectionTitle(stringResource(R.string.filter_country)) }
                 items(options.countries, key = { "c/$it" }) { code ->
@@ -71,12 +77,6 @@ fun MeetFilterSheet(
                 item { SectionTitle(stringResource(R.string.filter_province)) }
                 items(options.provinces, key = { "p/${it.country}/${it.name}" }) { p ->
                     CheckRow(p.label(lang), filter.has(p)) { onChange(filter.toggleProvince(p)) }
-                }
-            }
-            if (options.clubs.isNotEmpty()) {
-                item { SectionTitle(stringResource(R.string.filter_club)) }
-                items(options.clubs, key = { "k/$it" }) { club ->
-                    CheckRow(club, filter.hasClub(club)) { onChange(filter.toggleClub(club)) }
                 }
             }
         }
