@@ -39,9 +39,10 @@ data class MeetFilter(
             ?: (country.uppercase() + "/" + SearchFold.fold(name))
 
         /** `Québec, Canada`, as P-01 names a meet's region. */
-        fun label(lang: String): String = listOf(Subdivisions.name(country, name), countryName(country, lang)).filter {
-            it.isNotBlank()
-        }.joinToString(", ")
+        fun label(lang: String): String =
+            listOf(Subdivisions.name(country, name, lang), countryName(country, lang)).filter {
+                it.isNotBlank()
+            }.joinToString(", ")
     }
 
     val isActive: Boolean get() = countries.isNotEmpty() || provinces.isNotEmpty() || clubs.isNotEmpty()

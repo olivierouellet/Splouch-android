@@ -1,6 +1,7 @@
 package app.splouch.core.session
 
 import app.splouch.core.schedule.SearchFold
+import java.util.Locale
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -9,14 +10,25 @@ import kotlinx.serialization.json.Json
  * `QC`, `Québec`, `Quebec` — and the platform names an ISO 3166-2 subdivision nowhere the way
  * it names a country, so the app carries the names: `subdivisions.json`, a verbatim copy of
  * the server repo's `shared/regions/subdivisions.json`. Each is the subdivision's own name in
- * its majority language, never translated. A province the table does not know is shown as sent.
+ * its majority language, translated only where the country has two or more official languages
+ * (`names`: Canada's in French). A province the table does not know is shown as sent.
  */
 object Subdivisions {
-    /** One subdivision: its ISO 3166-2 code, without the country, and its name. */
-    data class Entry(val code: String, val name: String)
+    /** One subdivision: its ISO 3166-2 code, without the country, its name, and its name in each language that names it otherwise. */
+    data class Entry(val code: String, val name: String, val names: Map<String, String> = emptyMap()) {
+        /** `Colombie-Britannique` in French, `British Columbia` in any other language; blank [lang] is the device's. */
+        fun name(lang: String): String {
+            val code = (if (lang.isBlank()) Locale.getDefault() else Locale.forLanguageTag(lang)).language
+            return names[code] ?: name
+        }
+    }
 
+    /** [names]: country → language → code → name. */
     @Serializable
-    private class File(val countries: Map<String, Map<String, List<String>>>)
+    private class File(
+        val countries: Map<String, Map<String, List<String>>>,
+        val names: Map<String, Map<String, Map<String, String>>> = emptyMap(),
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -27,10 +39,12 @@ object Subdivisions {
         val file = runCatching { json.decodeFromString(File.serializer(), raw) }
             .getOrNull() ?: return@lazy emptyMap()
         file.countries.entries.associate { (country, subdivisions) ->
+            val translated = file.names[country].orEmpty()
             country.uppercase() to buildMap {
                 subdivisions.forEach { (code, names) ->
                     val name = names.firstOrNull() ?: return@forEach
-                    val entry = Entry(code, name)
+                    val entry =
+                        Entry(code, name, translated.mapNotNull { (lang, n) -> n[code]?.let { lang to it } }.toMap())
                     (listOf(code) + names).forEach { put(SearchFold.fold(it), entry) }
                 }
             }
@@ -47,6 +61,7 @@ object Subdivisions {
         return table[country.uppercase()]?.get(key)
     }
 
-    /** `Québec` for `QC` in Canada; anything unknown as sent. */
-    fun name(country: String, province: String): String = lookup(country, province)?.name ?: province
+    /** `Québec` for `QC` in Canada, `Colombie-Britannique` for `BC` in French; anything unknown as sent. */
+    fun name(country: String, province: String, lang: String = ""): String =
+        lookup(country, province)?.name(lang) ?: province
 }
