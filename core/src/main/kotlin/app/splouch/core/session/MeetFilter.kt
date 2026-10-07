@@ -12,9 +12,11 @@ import kotlinx.serialization.json.Json
  * across launches and servers. A spectator follows one region or club for a season, so
  * unlike the schedule's (S-20) it is stored.
  *
- * Several values per facet, every one an alternative: a meet passes when it holds any chosen
- * country, province or club (OR within and across facets). A meet whose field is empty never
- * holds that facet's values.
+ * Places, then clubs. A meet is in the chosen places when it is in a chosen province, or in a
+ * chosen country none of whose provinces is chosen: a province narrows its own country only
+ * (Canada, Québec and the United States are Québec and the whole United States). Of the clubs,
+ * any one will do. A meet passes when it passes both, each only while something in it is
+ * chosen. A meet whose field is empty holds none of that field's values.
  */
 @Serializable
 data class MeetFilter(
@@ -47,11 +49,16 @@ data class MeetFilter(
 
     val isActive: Boolean get() = countries.isNotEmpty() || provinces.isNotEmpty() || clubs.isNotEmpty()
 
-    /** Any chosen value the meet holds lets it through; an empty filter, every meet. */
-    fun matches(m: MeetSummary): Boolean = !isActive ||
-        (m.country.isNotBlank() && has(m.country)) ||
-        (m.province.isNotBlank() && has(Province(m.country, m.province))) ||
-        (clubKey(m.organizer).isNotEmpty() && hasClub(m.organizer))
+    fun matches(m: MeetSummary): Boolean {
+        if (countries.isNotEmpty() || provinces.isNotEmpty()) {
+            val code = m.country.uppercase()
+            val inProvince = m.province.isNotBlank() && has(Province(code, m.province))
+            val inCountry = code.isNotBlank() && code in countries && provinces.none { it.country.uppercase() == code }
+            if (!inProvince && !inCountry) return false
+        }
+        if (clubs.isNotEmpty() && (clubKey(m.organizer).isEmpty() || !hasClub(m.organizer))) return false
+        return true
+    }
 
     /** The meets the filter leaves, in the server's order. */
     fun apply(meets: List<MeetSummary>): List<MeetSummary> = if (isActive) meets.filter(::matches) else meets
@@ -60,9 +67,20 @@ data class MeetFilter(
     fun has(province: Province): Boolean = provinces.any { it.key == province.key }
     fun hasClub(club: String): Boolean = clubKey(club).let { key -> clubs.any { clubKey(it) == key } }
 
+    /** Taking a country away takes its provinces with it: the sheet no longer lists them. */
     fun toggleCountry(country: String): MeetFilter {
         val code = country.uppercase()
-        return copy(countries = if (code in countries) countries - code else countries + code)
+        return if (code in countries) {
+            copy(
+                countries = countries - code,
+                provinces = provinces.filterTo(mutableSetOf()) {
+                    it.country.uppercase() !=
+                        code
+                },
+            )
+        } else {
+            copy(countries = countries + code)
+        }
     }
 
     fun toggleProvince(province: Province): MeetFilter {
@@ -96,7 +114,8 @@ data class MeetFilter(
     /**
      * What the sheet offers: clubs the list holds; every country and province the app knows,
      * plus any other the list holds; plus any chosen value, so it can still be unchecked.
-     * Each sorted by what the reader sees, in [lang].
+     * Provinces only of the chosen countries once one is chosen, and any chosen one. Each sorted by what the
+     * reader sees, in [lang].
      */
     data class Options(val countries: List<String>, val provinces: List<Province>, val clubs: List<String>)
 
@@ -119,6 +138,9 @@ data class MeetFilter(
             val p = Province(it.country.uppercase(), it.province)
             provinceByKey.putIfAbsent(p.key, p)
         }
+        val shownProvinces = provinceByKey.values.filter {
+            countries.isEmpty() || it.country.uppercase() in countries || has(it)
+        }
 
         val clubByKey = LinkedHashMap<String, String>()
         clubs.forEach { clubByKey[clubKey(it)] = it }
@@ -128,7 +150,7 @@ data class MeetFilter(
 
         return Options(
             countries = codes.sortedWith(compareBy(collator) { countryName(it, lang) }),
-            provinces = provinceByKey.values.sortedWith(
+            provinces = shownProvinces.sortedWith(
                 compareBy(collator) { it.label(lang) },
             ),
             clubs = clubByKey.values.sortedWith(collator),

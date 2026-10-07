@@ -33,10 +33,18 @@ class MeetFilterTests {
         assertEquals(listOf("mtl", "tor"), ids(MeetFilter(clubs = setOf("CAMO", "Etobicoke")).apply(meets)))
     }
 
-    /** A country, a province and a club: a meet holding any one of them shows. */
-    @Test fun `facets are alternatives too`() {
-        val f = MeetFilter(setOf("US"), setOf(Province("CA", "ON")), setOf("CAMO"))
-        assertEquals(listOf("mtl", "tor", "nyc"), ids(f.apply(meets)))
+    @Test fun `clubs narrow the places`() {
+        val f = MeetFilter(countries = setOf("CA"), clubs = setOf("CAMO", "Asphalt Green"))
+        assertEquals(listOf("mtl"), ids(f.apply(meets)))
+    }
+
+    /** Canada, Québec and the United States: Québec, and the whole United States. */
+    @Test fun `a province narrows its own country only`() {
+        val f = MeetFilter(setOf("CA", "US"), setOf(Province("CA", "QC")))
+        assertEquals(listOf("mtl", "qc", "nyc"), ids(f.apply(meets)))
+        assertEquals(listOf("tor"), ids(MeetFilter(provinces = setOf(Province("CA", "ON"))).apply(meets)))
+        val withClub = f.copy(clubs = setOf("CAMO", "Asphalt Green"))
+        assertEquals(listOf("mtl", "nyc"), ids(withClub.apply(meets)))
     }
 
     @Test fun `an empty field fails an active facet`() {
@@ -61,11 +69,10 @@ class MeetFilterTests {
         assertFalse(once.toggleClub("camo").isActive)
     }
 
-    /** Provinces are choices of their own: dropping their country keeps them. */
-    @Test fun `dropping a country keeps its provinces`() {
-        val f = MeetFilter(setOf("CA"), setOf(Province("CA", "QC"))).toggleCountry("CA")
-        assertTrue(f.countries.isEmpty())
-        assertEquals(setOf(Province("CA", "QC")), f.provinces)
+    @Test fun `dropping a country drops its provinces`() {
+        val f = MeetFilter(setOf("CA", "US"), setOf(Province("CA", "QC"), Province("US", "NY"))).toggleCountry("CA")
+        assertEquals(setOf("US"), f.countries)
+        assertEquals(setOf(Province("US", "NY")), f.provinces)
     }
 
     /** Typed letters kept upper-cased, without spaces or symbols. */
@@ -92,9 +99,11 @@ class MeetFilterTests {
         assertEquals(listOf("Asphalt Green", "CAMO", "Etobicoke", "Rouge et Or"), o.clubs)
     }
 
-    /** Any province may widen what a country lets through, so all stay offered. */
-    @Test fun `provinces stay offered whatever the countries`() {
-        assertEquals(13 + 32 + 56, MeetFilter(countries = setOf("CA")).options(meets, "en").provinces.size)
+    @Test fun `provinces narrow to the chosen countries`() {
+        val o = MeetFilter(countries = setOf("CA")).options(meets, "en")
+        assertEquals(13, o.provinces.size)
+        assertTrue(o.provinces.all { it.country == "CA" })
+        assertEquals("Alberta, Canada", o.provinces.first().label("en"))
     }
 
     /** A region the app does not know is offered once the list holds it. */
