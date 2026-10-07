@@ -188,10 +188,14 @@ class PayloadTests {
 
     @Test fun `meet list, i18n`() {
         val m = MeetSummary.listFromJson(
-            j("""{"meets":[{"id":"a1","name":"M","offline":true,"has_picker_image":false},{"name":"no id"}]}"""),
+            j(
+                """{"meets":[{"id":"a1","name":"M","offline":true,"has_picker_image":false},{"name":"no id"},{"id":"t","test":true}]}""",
+            ),
         )
-        assertEquals(1, m.size)
+        assertEquals(2, m.size)
         assertTrue(m[0].offline)
+        assertFalse(m[0].test)
+        assertTrue(m[1].test)
         val b = I18nBundle.fromJson(
             j(
                 """{"lang":"fr","mobile":{"scoreboard":"Tableau"},"labels":{"short":{"event":"ÉP"},"long":{"event":"ÉPREUVE"}},"event_name":{"unit":"m"}}""",

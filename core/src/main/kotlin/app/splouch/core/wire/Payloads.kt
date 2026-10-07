@@ -79,6 +79,8 @@ data class MeetSummary(
     val province: String = "",
     /** C-11: where the meet is reached, as sent; `""` from a server older than app.md v3. */
     val base: String = "",
+    /** P-22: one of the server's own test meets, badged — its name is a team's and does not say so. */
+    val test: Boolean = false,
 ) {
     companion object {
         fun fromJson(e: JsonElement?): MeetSummary? {
@@ -96,6 +98,7 @@ data class MeetSummary(
                 country = o["country"].asStringOrNull()?.trim().orEmpty(),
                 province = o["province"].asStringOrNull()?.trim().orEmpty(),
                 base = o["base"].asStringOrNull()?.trim().orEmpty(),
+                test = o["test"].asBoolOrNull() ?: false,
             )
         }
 

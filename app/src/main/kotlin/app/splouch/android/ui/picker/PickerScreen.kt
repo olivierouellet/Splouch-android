@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,11 +79,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.splouch.android.ImageCache
 import app.splouch.android.R
 import app.splouch.android.ui.common.EmptyState
@@ -297,6 +300,8 @@ fun PickerScreen(
                         // P-03: a retained meet says so in words, the server's (`mobile.offline`),
                         // as on iOS — the dot alone is colour, and colour says nothing out loud.
                         val offline = t.mobile("offline")
+                        // P-22: the server's word for a test meet, after its name.
+                        val testBadge = cfg?.strings?.get("test_meet") ?: t.mobile("test_meet")
                         // P-01: the meets under their day, the day said once above them.
                         for (day in MeetDay.group(shown)) {
                             item(key = "day-" + day.date) {
@@ -316,6 +321,7 @@ fun PickerScreen(
                                         name = m.name.ifBlank { unnamed },
                                         meta = meta,
                                         live = !m.offline,
+                                        badge = testBadge.takeIf { m.test },
                                     ) { model.openMeet(m.id) }
                                 } else {
                                     MeetCard(
@@ -326,6 +332,7 @@ fun PickerScreen(
                                             remoteBitmap(images, url)
                                         },
                                         reserveImage = picker.reserveImage,
+                                        badge = testBadge.takeIf { m.test },
                                     ) { model.openMeet(m.id) }
                                 }
                             }
@@ -546,6 +553,7 @@ private fun MeetCard(
     live: Boolean,
     image: Bitmap?,
     reserveImage: Boolean,
+    badge: String? = null,
     onClick: () -> Unit,
 ) {
     Card(
@@ -571,16 +579,19 @@ private fun MeetCard(
             }
             Column(Modifier.weight(1f)) {
                 val title = MaterialTheme.typography.titleMedium
-                Text(
-                    name,
-                    style = title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    autoSize = TextAutoSize.StepBased(
-                        minFontSize = title.fontSize * 0.85f,
-                        maxFontSize = title.fontSize,
-                    ),
-                )
+                NameWithBadge(badge) {
+                    Text(
+                        name,
+                        style = title,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        autoSize = TextAutoSize.StepBased(
+                            minFontSize = title.fontSize * 0.85f,
+                            maxFontSize = title.fontSize,
+                        ),
+                        modifier = it,
+                    )
+                }
                 if (meta.isNotEmpty()) {
                     Text(
                         meta.joinToString(" · "),
@@ -593,6 +604,39 @@ private fun MeetCard(
             }
         }
     }
+}
+
+/**
+ * P-22: a meet's name with the **TEST** badge after it when [badge] is set. The name takes what
+ * is left of the row and is cut first; the badge is never shrunk or cut.
+ */
+@Composable
+private fun NameWithBadge(badge: String?, name: @Composable (Modifier) -> Unit) {
+    if (badge == null) {
+        name(Modifier)
+        return
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        name(Modifier.weight(1f, fill = false).alignByBaseline())
+        TestBadge(badge, Modifier.alignByBaseline())
+    }
+}
+
+/** P-22: the web's `.test-badge` — small, bold, outlined in the accent colour. */
+@Composable
+private fun TestBadge(text: String, modifier: Modifier = Modifier) {
+    val accent = MaterialTheme.colorScheme.primary
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.5.sp,
+        color = accent,
+        maxLines = 1,
+        modifier = modifier
+            .border(1.dp, accent, RoundedCornerShape(4.dp))
+            .padding(horizontal = 5.dp, vertical = 1.dp),
+    )
 }
 
 /** P-01: a day above its meets — `Tuesday, October 6` — read out as a heading. */
@@ -626,7 +670,13 @@ private fun dayHeading(date: String, lang: String): String? {
  * slot for one. Still a button of at least 48dp, and one TalkBack stop.
  */
 @Composable
-private fun CompactMeetRow(name: String, meta: List<String>, live: Boolean, onClick: () -> Unit) {
+private fun CompactMeetRow(
+    name: String,
+    meta: List<String>,
+    live: Boolean,
+    badge: String? = null,
+    onClick: () -> Unit,
+) {
     Surface(
         onClick = onClick,
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -640,7 +690,15 @@ private fun CompactMeetRow(name: String, meta: List<String>, live: Boolean, onCl
         ) {
             StatusDot(live)
             Column(Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                NameWithBadge(badge) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = it,
+                    )
+                }
                 if (meta.isNotEmpty()) {
                     Text(
                         meta.joinToString(" · "),
