@@ -359,7 +359,7 @@ private fun Branding(title: String, hasLogo: Boolean, logoAbove: Boolean, state:
     val logo = if (hasLogo) remoteBitmap(images, state.server.httpUrl("/picker_logo")) else null
     if (title.isEmpty() && logo == null) return
     Column(
-        Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
+        Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
