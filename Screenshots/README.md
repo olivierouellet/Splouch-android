@@ -53,8 +53,9 @@ as it opens during heat 2.
    `console_recordings/200m_medley_2heats.serial` named `store-shots.serial`. The
    `.lxf` beside a recording is the meet it loads.
 3. Log in (`score`/`swimming`) and `POST /test_play {"name":"store-shots.serial"}`.
-   Heat 1 finishes about 150 s in and holds until heat 2 starts; the board wipes when
-   the recording ends.
+   Heat 1 finishes about 150 s in and holds until heat 2 starts, about 210 s in; the
+   board wipes when the recording ends. Shoot the schedule after heat 2 starts, or it
+   opens on heat 1.
 4. Language and appearance come from the app's own preferences, so a debug build's
    `shared_prefs/splouch.prefs.xml` is rewritten with `run-as` before each launch
    (`lang` `en`/`fr`, `appearance` `LIGHT`/`DARK`, `tab`, `server`), with
