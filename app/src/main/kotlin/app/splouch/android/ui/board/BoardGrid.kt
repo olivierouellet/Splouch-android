@@ -163,11 +163,16 @@ internal fun BoardType(content: @Composable () -> Unit) {
  * A lane is one thing, not six unrelated fragments — so the row is a single accessibility
  * element reading the whole lane, composed from the server's own column words (`T-04`) so
  * it is spoken in the meet's language rather than the app's. An empty lane says only its
- * number, which is what `L-09`'s blank row means.
+ * number (`L-25`), and an unfilled rank nothing.
  */
 private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, String>, lapsWord: String): String {
     fun word(key: String) = labels[key].orEmpty()
-    val parts = mutableListOf("${word("lane")} ${r.lane}".trim())
+    val parts = mutableListOf<String>()
+    // An unfilled rank in place order has no lane, and says nothing (`R-06`).
+    if (r.lane.isNotBlank()) parts += "${word("lane")} ${r.lane}".trim()
+    // L-25: nobody in the lane — its number alone. Not the Results row's `—`, which is
+    // drawn under the water and was never a time.
+    if (r.vacant) return parts.joinToString(", ")
     if (settings.showName && r.name.isNotBlank()) parts += r.name
     if (settings.showName && r.alt.isNotBlank()) parts += r.alt
     if (settings.showClub && r.club.isNotBlank()) parts += "${word("club")} ${r.club}".trim()
