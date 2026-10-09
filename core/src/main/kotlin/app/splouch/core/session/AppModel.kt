@@ -1025,8 +1025,8 @@ class AppModel(
 
     /**
      * N-07: one `PUT` with every swimmer, at the meet's `base`. Nothing goes while there is
-     * no token, and a non-empty list waits for permission (N-04); an empty one stops the
-     * server whatever the permission. A `409` names another worker: the config there says
+     * no token, and an active list waits for permission (N-04); an empty or paused one (N-11)
+     * stops the server whatever the permission. A `409` names another worker: the config there says
      * which, the sockets follow (C-12), and the list is sent again.
      */
     fun registerFollows() {
@@ -1034,7 +1034,7 @@ class AppModel(
         if (!current.canNotify) return
         val token = pushToken ?: return
         val follows = meet.follows
-        if (!follows.isEmpty && current.pushPermission != PushPermission.ALLOWED) return
+        if (follows.isActive && current.pushPermission != PushPermission.ALLOWED) return
         val registration = FollowRegistration(token, meet.lang, follows)
         scope.launch {
             var context = meet.session.context

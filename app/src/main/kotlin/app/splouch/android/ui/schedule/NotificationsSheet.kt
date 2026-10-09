@@ -73,6 +73,8 @@ import app.splouch.core.session.UiState
  * Material forms for one-of-two, one-of-three and on/off.
  *
  * N-04: the system is asked right after the first swimmer is added, never on opening.
+ * N-11: a switch at the top pauses the meet's notifications and keeps the list; while
+ * paused, the swimmers stay editable and the rest is disabled.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -80,6 +82,7 @@ fun NotificationsSheet(model: AppModel, state: UiState, meet: MeetState, privacy
     val context = LocalContext.current
     val uri = LocalUriHandler.current
     val follows = meet.follows
+    val on = follows.enabled
     var query by remember { mutableStateOf("") }
 
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -144,6 +147,18 @@ fun NotificationsSheet(model: AppModel, state: UiState, meet: MeetState, privacy
                         )
                         HorizontalDivider()
                     }
+                }
+
+                item {
+                    ListItem(
+                        modifier = Modifier.clickable { save(follows.copy(enabled = !on)) },
+                        headlineContent = { Text(stringResource(R.string.notify_enabled)) },
+                        supportingContent = if (on) null else ({ Text(stringResource(R.string.notify_paused)) }),
+                        trailingContent = {
+                            Switch(checked = on, onCheckedChange = { save(follows.copy(enabled = it)) })
+                        },
+                    )
+                    HorizontalDivider()
                 }
 
                 item { Header(stringResource(R.string.notify_swimmers)) }
@@ -233,6 +248,7 @@ fun NotificationsSheet(model: AppModel, state: UiState, meet: MeetState, privacy
                                         }
                                     },
                                     shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                    enabled = on,
                                 ) { Text(stringResource(label)) }
                             }
                     }
@@ -246,6 +262,7 @@ fun NotificationsSheet(model: AppModel, state: UiState, meet: MeetState, privacy
                             FilterChip(
                                 selected = selected,
                                 onClick = { save(follows.copy(lead = FollowLead(byHeats, n))) },
+                                enabled = on,
                                 label = {
                                     Text(
                                         if (byHeats) {
@@ -272,13 +289,16 @@ fun NotificationsSheet(model: AppModel, state: UiState, meet: MeetState, privacy
 
                 item {
                     ListItem(
-                        modifier = Modifier.clickable { save(follows.copy(selected = !follows.selected)) },
+                        modifier = Modifier.clickable(enabled = on) {
+                            save(follows.copy(selected = !follows.selected))
+                        },
                         headlineContent = { Text(stringResource(R.string.notify_selected)) },
                         supportingContent = { Text(stringResource(R.string.notify_selected_footer)) },
                         trailingContent = {
                             Switch(
                                 checked = follows.selected,
                                 onCheckedChange = { save(follows.copy(selected = it)) },
+                                enabled = on,
                             )
                         },
                     )

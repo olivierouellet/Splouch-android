@@ -76,6 +76,8 @@
     <string name="notify_minutes_value">Environ %1$d min</string>
     <string name="notify_selected">Série à la console</string>
     <string name="notify_selected_footer">Aussi quand l\'opérateur affiche la série à la console de chronométrage.</string>
+    <string name="notify_enabled">Me prévenir</string>
+    <string name="notify_paused">En pause. Vos nageurs sont conservés.</string>
     <string name="notify_privacy">Les noms et clubs suivis, un jeton de notification et la langue de l\'application vont au serveur de cette compétition, qui les garde seulement jusqu\'à la fin de la compétition.</string>
     <string name="notify_denied">Les notifications sont désactivées pour Splouch.</string>
     <string name="notify_open_settings">Activer dans les paramètres</string>

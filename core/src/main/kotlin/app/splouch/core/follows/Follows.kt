@@ -37,8 +37,13 @@ data class MeetFollows(
     val selected: Boolean = true,
     /** The meet's `base` (C-11) when last registered, so a new token reaches it unopened (`N-07`). */
     val base: String? = null,
+    /** `N-11`: off pauses the meet's notifications; the list stays. */
+    val enabled: Boolean = true,
 ) {
     val isEmpty: Boolean get() = swimmers.isEmpty()
+
+    /** Someone to notify about: swimmers followed and not paused (`N-11`). */
+    val isActive: Boolean get() = enabled && swimmers.isNotEmpty()
 
     /** A second name in another club stays a second follow. */
     fun add(s: FollowedSwimmer): MeetFollows = if (s in swimmers) this else copy(swimmers = swimmers + s)
@@ -60,6 +65,7 @@ data class MeetFollows(
         put("by_heats", lead.byHeats)
         put("lead", lead.value)
         put("selected", selected)
+        put("enabled", enabled)
         base?.let { put("base", it) }
     }
 
@@ -78,6 +84,8 @@ data class MeetFollows(
                 swimmers = swimmers,
                 lead = FollowLead(byHeats, value),
                 selected = o["selected"].asBoolOrNull() ?: true,
+                // A list saved before N-11 has no `enabled`: it was on.
+                enabled = o["enabled"].asBoolOrNull() ?: true,
                 base = o["base"].asStringOrNull(),
             )
         }
@@ -147,8 +155,9 @@ data class FollowRegistration(val token: String, val lang: String, val follows: 
         put("lang", lang)
         put(
             "swimmers",
+            // N-11: paused, the node is told to stop; the device keeps the list.
             JsonArray(
-                follows.swimmers.map {
+                (if (follows.enabled) follows.swimmers else emptyList()).map {
                     buildJsonObject {
                         put("name", it.name)
                         put("club", it.club)

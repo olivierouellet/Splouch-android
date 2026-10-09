@@ -274,26 +274,29 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                 actions = {
                     // N-01: beside the filter, where the meet's node can notify this phone.
                     // Active while someone is followed, with the count — the filter's way.
+                    // Struck through, no count, while paused (N-11).
                     if (tab == MeetTab.SCHEDULE && state.canNotify) {
                         val following = meet.follows.swimmers.size
+                        val paused = following > 0 && !meet.follows.enabled
                         IconButton(onClick = { showNotifications = true }) {
-                            BadgedBox(badge = { if (following > 0) Badge { Text(following.toString()) } }) {
+                            BadgedBox(badge = { if (following > 0 && !paused) Badge { Text(following.toString()) } }) {
                                 Icon(
                                     painterResource(
-                                        if (following >
-                                            0
-                                        ) {
-                                            R.drawable.ic_notifications_active
-                                        } else {
-                                            R.drawable.ic_notifications
+                                        when {
+                                            paused -> R.drawable.ic_notifications_off
+                                            following > 0 -> R.drawable.ic_notifications_active
+                                            else -> R.drawable.ic_notifications
                                         },
                                     ),
                                     // The count is read out as well as drawn.
-                                    if (following > 0) {
-                                        stringResource(R.string.notifications) + ", " +
-                                            pluralStringResource(R.plurals.notify_following, following, following)
-                                    } else {
-                                        stringResource(R.string.notifications)
+                                    when {
+                                        paused ->
+                                            stringResource(R.string.notifications) + ", " +
+                                                stringResource(R.string.notify_paused)
+                                        following > 0 ->
+                                            stringResource(R.string.notifications) + ", " +
+                                                pluralStringResource(R.plurals.notify_following, following, following)
+                                        else -> stringResource(R.string.notifications)
                                     },
                                 )
                             }

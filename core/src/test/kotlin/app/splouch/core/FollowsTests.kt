@@ -182,6 +182,38 @@ class FollowsTests {
         assertEquals(1, rig.http.followBodies().size)
     }
 
+    // ── N-11 ──────────────────────────────────────────────────────────────────
+
+    @Test fun `paused sends an empty list and keeps the swimmers`() = runTest {
+        val rig = Rig(this)
+        rig.openWithPush(this)
+        rig.model.setFollows(MeetFollows(listOf(emma)))
+        runCurrent()
+        rig.model.setFollows(MeetFollows(listOf(emma), enabled = false))
+        runCurrent()
+        rig.model.setFollows(MeetFollows(listOf(emma)))
+        runCurrent()
+        assertEquals(listOf(1, 0, 1), rig.http.followBodies().map { it["swimmers"]!!.jsonArray.size })
+        assertEquals(listOf(emma), rig.store.get(base, "m1").swimmers)
+    }
+
+    @Test fun `paused is sent even without permission`() = runTest {
+        val rig = Rig(this)
+        rig.openWithPush(this, PushPermission.REFUSED)
+        rig.model.setFollows(MeetFollows(listOf(emma), enabled = false))
+        runCurrent()
+        assertEquals(0, rig.http.followBodies().single()["swimmers"]!!.jsonArray.size)
+    }
+
+    @Test fun `a list saved before the pause is on, and a paused one stays paused`() {
+        val old = FollowStore.decode(
+            """{"k":{"swimmers":[{"name":"Emma Roy","club":"CNQ"}],"by_heats":false,"lead":5,"selected":true}}""",
+        )
+        assertTrue(old.getValue("k").enabled)
+        val paused = mapOf("k" to MeetFollows(listOf(emma), enabled = false))
+        assertEquals(paused, FollowStore.decode(FollowStore.encode(paused)))
+    }
+
     @Suppress("ktlint:standard:max-line-length")
     @Test
     fun `a meet held elsewhere is followed, then asked again`() = runTest {
