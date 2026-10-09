@@ -42,7 +42,14 @@ class ScoreboardState(numLanes: Int, val clock: RaceClock) {
         val lockEdge: Int = 0,
         /** The lane number pulses: running, live, and no clock to show (L-12 table). */
         val pulsing: Boolean = false,
-    )
+    ) {
+        /**
+         * L-25: nothing in the lane — no swimmer, no time, not running. Whether it is drawn as
+         * still water is the board's call, which sees the whole heat.
+         */
+        val vacant: Boolean
+            get() = listOf(name, alt, club, time, place).all { it.isEmpty() } && !running && !pulsing
+    }
 
     data class View(
         val currentEvent: String,

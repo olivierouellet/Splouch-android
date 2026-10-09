@@ -40,7 +40,7 @@ class ResultsAndDeltaTests {
         assertFalse(v.rows[0].locked)
     }
 
-    @Test fun `place sort fills top-down, unfilled ranks show a dash for the lane`() {
+    @Test fun `place sort fills top-down, unfilled ranks leave the lane blank`() {
         val r = ResultsBoard(4)
         r.apply(
             snap(
@@ -49,7 +49,8 @@ class ResultsAndDeltaTests {
         )
         val v = r.view()
         assertEquals(listOf("D", "A", "", ""), v.rows.map { it.name })
-        assertEquals(listOf("4", "1", "—", "—"), v.rows.map { it.laneLabel })
+        assertEquals(listOf("4", "1", "", ""), v.rows.map { it.laneLabel })
+        assertEquals(listOf(false, false, true, true), v.rows.map { it.vacant })
     }
 
     @Test fun `a missing time renders as a dash and an empty snapshot is ignored`() {

@@ -2,6 +2,7 @@ package app.splouch.android.ui.board
 
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +27,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -33,6 +36,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -49,6 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.splouch.android.ui.common.reduceMotion
 import app.splouch.android.ui.theme.AutoSizeText
 import app.splouch.android.ui.theme.LocalBoardColors
 import app.splouch.android.ui.theme.LocalBoardFonts
@@ -59,6 +67,9 @@ import app.splouch.core.board.LapCount
 import app.splouch.core.board.LapSettings
 import app.splouch.core.board.ScoreboardState.TimeStyle
 import app.splouch.core.wire.MeetSettings
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 
@@ -81,7 +92,19 @@ data class GridRow(
      * all finishes and never has one.
      */
     val lap: LapCount? = null,
+    /** L-25: nothing in the lane. Drawn as still water only when the heat has names. */
+    val vacant: Boolean = false,
 )
+
+/**
+ * L-25: a lane only reads as empty against lanes that are not. A console that sends no names
+ * at all leaves every lane bare, and a pool of still water there would be a claim the board
+ * cannot make.
+ */
+private fun stillLanes(rows: List<GridRow>): List<Boolean> {
+    val named = rows.any { it.name.isNotEmpty() }
+    return rows.map { named && it.vacant }
+}
 
 /** The six-column board shared by the Scoreboard and Results tabs (app.md L-04..L-09, L-15..L-17, R-04). */
 @Composable
@@ -273,6 +296,7 @@ private fun PortraitGrid(
                     }
                 }
             }
+            val still = stillLanes(rows)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 rows.forEachIndexed { i, r ->
                     val description = spoken(r, settings, labels, lapsWord)
@@ -284,6 +308,7 @@ private fun PortraitGrid(
                         showsAlt,
                         rowFit,
                         clubMax * scale,
+                        still = still[i],
                         modifier = Modifier.height(rowHeight)
                             .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
                             .clearAndSetSemantics { contentDescription = description },
@@ -315,6 +340,8 @@ private fun PortraitRow(
     lineFit: Float,
     clubMax: Dp,
     modifier: Modifier = Modifier,
+    /** L-25: nobody in this lane, so the row is still water rather than cells. */
+    still: Boolean = false,
 ) {
     val colors = LocalBoardColors.current
     val density = LocalDensity.current
@@ -324,6 +351,10 @@ private fun PortraitRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LaneNumber(r.lane, r.pulsing, size, Modifier.width(LaneW * scale))
+        if (still) {
+            StillWater(size * 0.15f, Modifier.weight(1f).fillMaxHeight().padding(end = RowEndPad * scale))
+            return@Row
+        }
         Column(Modifier.weight(1f).padding(end = RowEndPad * scale)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 // The floor comes off the same pinned size as the ceiling — see `AutoSizeText`.
@@ -549,6 +580,7 @@ private fun LandscapeGrid(
                     }
                 }
             }
+            val still = stillLanes(rows)
             rows.forEachIndexed { i, r ->
                 val description = spoken(r, settings, labels, lapsWord)
                 Row(
@@ -558,6 +590,13 @@ private fun LandscapeGrid(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LaneNumber(r.lane, r.pulsing, size * laneFit, Modifier.weight(cols.lane))
+                    if (still[i]) {
+                        StillWater(
+                            size * 0.1f,
+                            Modifier.weight(1f - cols.lane).fillMaxHeight().padding(horizontal = CellPad),
+                        )
+                        return@Row
+                    }
                     if (cols.name > 0f) {
                         Column(Modifier.weight(cols.name).padding(horizontal = CellPad)) {
                             AutoSizeText(
@@ -760,6 +799,56 @@ private fun LaneNumber(text: String, pulsing: Boolean, size: Dp, modifier: Modif
         modifier = modifier,
     )
 }
+
+/**
+ * L-25: an empty lane, drawn as the surface of water nobody is swimming in. One faint sine
+ * line across the row, fading out at both ends, that drifts a wavelength every ten seconds —
+ * slow enough to sit under the eye rather than catch it. The phase comes off the wall clock,
+ * so empty lanes side by side move as one surface whenever each one emptied. Remove
+ * animations stills it (`reduceMotion`); it says the same thing standing.
+ *
+ * Not the lane number: that already pulses for a lane waiting on its clock (L-12), and a
+ * second animation there would read as the first.
+ */
+@Composable
+private fun StillWater(amplitude: Dp, modifier: Modifier) {
+    val colors = LocalBoardColors.current
+    val still = reduceMotion()
+    var phase by remember { mutableFloatStateOf(0f) }
+    if (!still) {
+        LaunchedEffect(Unit) {
+            while (isActive) {
+                phase = (System.currentTimeMillis() % STILL_WATER_PERIOD_MS) / STILL_WATER_PERIOD_MS.toFloat()
+                delay(50)
+            }
+        }
+    }
+    val line = colors.thText.copy(alpha = colors.thText.alpha * 0.35f)
+    Canvas(modifier.clearAndSetSemantics { }) {
+        val amp = amplitude.toPx()
+        val wavelength = maxOf(36.dp.toPx(), amp * 18f)
+        val mid = size.height / 2f
+        val path = Path()
+        var x = 0f
+        while (x <= size.width) {
+            val y = mid + amp * sin((x / wavelength - phase) * 2f * PI.toFloat())
+            if (x == 0f) path.moveTo(x, y) else path.lineTo(x, y)
+            x += 2f
+        }
+        drawPath(
+            path,
+            Brush.horizontalGradient(
+                0f to Color.Transparent,
+                0.15f to line,
+                0.85f to line,
+                1f to Color.Transparent,
+            ),
+            style = Stroke(width = 1.2.dp.toPx()),
+        )
+    }
+}
+
+private const val STILL_WATER_PERIOD_MS = 10_000L
 
 /**
  * L-11: a running time is dimmed; on the stop edge it flashes and settles to the timing

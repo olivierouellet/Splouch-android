@@ -18,7 +18,10 @@ class ResultsBoard(numLanes: Int) {
     }
 
     data class Row(
-        /** The lane number, or `—` for an unfilled rank in place sort. */
+        /**
+         * The lane number, or empty for an unfilled rank in place sort — that row is no lane at
+         * all, and its still water (L-25) says so without a dash.
+         */
         val laneLabel: String,
         val name: String = "",
         val alt: String = "",
@@ -31,6 +34,8 @@ class ResultsBoard(numLanes: Int) {
         val place: String = "",
         /** R-09: a final time carries the locked styling. */
         val locked: Boolean = false,
+        /** L-25: no result on this row — drawn as still water rather than a dash. */
+        val vacant: Boolean = false,
     )
 
     data class View(
@@ -71,7 +76,7 @@ class ResultsBoard(numLanes: Int) {
         return (1..numLanes).map { i ->
             val r = byRow[i]
             if (r == null) {
-                Row(laneLabel = if (laneSort) i.toString() else DASH)
+                Row(laneLabel = if (laneSort) i.toString() else "", vacant = true)
             } else {
                 Row(
                     laneLabel = r.channel?.toString() ?: i.toString(),

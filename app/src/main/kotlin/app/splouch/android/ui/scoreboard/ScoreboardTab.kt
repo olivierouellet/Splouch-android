@@ -42,7 +42,7 @@ fun ScoreboardTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerI
         view.lanes.map { l ->
             GridRow(
                 l.number.toString(), l.pulsing, l.name, l.alt, l.club, l.time, l.timeStyle, l.lockEdge,
-                l.deltaSeconds, l.deltaBetter, l.place, view.lap(l, laps),
+                l.deltaSeconds, l.deltaBetter, l.place, view.lap(l, laps), l.vacant,
             )
         }
     }

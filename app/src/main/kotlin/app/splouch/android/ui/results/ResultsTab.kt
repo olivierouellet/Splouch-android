@@ -34,7 +34,10 @@ fun ResultsTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBa
     val rows = remember(view.rows) {
         view.rows.map { r ->
             val style = if (r.locked) TimeStyle.LOCKED else TimeStyle.NORMAL
-            GridRow(r.laneLabel, false, r.name, r.alt, r.club, r.time, style, 0, r.deltaSeconds, r.deltaBetter, r.place)
+            GridRow(
+                r.laneLabel, false, r.name, r.alt, r.club, r.time, style, 0, r.deltaSeconds, r.deltaBetter, r.place,
+                vacant = r.vacant,
+            )
         }
     }
     Column(Modifier.fillMaxSize()) {

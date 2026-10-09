@@ -12,7 +12,8 @@ import androidx.compose.ui.platform.LocalContext
  * The board's own motion is information rather than decoration: `L-11`'s lock flash is
  * how a final time announces itself and `L-12`'s pulse is how a lane says its clock has
  * gone quiet, so neither is dropped here. What honours the setting is the motion that
- * only decorates — the picker's live dot, which the dot's own colour already states.
+ * only decorates — the picker's live dot, which the dot's own colour already states, and an
+ * empty lane's ripple (`L-25`), which says the same thing standing still.
  */
 @Composable
 fun reduceMotion(): Boolean {

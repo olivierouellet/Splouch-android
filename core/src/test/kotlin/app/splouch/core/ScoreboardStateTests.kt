@@ -418,4 +418,13 @@ class ScoreboardStateTests {
         assertEquals(0, b.lane(1).splits)
         assertNull(b.lap(1, up))
     }
+
+    /** L-25: a running lane with no name yet is a swimmer, not still water. */
+    @Test fun `a lane is vacant only with nothing in it`() {
+        assertTrue(ScoreboardState.Lane(1).vacant)
+        assertFalse(ScoreboardState.Lane(1, name = "Roy").vacant)
+        assertFalse(ScoreboardState.Lane(1, time = "58.11").vacant)
+        assertFalse(ScoreboardState.Lane(1, running = true).vacant)
+        assertFalse(ScoreboardState.Lane(1, pulsing = true).vacant)
+    }
 }
