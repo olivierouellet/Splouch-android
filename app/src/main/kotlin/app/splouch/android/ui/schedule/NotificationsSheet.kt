@@ -54,6 +54,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.splouch.android.R
 import app.splouch.android.platform.Push
+import app.splouch.android.ui.common.DialogSystemBars
 import app.splouch.core.follows.FollowLead
 import app.splouch.core.follows.FollowedSwimmer
 import app.splouch.core.follows.MeetFollows
@@ -111,6 +112,7 @@ fun NotificationsSheet(model: AppModel, state: UiState, meet: MeetState, privacy
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        DialogSystemBars()
         Scaffold(
             modifier = Modifier.fillMaxSize().imePadding(),
             topBar = {

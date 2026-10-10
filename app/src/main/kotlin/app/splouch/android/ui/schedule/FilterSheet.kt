@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.splouch.android.R
+import app.splouch.android.ui.common.DialogSystemBars
 import app.splouch.core.follows.FollowedSwimmer
 import app.splouch.core.follows.MeetFollows
 import app.splouch.core.schedule.Filter
@@ -93,6 +94,7 @@ fun FilterSheet(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        DialogSystemBars()
         Scaffold(
             modifier = Modifier.fillMaxSize().imePadding(),
             topBar = {

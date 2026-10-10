@@ -168,7 +168,9 @@ Also in this pass, and listed here because no single ID owns them:
   height it got.
 - **The window follows the device.** `themes.xml` was `Theme.DeviceDefault.NoActionBar`
   with `windowBackground #000000`; it is `DayNight` now, and the system bars' icon polarity
-  is set per screen (`SplouchRoot.SystemBarAppearance`) rather than pinned to light.
+  is set per screen (`common/SystemBars.kt`) rather than pinned to light — the full-screen
+  Notifications and Filter dialogs too, which are windows of their own and kept light
+  glyphs over a light page (QA M-03).
 - **The only hex left outside the board** is the picker's live dot, `#4CAF50`. That is
   product — "this meet is running now" is the same statement whatever the device's colours
   are — rather than chrome.

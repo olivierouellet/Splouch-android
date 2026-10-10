@@ -17,7 +17,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,14 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.ImageCache
 import app.splouch.android.R
 import app.splouch.android.platform.LocalNetworkAccess
 import app.splouch.android.platform.rememberLocalNetworkAccess
+import app.splouch.android.ui.common.SystemBarAppearance
 import app.splouch.android.ui.intro.IntroScreen
 import app.splouch.android.ui.picker.PickerScreen
 import app.splouch.android.ui.picker.ServerInviteDialog
@@ -236,17 +234,3 @@ private const val DURATION_MS = 280
 
 /** The four places the app can be, by how far from the picker each sits. */
 private enum class Screen(val depth: Int) { PICKER(0), SETTINGS(1), MEET(1), INTRO(2) }
-
-/** Light glyphs over a dark screen and dark glyphs over a light one, in both system bars. */
-@Composable
-private fun SystemBarAppearance(dark: Boolean) {
-    val view = LocalView.current
-    if (view.isInEditMode) return
-    SideEffect {
-        val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
-        WindowCompat.getInsetsController(window, view).apply {
-            isAppearanceLightStatusBars = !dark
-            isAppearanceLightNavigationBars = !dark
-        }
-    }
-}
