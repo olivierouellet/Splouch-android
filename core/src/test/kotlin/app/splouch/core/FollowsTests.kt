@@ -2,6 +2,7 @@ package app.splouch.core
 
 import app.splouch.core.follows.FollowLead
 import app.splouch.core.follows.FollowRegistration
+import app.splouch.core.follows.FollowState
 import app.splouch.core.follows.FollowStore
 import app.splouch.core.follows.FollowedSwimmer
 import app.splouch.core.follows.HeatFocus
@@ -248,6 +249,67 @@ class FollowsTests {
         runCurrent()
         assertEquals(1, rig.http.followBodies().size)
         assertEquals(setOf(FollowStore.key(base, "m1")), store.load().keys)
+    }
+
+    // ── N-12, N-13 ────────────────────────────────────────────────────────────
+
+    @Test fun `a follow keeps the meet's name and language`() = runTest {
+        val rig = Rig(this)
+        rig.openWithPush(this)
+        rig.model.setFollows(MeetFollows(listOf(emma)))
+        runCurrent()
+        val kept = rig.store.get(base, "m1")
+        assertEquals("Meet One", kept.name)
+        assertEquals("fr", kept.lang)
+        assertEquals(kept, MeetFollows.fromJson(kept.toJson()))
+        assertEquals(listOf("Meet One"), rig.model.current.followedMeets.map { rig.model.current.followedName(it) })
+    }
+
+    @Test fun `settings list every followed meet by name, from every server`() = runTest {
+        val store = InMemoryFollowStore()
+        store.set(base, "m1", MeetFollows(listOf(emma), name = "Zone"))
+        store.set("http://pool.local:80", "m2", MeetFollows(listOf(emma), name = "Alpha"))
+        val rig = Rig(this, store)
+        val meets = rig.model.current.followedMeets
+        assertEquals(listOf("Alpha", "Zone"), meets.map { rig.model.current.followedName(it) })
+        assertEquals(listOf("pool.local", null), meets.map { rig.model.followedServer(it) })
+        assertTrue(Rig(this).model.current.followedMeets.isEmpty())
+    }
+
+    @Test fun `pause all sends empty lists and keeps the swimmers`() = runTest {
+        val store = InMemoryFollowStore()
+        store.set(base, "m1", MeetFollows(listOf(emma)))
+        store.set(base, "m3", MeetFollows(listOf(emma), enabled = false)) // paused already: nothing to send
+        val rig = Rig(this, store)
+        rig.http.on("$base/meet/m1/follow", status = 204)
+        rig.model.setPushPermission(PushPermission.REFUSED)
+        rig.model.setPushToken("tok")
+        runCurrent()
+        assertEquals(FollowState.ON, rig.model.current.followState("m1"))
+        rig.model.pauseAllFollows()
+        runCurrent()
+        assertEquals(listOf(0), rig.http.followBodies().map { it["swimmers"]!!.jsonArray.size })
+        assertTrue(rig.http.followBodies("$base/meet/m3/follow").isEmpty())
+        assertTrue(rig.model.current.followedMeets.all { !it.follows.enabled && it.follows.swimmers == listOf(emma) })
+        assertEquals(FollowState.PAUSED, rig.model.current.followState("m1"))
+        assertEquals(FollowState.NONE, rig.model.current.followState("m9"))
+    }
+
+    @Test fun `a meet turned back on from settings sends its list`() = runTest {
+        val store = InMemoryFollowStore()
+        store.set(base, "m1", MeetFollows(listOf(emma), enabled = false, lang = "es"))
+        val rig = Rig(this, store)
+        rig.http.on("$base/meet/m1/follow", status = 204)
+        rig.model.setPushPermission(PushPermission.ALLOWED)
+        rig.model.setPushToken("tok")
+        runCurrent()
+        rig.http.puts.clear()
+        rig.model.setFollowsEnabled(rig.model.current.followedMeets[0], true)
+        runCurrent()
+        val body = rig.http.followBodies().single()
+        assertEquals(1, body["swimmers"]!!.jsonArray.size)
+        assertEquals("es", body["lang"]!!.jsonPrimitive.content)
+        assertTrue(rig.model.current.followedMeets[0].follows.enabled)
     }
 
     // ── N-08, N-09 ────────────────────────────────────────────────────────────

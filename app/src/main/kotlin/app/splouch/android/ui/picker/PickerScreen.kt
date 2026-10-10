@@ -90,6 +90,7 @@ import app.splouch.android.R
 import app.splouch.android.ui.common.EmptyState
 import app.splouch.android.ui.common.reduceMotion
 import app.splouch.android.ui.common.rememberFocusReturn
+import app.splouch.core.follows.FollowState
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.LiveDot
 import app.splouch.core.session.MeetDay
@@ -326,6 +327,7 @@ fun PickerScreen(
                                         live = !m.offline,
                                         rank = first + i,
                                         badge = testBadge.takeIf { m.test },
+                                        follow = state.followState(m.id),
                                     ) { model.openMeet(m.id) }
                                 } else {
                                     MeetCard(
@@ -338,6 +340,7 @@ fun PickerScreen(
                                         reserveImage = picker.reserveImage,
                                         rank = first + i,
                                         badge = testBadge.takeIf { m.test },
+                                        follow = state.followState(m.id),
                                     ) { model.openMeet(m.id) }
                                 }
                             }
@@ -560,6 +563,7 @@ private fun MeetCard(
     reserveImage: Boolean,
     rank: Int = 0,
     badge: String? = null,
+    follow: FollowState = FollowState.NONE,
     onClick: () -> Unit,
 ) {
     Card(
@@ -585,7 +589,7 @@ private fun MeetCard(
             }
             Column(Modifier.weight(1f)) {
                 val title = MaterialTheme.typography.titleMedium
-                NameWithBadge(badge) {
+                NameWithBadge(badge, follow) {
                     Text(
                         name,
                         style = title,
@@ -613,18 +617,31 @@ private fun MeetCard(
 }
 
 /**
- * P-22: a meet's name with the **TEST** badge after it when [badge] is set. The name takes what
- * is left of the row and is cut first; the badge is never shrunk or cut.
+ * P-22: a meet's name with the **TEST** badge after it when [badge] is set, then N-13's bell
+ * while this device follows swimmers there. The name takes what is left of the row and is cut
+ * first; the badge and the bell are never shrunk or cut.
  */
 @Composable
-private fun NameWithBadge(badge: String?, name: @Composable (Modifier) -> Unit) {
-    if (badge == null) {
+private fun NameWithBadge(badge: String?, follow: FollowState, name: @Composable (Modifier) -> Unit) {
+    if (badge == null && follow == FollowState.NONE) {
         name(Modifier)
         return
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         name(Modifier.weight(1f, fill = false).alignByBaseline())
-        TestBadge(badge, Modifier.alignByBaseline())
+        if (badge != null) TestBadge(badge, Modifier.alignByBaseline())
+        if (follow != FollowState.NONE) {
+            // N-01's glyphs, quiet: the meet's name stays what the row is about. Its foot sits
+            // a little under the name's baseline, as a glyph of the text would.
+            val paused = follow == FollowState.PAUSED
+            Icon(
+                painterResource(if (paused) R.drawable.ic_notifications_off else R.drawable.ic_notifications),
+                stringResource(R.string.notifications) +
+                    if (paused) ", " + stringResource(R.string.notify_paused_short) else "",
+                Modifier.size(16.dp).alignBy { (it.measuredHeight * 0.85f).toInt() },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -682,6 +699,7 @@ private fun CompactMeetRow(
     live: Boolean,
     rank: Int,
     badge: String? = null,
+    follow: FollowState = FollowState.NONE,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -697,7 +715,7 @@ private fun CompactMeetRow(
         ) {
             StatusDot(live, rank)
             Column(Modifier.weight(1f)) {
-                NameWithBadge(badge) {
+                NameWithBadge(badge, follow) {
                     Text(
                         name,
                         style = MaterialTheme.typography.titleSmall,

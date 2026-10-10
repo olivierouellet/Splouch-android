@@ -102,6 +102,8 @@
     <string name="notify_selected_footer">Also when the operator puts the heat on the timing console.</string>
     <string name="notify_enabled">Notify me</string>
     <string name="notify_paused">Paused. Your swimmers are kept.</string>
+    <string name="notify_paused_short">Paused</string>
+    <string name="notify_pause_all">Pause all</string>
     <string name="notify_privacy">The names and clubs you follow, a notification token and the app\'s language go to this meet\'s server, which keeps them only until the meet is over.</string>
     <string name="notify_denied">Notifications are off for Splouch.</string>
     <string name="notify_open_settings">Turn on in settings</string>

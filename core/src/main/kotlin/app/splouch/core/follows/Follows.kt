@@ -39,6 +39,10 @@ data class MeetFollows(
     val base: String? = null,
     /** `N-11`: off pauses the meet's notifications; the list stays. */
     val enabled: Boolean = true,
+    /** `N-12`: the meet's name, for settings' list without its server's list. */
+    val name: String? = null,
+    /** The meet's language when last registered (`T-06`), so settings can send the list again in it (`N-12`). */
+    val lang: String? = null,
 ) {
     val isEmpty: Boolean get() = swimmers.isEmpty()
 
@@ -67,6 +71,8 @@ data class MeetFollows(
         put("selected", selected)
         put("enabled", enabled)
         base?.let { put("base", it) }
+        name?.let { put("name", it) }
+        lang?.let { put("lang", it) }
     }
 
     companion object {
@@ -87,6 +93,8 @@ data class MeetFollows(
                 // A list saved before N-11 has no `enabled`: it was on.
                 enabled = o["enabled"].asBoolOrNull() ?: true,
                 base = o["base"].asStringOrNull(),
+                name = o["name"].asStringOrNull(),
+                lang = o["lang"].asStringOrNull(),
             )
         }
 
@@ -103,10 +111,23 @@ data class MeetFollows(
     }
 }
 
+/** One meet with follows on this device, from any server (`N-12`). [server] is that server's origin. */
+data class FollowedMeet(val server: String, val meetId: String, val follows: MeetFollows) {
+    val id: String get() = FollowStore.key(server, meetId)
+}
+
+/** `N-13`: what the picker's bell says about a meet. */
+enum class FollowState { NONE, ON, PAUSED }
+
 /** The device's follows, by server and meet: a meet id means something only on its server. */
 interface FollowStore {
     fun load(): Map<String, MeetFollows>
     fun save(all: Map<String, MeetFollows>)
+
+    /** `N-12`: every meet with follows, split back into its server and id. */
+    fun meets(): List<FollowedMeet> = load().mapNotNull { (key, follows) ->
+        split(key)?.let { (server, meetId) -> FollowedMeet(server, meetId, follows) }
+    }
 
     fun get(server: String, meetId: String): MeetFollows = load()[key(server, meetId)] ?: MeetFollows()
 

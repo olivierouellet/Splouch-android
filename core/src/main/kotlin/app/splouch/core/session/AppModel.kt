@@ -2,7 +2,9 @@ package app.splouch.core.session
 
 import app.splouch.core.follows.FollowRegistration
 import app.splouch.core.follows.FollowResult
+import app.splouch.core.follows.FollowState
 import app.splouch.core.follows.FollowStore
+import app.splouch.core.follows.FollowedMeet
 import app.splouch.core.follows.HeatFocus
 import app.splouch.core.follows.InMemoryFollowStore
 import app.splouch.core.follows.MeetFollows
@@ -195,6 +197,8 @@ data class UiState(
     val pushPermission: PushPermission = PushPermission.NOT_ASKED,
     /** N-08: a tapped notification's heat, until its meet is open. */
     val pendingFocus: HeatFocus? = null,
+    /** N-12: every meet this device follows swimmers at, from every server, by name. */
+    val followedMeets: List<FollowedMeet> = emptyList(),
 ) {
     val kind: ServerKind? get() = serverInfo?.kind
 
@@ -221,6 +225,22 @@ data class UiState(
 
     /** P-07: the server's note under the counting toggle. */
     val privacyNote: String? get() = privacyNote(picker.config)
+
+    /** N-13: the picker's bell for a meet of this server's list. */
+    fun followState(meetId: String): FollowState {
+        val f = followedMeets.firstOrNull { it.server == server.origin && it.meetId == meetId }?.follows
+            ?: return FollowState.NONE
+        return if (f.enabled) FollowState.ON else FollowState.PAUSED
+    }
+
+    /**
+     * N-12: the meet's name as last seen, else as this server lists it, else its id — a list
+     * saved before names were kept, until the meet opens again.
+     */
+    fun followedName(meet: FollowedMeet): String = meet.follows.name?.ifBlank { null }
+        ?: picker.meets.takeIf { meet.server == server.origin }
+            ?.firstOrNull { it.id == meet.meetId }?.name?.ifBlank { null }
+        ?: meet.meetId
 }
 
 /**
@@ -310,6 +330,10 @@ class AppModel(
     private var generation = 0
 
     val current: UiState get() = _state.value
+
+    init {
+        refreshFollows()
+    }
 
     fun start() {
         val prefs = prefsStore.load()
@@ -627,6 +651,7 @@ class AppModel(
                     ),
                 )
             }
+            if (meets is ApiResult.Ok) refreshFollows() // N-12: names of lists saved before they were kept
         }
     }
 
@@ -1018,8 +1043,10 @@ class AppModel(
     fun setFollows(follows: MeetFollows) {
         val meet = current.meet ?: return
         val meetId = meet.context.meetId ?: return
-        followStore.set(meet.context.server.origin, meetId, follows)
-        _state.update { s -> s.copy(meet = s.meet?.takeIf { it.session === meet.session }?.copy(follows = follows)) }
+        val named = follows.copy(name = meet.config.title) // N-12
+        followStore.set(meet.context.server.origin, meetId, named)
+        _state.update { s -> s.copy(meet = s.meet?.takeIf { it.session === meet.session }?.copy(follows = named)) }
+        refreshFollows()
         registerFollows()
     }
 
@@ -1046,13 +1073,19 @@ class AppModel(
                 r = api.follow(context, registration)
             }
             if (r != FollowResult.OK || follows.isEmpty) return@launch
-            val base = context.base.url
-            if (follows.base != base) {
-                val stored = follows.copy(base = base)
+            // Where it was registered, after any move: a new token goes there. The name and
+            // language let settings send it again without the meet (N-12).
+            val stored = follows.copy(
+                base = context.base.url,
+                name = meet.config.title,
+                lang = meet.config.settings.locale ?: follows.lang,
+            )
+            if (stored != follows) {
                 followStore.set(context.server.origin, context.meetId ?: return@launch, stored)
                 _state.update { s ->
                     s.copy(meet = s.meet?.takeIf { it.session === meet.session }?.copy(follows = stored))
                 }
+                refreshFollows()
             }
         }
     }
@@ -1063,22 +1096,64 @@ class AppModel(
      * with it (N-09).
      */
     fun registerAllFollows() {
-        val token = pushToken ?: return
-        if (current.pushPermission != PushPermission.ALLOWED) return
-        val lang = current.meet?.lang ?: readerLang()
+        if (pushToken == null || current.pushPermission != PushPermission.ALLOWED) return
         scope.launch {
-            for ((key, follows) in followStore.load()) {
-                val (origin, meetId) = FollowStore.split(key) ?: continue
-                val server = ServerAddress.parseOrNull(origin) ?: continue
-                val base = MeetBase.parse(follows.base) ?: MeetBase.of(server)
-                val r = SplouchApi(http, server)
-                    .follow(
-                        MeetContext(server, ServerKind.CLOUD, meetId, base),
-                        FollowRegistration(token, lang, follows),
-                    )
-                if (r == FollowResult.GONE) followStore.set(origin, meetId, null)
-            }
+            for (meet in followStore.meets()) register(meet)
+            refreshFollows()
         }
+    }
+
+    /** N-12: the list again, sorted by the meet's name. */
+    fun refreshFollows() = _state.update { s ->
+        s.copy(followedMeets = followStore.meets().sortedWith(compareBy({ s.followedName(it) }, { it.id })))
+    }
+
+    /** N-12: the meet's server, named only when it is not the default (P-11). */
+    fun followedServer(meet: FollowedMeet): String? = if (meet.server == defaultServer.origin) {
+        null
+    } else {
+        ServerAddress.parseOrNull(meet.server)?.display ?: meet.server
+    }
+
+    /** N-12: one meet's N-11 switch, from settings: saved, then sent as the meet's own sheet would. */
+    fun setFollowsEnabled(meet: FollowedMeet, on: Boolean) {
+        val f = followStore.get(meet.server, meet.meetId)
+        if (f.isEmpty || f.enabled == on) return
+        val stored = f.copy(enabled = on)
+        followStore.set(meet.server, meet.meetId, stored)
+        _state.update { s ->
+            val open = s.meet?.takeIf { it.context.server.origin == meet.server && it.context.meetId == meet.meetId }
+            if (open == null) s else s.copy(meet = open.copy(follows = stored))
+        }
+        refreshFollows()
+        scope.launch {
+            register(meet.copy(follows = stored))
+            refreshFollows()
+        }
+    }
+
+    /** N-12: every meet's switch off. An action, not a mode: a meet followed later starts on. */
+    fun pauseAllFollows() {
+        for (meet in followStore.meets()) if (meet.follows.enabled) setFollowsEnabled(meet, false)
+    }
+
+    /**
+     * N-07 for a meet that is not open: at the `base` it was last registered at, in the app's
+     * language else the meet's. A paused list is sent whatever the permission (it stops the
+     * node); an active one only once allowed. A 404 is a meet gone, and its follows with it (N-09).
+     */
+    private suspend fun register(meet: FollowedMeet) {
+        val token = pushToken ?: return
+        if (meet.follows.isActive && current.pushPermission != PushPermission.ALLOWED) return
+        val server = ServerAddress.parseOrNull(meet.server) ?: return
+        val base = MeetBase.parse(meet.follows.base) ?: MeetBase.of(server)
+        val lang = current.prefs.lang ?: meet.follows.lang ?: readerLang()
+        val r = SplouchApi(http, server)
+            .follow(
+                MeetContext(server, ServerKind.CLOUD, meet.meetId, base),
+                FollowRegistration(token, lang, meet.follows),
+            )
+        if (r == FollowResult.GONE) followStore.set(meet.server, meet.meetId, null)
     }
 
     /**
@@ -1104,7 +1179,10 @@ class AppModel(
     fun focusShown() = _state.update { s -> s.copy(meet = s.meet?.copy(focus = null)) }
 
     /** N-09: the meet is gone, and with it what this device followed there. */
-    private fun forgetFollows(server: ServerAddress, meetId: String) = followStore.set(server.origin, meetId, null)
+    private fun forgetFollows(server: ServerAddress, meetId: String) {
+        followStore.set(server.origin, meetId, null)
+        refreshFollows()
+    }
 
     // ── platform signals ──────────────────────────────────────────────────────
 

@@ -35,10 +35,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.splouch.android.BuildConfig
 import app.splouch.android.R
@@ -53,7 +55,8 @@ import app.splouch.core.wire.ServerKind
 
 /**
  * P-19: one full-screen destination in place of the picker's ⋮ menu. Sections Display,
- * Privacy (only while the server counts), Server, About — the contract lists Server first;
+ * Notifications (only while a meet has follows, N-12), Privacy (only while the server counts),
+ * Server, About — the contract lists Server first;
  * the reader's own choices come first here (see `parity.md` P-19). Section
  * names and the toggle are the app's words (T-05); the privacy note and the disclaimer are
  * the server's. Back returns to the picker, whose list and query live in the model and are
@@ -107,6 +110,24 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                 R.string.appearance_auto to Appearance.AUTO,
             ).forEach { (label, value) ->
                 ChoiceRow(stringResource(label), state.prefs.appearance == value) { model.setAppearance(value) }
+            }
+
+            // ── Notifications (N-12): every followed meet, from every server, then Pause all ──
+            if (state.followedMeets.isNotEmpty()) {
+                Section(stringResource(R.string.notifications))
+                state.followedMeets.forEach { meet ->
+                    FollowedMeetSwitch(
+                        name = state.followedName(meet),
+                        server = model.followedServer(meet),
+                        swimmers = meet.follows.swimmers.size,
+                        on = meet.follows.enabled,
+                    ) { model.setFollowsEnabled(meet, it) }
+                }
+                TextButton(
+                    onClick = model::pauseAllFollows,
+                    enabled = state.followedMeets.any { it.follows.enabled },
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) { Text(stringResource(R.string.notify_pause_all)) }
             }
 
             // ── Privacy (P-07): only while the server counts; the choice is kept either way ──
@@ -193,6 +214,32 @@ internal fun CountingSwitch(on: Boolean, note: String?, onChange: (Boolean) -> U
         colors = transparent(),
         headlineContent = { Text(stringResource(R.string.privacy_count)) },
         supportingContent = note?.let { { Text(it) } },
+        trailingContent = { Switch(checked = on, onCheckedChange = null) },
+    )
+}
+
+/**
+ * N-12: one followed meet with its N-11 switch — the server under the name when it is not the
+ * default, then the count or *Paused*. The whole row is the switch, as [CountingSwitch]'s is.
+ */
+@Composable
+private fun FollowedMeetSwitch(
+    name: String,
+    server: String?,
+    swimmers: Int,
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    val state = if (on) {
+        pluralStringResource(R.plurals.notify_following, swimmers, swimmers)
+    } else {
+        stringResource(R.string.notify_paused_short)
+    }
+    ListItem(
+        modifier = Modifier.toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        colors = transparent(),
+        headlineContent = { Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { Text(listOfNotNull(server, state).joinToString(" · "), maxLines = 1) },
         trailingContent = { Switch(checked = on, onCheckedChange = null) },
     )
 }
