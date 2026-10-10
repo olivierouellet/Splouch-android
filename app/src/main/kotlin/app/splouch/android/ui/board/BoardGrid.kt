@@ -440,6 +440,104 @@ private fun PortraitRow(
     }
 }
 
+// ── how to read a lane: the introduction's key (P-20) ───────────────────────
+
+/** P-20's key words, the app's own (`T-05`): what each part of a lane is. */
+data class LaneKeyWords(val lane: String, val club: String, val time: String, val gap: String, val place: String)
+
+/**
+ * P-20, page 3: how to read a lane, since the narrow board (`L-15`) has no header row to
+ * name its columns. Two sample lanes drawn by the board's own [PortraitRow] — one faster
+ * than its seed, one slower — then a key pairing each part, drawn as on the board, with
+ * its meaning. Draws in whatever [LocalBoardColors] the caller set: the server's default
+ * palette (`api.md` §6.1), there being no meet yet.
+ *
+ * The lanes are illustration and TalkBack skips them; each key line is read as value,
+ * then meaning.
+ */
+@Composable
+fun LaneKey(words: LaneKeyWords, modifier: Modifier = Modifier) {
+    val colors = LocalBoardColors.current
+    val fonts = LocalBoardFonts.current
+    val settings = MeetSettings(numLanes = 2)
+    val faster =
+        GridRow(
+            "4",
+            name = "Noah Gagnon",
+            club = "CAMO",
+            time = "1:02.41",
+            deltaSeconds = -0.83,
+            deltaBetter = true,
+            place = "1",
+        )
+    val slower =
+        GridRow(
+            "5",
+            name = "Léa Roy",
+            club = "CNQ",
+            time = "1:03.12",
+            deltaSeconds = 0.41,
+            deltaBetter = false,
+            place = "2",
+        )
+    val size = 18.dp
+    BoardType {
+        Column(modifier.fillMaxWidth().background(colors.bg)) {
+            Column(Modifier.clearAndSetSemantics {}) {
+                listOf(faster, slower).forEachIndexed { i, r ->
+                    PortraitRow(
+                        r,
+                        settings,
+                        base = size,
+                        scale = 1f,
+                        showsAlt = false,
+                        lineFit = 1f,
+                        clubMax = 96.dp,
+                        modifier = Modifier.background(if (i % 2 == 0) colors.rowOdd else colors.rowEven),
+                    )
+                }
+            }
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                KeyLine(faster.lane, words.lane) { LaneNumber(faster.lane, false, size, Modifier) }
+                KeyLine(faster.club, words.club) {
+                    Text(
+                        faster.club,
+                        color = colors.thText,
+                        fontSize = size.asSp(),
+                        fontFamily = fonts.family,
+                        maxLines = 1,
+                    )
+                }
+                KeyLine(faster.time, words.time) {
+                    TimeText(faster.time, TimeStyle.NORMAL, 0, size, Modifier, TextAlign.Start)
+                }
+                val deltas = listOf(faster, slower).joinToString(", ") { DeltaFormat.text(it.deltaSeconds) }
+                KeyLine(deltas, words.gap) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(CellGutter)) {
+                        DeltaText(faster.deltaSeconds, faster.deltaBetter, size)
+                        DeltaText(slower.deltaSeconds, slower.deltaBetter, size)
+                    }
+                }
+                KeyLine("#${faster.place}", words.place) {
+                    PlaceText(faster.place, size, Modifier, Arrangement.Start)
+                }
+            }
+        }
+    }
+}
+
+/** One line of [LaneKey]: the part as the board draws it, and what it is, read as one. */
+@Composable
+private fun KeyLine(spokenValue: String, meaning: String, value: @Composable () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "$spokenValue, $meaning" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(0.4f)) { value() }
+        Text(meaning, color = LocalBoardColors.current.rowText, modifier = Modifier.weight(0.6f).padding(start = 12.dp))
+    }
+}
+
 // ── landscape: the full table, font scaled to lane count (L-16) ──────────────
 
 @Composable

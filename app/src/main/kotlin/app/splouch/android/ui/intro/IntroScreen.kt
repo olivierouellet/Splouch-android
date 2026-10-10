@@ -17,6 +17,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -46,9 +49,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import app.splouch.android.R
+import app.splouch.android.ui.board.LaneKey
+import app.splouch.android.ui.board.LaneKeyWords
 import app.splouch.android.ui.settings.CountingSwitch
+import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.UiState
+import app.splouch.core.theme.Theme
 import kotlinx.coroutines.launch
 
 /** P-20's pages, in order. [COUNTING] only while the server counts. */
@@ -108,7 +115,23 @@ fun IntroScreen(model: AppModel, state: UiState) {
                             t.mobile("results"),
                             t.mobile("schedule"),
                         ),
-                    )
+                    ) {
+                        // P-20: how to read a lane, in the server's default palette for the
+                        // reader's Appearance (`P-15`) — the board's own, there being no meet yet.
+                        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                        BoardTheme(dark, Theme.DEFAULT) {
+                            LaneKey(
+                                LaneKeyWords(
+                                    stringResource(R.string.intro_key_lane),
+                                    stringResource(R.string.intro_key_club),
+                                    stringResource(R.string.intro_key_time),
+                                    stringResource(R.string.intro_key_gap),
+                                    stringResource(R.string.intro_key_place),
+                                ),
+                                Modifier.clip(RoundedCornerShape(12.dp)),
+                            )
+                        }
+                    }
                     IntroPage.TIMES -> Page(
                         R.drawable.ic_tab_schedule,
                         stringResource(R.string.intro_times_title),
