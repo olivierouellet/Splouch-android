@@ -443,23 +443,31 @@ private fun PortraitRow(
 // ── how to read a lane: the introduction's key (P-20) ───────────────────────
 
 /** P-20's key words, the app's own (`T-05`): what each part of a lane is. */
-data class LaneKeyWords(val lane: String, val club: String, val time: String, val gap: String, val place: String)
+data class LaneKeyWords(
+    val lane: String,
+    val club: String,
+    val time: String,
+    val gap: String,
+    val laps: String,
+    val place: String,
+)
 
 /**
  * P-20, page 3: how to read a lane, since the narrow board (`L-15`) has no header row to
- * name its columns. Two sample lanes drawn by the board's own [PortraitRow] — one faster
- * than its seed, one slower — then a key pairing each part, drawn as on the board, with
- * its meaning. Draws in whatever [LocalBoardColors] the caller set: the server's default
- * palette (`api.md` §6.1), there being no meet yet.
+ * name its columns. One sample lane drawn by the board's own [PortraitRow], then a key
+ * pairing each part, drawn as on the board, with its meaning — a slower lane's delta beside
+ * the sample's, and the lap count a lane carries while swimming (`L-23`), among them. Draws
+ * in whatever [LocalBoardColors] the caller set: the server's default palette (`api.md`
+ * §6.1), there being no meet yet.
  *
- * The lanes are illustration and TalkBack skips them; each key line is read as value,
+ * The lane is illustration and TalkBack skips it; each key line is read as value,
  * then meaning.
  */
 @Composable
 fun LaneKey(words: LaneKeyWords, modifier: Modifier = Modifier) {
     val colors = LocalBoardColors.current
     val fonts = LocalBoardFonts.current
-    val settings = MeetSettings(numLanes = 2)
+    val settings = MeetSettings(numLanes = 1)
     val faster =
         GridRow(
             "4",
@@ -470,33 +478,21 @@ fun LaneKey(words: LaneKeyWords, modifier: Modifier = Modifier) {
             deltaBetter = true,
             place = "1",
         )
-    val slower =
-        GridRow(
-            "5",
-            name = "Léa Roy",
-            club = "CNQ",
-            time = "1:03.12",
-            deltaSeconds = 0.41,
-            deltaBetter = false,
-            place = "2",
-        )
+    // Never drawn as a lane: only its delta, so the key shows the slower colour too.
+    val slower = GridRow("5", deltaSeconds = 0.41, deltaBetter = false)
     val size = 18.dp
     BoardType {
         Column(modifier.fillMaxWidth().background(colors.bg)) {
-            Column(Modifier.clearAndSetSemantics {}) {
-                listOf(faster, slower).forEachIndexed { i, r ->
-                    PortraitRow(
-                        r,
-                        settings,
-                        base = size,
-                        scale = 1f,
-                        showsAlt = false,
-                        lineFit = 1f,
-                        clubMax = 96.dp,
-                        modifier = Modifier.background(if (i % 2 == 0) colors.rowOdd else colors.rowEven),
-                    )
-                }
-            }
+            PortraitRow(
+                faster,
+                settings,
+                base = size,
+                scale = 1f,
+                showsAlt = false,
+                lineFit = 1f,
+                clubMax = 96.dp,
+                modifier = Modifier.background(colors.rowOdd).clearAndSetSemantics {},
+            )
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 KeyLine(faster.lane, words.lane) { LaneNumber(faster.lane, false, size, Modifier) }
                 KeyLine(faster.club, words.club) {
@@ -518,6 +514,10 @@ fun LaneKey(words: LaneKeyWords, modifier: Modifier = Modifier) {
                         DeltaText(slower.deltaSeconds, slower.deltaBetter, size)
                     }
                 }
+                // L-23: the delta cell's other tenant, drawn rather than named — its accent is
+                // blue only on the dark board.
+                val lap = LapCount("3", isFinal = false)
+                KeyLine(lap.text, words.laps) { LapText(lap, size) }
                 KeyLine("#${faster.place}", words.place) {
                     PlaceText(faster.place, size, Modifier, Arrangement.Start)
                 }

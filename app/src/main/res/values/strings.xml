@@ -75,11 +75,12 @@
     <string name="intro_meets_title">Find your meet</string>
     <string name="intro_meets_body">Meets are listed by day.\n\nThe filter {filter} keeps only the meets of your club, country or province. It stays set until you clear it.\n\nThe gear {gear} opens Settings: language, appearance and privacy.</string>
     <string name="intro_tabs_title">Three tabs</string>
-    <string name="intro_tabs_body">%1$s shows the heat in the water, %2$s the finished heats, and %3$s the start lists.\n\nSwipe to move between them.</string>
+    <string name="intro_tabs_body">%1$s shows the heat in the water, %2$s the finished heats, and %3$s the start lists.</string>
     <string name="intro_key_lane">Lane</string>
     <string name="intro_key_club">Club</string>
     <string name="intro_key_time">Time</string>
     <string name="intro_key_gap">Gap to the seed time: green when faster, grey when slower</string>
+    <string name="intro_key_laps">In the gap\'s place during the race: lengths swum or left</string>
     <string name="intro_key_place">Place</string>
     <string name="intro_times_title">Times in the schedule</string>
     <string name="intro_times_body">Each lane shows its seed time, then its console time once swum, then its official time, each in its own colour.\n\nTap a heat marked {plusminus} to see each lane\'s gap to its seed.</string>

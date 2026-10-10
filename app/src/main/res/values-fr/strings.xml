@@ -57,11 +57,12 @@
     <string name="intro_meets_title">Trouver votre compétition</string>
     <string name="intro_meets_body">Les compétitions sont classées par jour.\n\nLe filtre {filter} ne garde que celles de votre club, pays ou province. Il reste actif jusqu\'à ce que vous l\'effaciez.\n\nL\'engrenage {gear} ouvre les Paramètres : langue, apparence et confidentialité.</string>
     <string name="intro_tabs_title">Trois onglets</string>
-    <string name="intro_tabs_body">%1$s montre la série dans l\'eau, %2$s les séries terminées et %3$s les listes de départ.\n\nBalayez pour passer de l\'un à l\'autre.</string>
+    <string name="intro_tabs_body">%1$s montre la série dans l\'eau, %2$s les séries terminées et %3$s les listes de départ.</string>
     <string name="intro_key_lane">Couloir</string>
     <string name="intro_key_club">Club</string>
     <string name="intro_key_time">Temps</string>
     <string name="intro_key_gap">Écart avec le temps d\'inscription : vert si plus rapide, gris si plus lent</string>
+    <string name="intro_key_laps">À la place de l\'écart pendant la course : longueurs nagées ou restantes</string>
     <string name="intro_key_place">Rang</string>
     <string name="intro_times_title">Les temps à l\'horaire</string>
     <string name="intro_times_body">Chaque couloir montre son temps d\'inscription, puis le temps de la console une fois nagé, puis le temps officiel, chacun de sa couleur.\n\nTouchez une série marquée {plusminus} pour voir l\'écart de chaque couloir avec son inscription.</string>

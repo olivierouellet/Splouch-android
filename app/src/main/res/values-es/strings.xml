@@ -57,11 +57,12 @@
     <string name="intro_meets_title">Encuentra tu competición</string>
     <string name="intro_meets_body">Las competiciones se listan por día.\n\nEl filtro {filter} deja solo las de tu club, país o provincia. Queda activo hasta que lo borres.\n\nEl engranaje {gear} abre los Ajustes: idioma, apariencia y privacidad.</string>
     <string name="intro_tabs_title">Tres pestañas</string>
-    <string name="intro_tabs_body">%1$s muestra la serie en el agua, %2$s las series terminadas y %3$s las listas de salida.\n\nDesliza para pasar de una a otra.</string>
+    <string name="intro_tabs_body">%1$s muestra la serie en el agua, %2$s las series terminadas y %3$s las listas de salida.</string>
     <string name="intro_key_lane">Carril</string>
     <string name="intro_key_club">Club</string>
     <string name="intro_key_time">Tiempo</string>
     <string name="intro_key_gap">Diferencia con el tiempo de inscripción: verde si es más rápido, gris si es más lento</string>
+    <string name="intro_key_laps">En lugar de la diferencia durante la carrera: largos nadados o restantes</string>
     <string name="intro_key_place">Puesto</string>
     <string name="intro_times_title">Los tiempos en el programa</string>
     <string name="intro_times_body">Cada carril muestra su tiempo de inscripción, luego el tiempo de la consola una vez nadado y luego el tiempo oficial, cada uno con su color.\n\nToca una serie marcada con {plusminus} para ver la diferencia de cada carril con su inscripción.</string>

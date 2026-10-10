@@ -126,6 +126,7 @@ fun IntroScreen(model: AppModel, state: UiState) {
                                     stringResource(R.string.intro_key_club),
                                     stringResource(R.string.intro_key_time),
                                     stringResource(R.string.intro_key_gap),
+                                    stringResource(R.string.intro_key_laps),
                                     stringResource(R.string.intro_key_place),
                                 ),
                                 Modifier.clip(RoundedCornerShape(12.dp)),
