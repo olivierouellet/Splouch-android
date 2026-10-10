@@ -55,10 +55,8 @@ import app.splouch.core.wire.ServerKind
 
 /**
  * P-19: one full-screen destination in place of the picker's ⋮ menu. Sections Display,
- * Notifications (only while a meet has follows, N-12), Privacy (only while the server counts),
- * Server, About — the contract lists Server first;
- * the reader's own choices come first here (see `parity.md` P-19). Section
- * names and the toggle are the app's words (T-05); the privacy note and the disclaimer are
+ * Notifications (only while a meet has follows, N-12), Server, About, Privacy (clouds only; the
+ * counting switch only while the server counts, the policy linked there once). Section names and the toggle are the app's words (T-05); the privacy note and the disclaimer are
  * the server's. Back returns to the picker, whose list and query live in the model and are
  * untouched by anything here.
  */
@@ -130,13 +128,6 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                 ) { Text(stringResource(R.string.notify_pause_all)) }
             }
 
-            // ── Privacy (P-07): only while the server counts; the choice is kept either way ──
-            if (state.countingOffered) {
-                Section(stringResource(R.string.settings_privacy))
-                CountingSwitch(state.counting, state.privacyNote, model::setCounting)
-                LinkRow(stringResource(R.string.privacy_policy)) { uri.openUri(policy) }
-            }
-
             // ── Server (P-11..P-13): a row to the existing sheet ──
             Section(stringResource(R.string.server))
             ListItem(
@@ -159,10 +150,6 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
-            // A Pi has no policy page and no attendance to count; a cloud always has both.
-            if (state.kind == ServerKind.CLOUD) {
-                LinkRow(stringResource(R.string.privacy_policy)) { uri.openUri(policy) }
-            }
             // Only with the server's words in hand, as on first launch (P-20).
             if (state.picker.config != null) {
                 ListItem(
@@ -176,6 +163,15 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                 headlineContent = { Text(stringResource(R.string.app_version)) },
                 supportingContent = { Text(BuildConfig.VERSION_NAME) },
             )
+
+            // ── Privacy, last (P-19): the policy linked once. P-07's switch only while the
+            // server counts, the choice kept either way. A Pi has no policy page and no
+            // attendance to count, so no section; a cloud always has the policy. ──
+            if (state.kind == ServerKind.CLOUD) {
+                Section(stringResource(R.string.settings_privacy))
+                if (state.countingOffered) CountingSwitch(state.counting, state.privacyNote, model::setCounting)
+                LinkRow(stringResource(R.string.privacy_policy)) { uri.openUri(policy) }
+            }
         }
     }
 
