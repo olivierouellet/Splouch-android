@@ -125,6 +125,14 @@ class StringsThemeScheduleTests {
         )
     }
 
+    @Test fun `a kind is its word alone`() {
+        val test = EventNameParts(raw = "Test race", kind = "test_race")
+        assertEquals("Course test", EventName.compose(test, mapOf("test_race" to "Course test")))
+        assertEquals("Test race", EventName.compose(test, mapOf("freestyle" to "libre")))
+        val decoded = EventNameParts.fromJson(parseJsonOrNull("""{"raw":"Test race","kind":"test_race"}"""))
+        assertEquals("test_race", decoded?.kind)
+    }
+
     @Test fun `a round follows the name behind its own separator`() {
         val vocab = StringTable("fr", null, frBuiltIn, en).eventVocab
         val parts = EventNameParts(dist = "200", stroke = "backstroke", gender = "girls", round = "final")

@@ -10,6 +10,9 @@ object EventName {
     /** Null when the parts compose to nothing; the caller falls back to `event_name`. */
     fun compose(parts: EventNameParts?, vocab: Map<String, String>): String? {
         if (parts == null || vocab.isEmpty()) return null
+        // A kind (the console's test race) is that word alone; `raw`, the meet's
+        // language, when this vocabulary predates the key.
+        if (parts.kind.isNotEmpty()) return (vocab[parts.kind] ?: parts.raw).ifEmpty { null }
         fun word(k: String) = if (k.isEmpty()) "" else vocab[k] ?: k
         val left = ArrayList<String>(3)
         if (parts.dist.isNotEmpty()) left += parts.dist + " " + (vocab["unit"] ?: "m")
