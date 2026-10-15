@@ -23,6 +23,10 @@ data class ServerAddress private constructor(val scheme: String, val host: Strin
     val isCleartext: Boolean get() = scheme == "http"
 
     fun httpUrl(path: String): String = origin + path
+
+    /** The server's policy (P-07) in [lang], the app's: the page's own switcher is a step a reader should not need. */
+    fun privacyUrl(lang: String): String =
+        httpUrl("/privacy") + if (lang.isBlank()) "" else "?lang=" + MeetContext.enc(lang)
     fun wsUrl(path: String): String =
         (if (scheme == "https") "wss" else "ws") + "://" + host + (if (port > 0) ":$port" else "") + path
 

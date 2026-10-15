@@ -56,6 +56,8 @@ class SessionTests {
         assertEquals("https://splouch.org", a.origin)
         assertEquals("wss://splouch.org/ws/results", a.wsUrl("/ws/results"))
         assertEquals("https://splouch.org/server", a.httpUrl("/server"))
+        assertEquals("https://splouch.org/privacy?lang=es", a.privacyUrl("es"))
+        assertEquals("https://splouch.org/privacy", a.privacyUrl(""))
         assertEquals("splouch.org", ServerAddress.parseOrNull("splouch.org")!!.display)
         val pi = ServerAddress.parseOrNull("http://splouch.local:5000")!!
         assertEquals("http://splouch.local:5000", pi.origin)

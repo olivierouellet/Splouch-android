@@ -395,7 +395,7 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
             model,
             state,
             meet,
-            privacyUrl = state.server.httpUrl("/privacy"),
+            privacyUrl = state.privacyUrl,
             onDismiss = { showNotifications = false },
         )
     }

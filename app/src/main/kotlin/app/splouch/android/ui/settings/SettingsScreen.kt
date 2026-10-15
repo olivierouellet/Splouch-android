@@ -70,7 +70,7 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
     val languageRow = rememberFocusReturn()
     val locales = state.locales.ifEmpty { BuiltInStrings.locales() }
     val uri = LocalUriHandler.current
-    val policy = state.server.httpUrl("/privacy")
+    val policy = state.privacyUrl
 
     Scaffold(
         topBar = {

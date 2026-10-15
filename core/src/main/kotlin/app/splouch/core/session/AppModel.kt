@@ -217,6 +217,9 @@ data class UiState(
      */
     val pickerServerName: String? get() = server.display.takeUnless { isDefaultServer }
 
+    /** P-07, P-19: the policy in the language of the app's own words around its link. */
+    val privacyUrl: String get() = server.privacyUrl(picker.lang)
+
     /** P-06's line and full text, or null until this server has sent them. */
     val disclaimer: Disclaimer? get() = disclaimer(picker.config, pickerStrings)
 
