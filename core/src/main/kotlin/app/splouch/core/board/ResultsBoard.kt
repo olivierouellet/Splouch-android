@@ -7,14 +7,19 @@ import app.splouch.core.wire.ResultsSnapshot
  * The Results tab's grid (app.md §4): the last `results_snapshot`, held still, mapped
  * onto `numLanes` rows by lane or by place.
  */
-class ResultsBoard(numLanes: Int) {
+class ResultsBoard(numLanes: Int, firstLane: Int = 1) {
 
     /** L-04's row count here too; [resize] follows a re-fetched config (C-08). */
     var numLanes: Int = numLanes
         private set
 
-    fun resize(lanes: Int) {
+    /** L-04: the lane number of row 1. A result's `channel` is a lane number, never a row. */
+    var firstLane: Int = firstLane
+        private set
+
+    fun resize(lanes: Int, firstLane: Int = this.firstLane) {
         numLanes = lanes
+        this.firstLane = firstLane
     }
 
     data class Row(
@@ -70,16 +75,18 @@ class ResultsBoard(numLanes: Int) {
         val laneSort = s.isLaneSort
         val byRow = HashMap<Int, app.splouch.core.wire.ResultLane>()
         s.lanes.forEachIndexed { idx, r ->
-            val row = if (laneSort) r.channel ?: -1 else idx + 1
+            // api.md §5.2: `channel` is the lane number — 0 is a lane, only null is none.
+            val row = if (laneSort) r.channel?.let { it - firstLane + 1 } ?: -1 else idx + 1
             if (row in 1..numLanes) byRow[row] = r
         }
         return (1..numLanes).map { i ->
             val r = byRow[i]
             if (r == null) {
-                Row(laneLabel = if (laneSort) i.toString() else "", vacant = true)
+                // R-06: an unfilled rank is no lane at all.
+                Row(laneLabel = if (laneSort) label(i) else "", vacant = true)
             } else {
                 Row(
-                    laneLabel = r.channel?.toString() ?: i.toString(),
+                    laneLabel = r.channel?.toString() ?: label(i),
                     name = r.name,
                     alt = r.alt,
                     club = r.club,
@@ -94,8 +101,11 @@ class ResultsBoard(numLanes: Int) {
     }
 
     private fun blankRows(laneSort: Boolean) = (1..numLanes).map {
-        Row(laneLabel = if (laneSort) it.toString() else DASH)
+        Row(laneLabel = if (laneSort) label(it) else DASH)
     }
+
+    /** L-04: row [i]'s lane number. */
+    private fun label(i: Int) = (i + firstLane - 1).toString()
 
     companion object {
         const val DASH = "—"

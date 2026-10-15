@@ -15,15 +15,20 @@ import app.splouch.core.wire.ScoreboardFrame
  *
  * Not thread-safe: drive it from one thread and read [view] there.
  */
-class ScoreboardState(numLanes: Int, val clock: RaceClock) {
+class ScoreboardState(numLanes: Int, val clock: RaceClock, firstLane: Int = 1) {
 
     /** L-04: one row per lane — changed by [resize] when a re-fetched config says so (C-08). */
     var numLanes: Int = numLanes
         private set
 
+    /** L-04: row *i* (`lane_*<i>`) is labelled lane `i + firstLane - 1`. */
+    var firstLane: Int = firstLane
+        private set
+
     enum class TimeStyle { NORMAL, RUNNING, LOCKED }
 
     data class Lane(
+        /** The lane's label (L-04), not its row: `0` for row 1 of a pool numbered from lane 0. */
         val number: Int,
         val name: String = "",
         val alt: String = "",
@@ -108,7 +113,7 @@ class ScoreboardState(numLanes: Int, val clock: RaceClock) {
         }
     }
 
-    private val lanes = MutableList(numLanes) { Lane(it + 1) }
+    private val lanes = MutableList(numLanes) { Lane(it + firstLane) }
     private var currentEvent = ""
     private var currentHeat = ""
     private var eventName = ""
@@ -126,14 +131,17 @@ class ScoreboardState(numLanes: Int, val clock: RaceClock) {
     )
 
     /**
-     * C-08: the config now names [lanes] lanes. Lanes that remain keep what they show; new
-     * ones start blank, and the next frame fills them as it fills any lane.
+     * C-08: the config now names [lanes] lanes, the first numbered [firstLane]. Lanes that
+     * remain keep what they show under their row's new number; new ones start blank, and the
+     * next frame fills them as it fills any lane.
      */
-    fun resize(lanes: Int) {
-        if (lanes == numLanes) return
+    fun resize(lanes: Int, firstLane: Int = this.firstLane) {
+        if (lanes == numLanes && firstLane == this.firstLane) return
         while (this.lanes.size > lanes) this.lanes.removeAt(this.lanes.lastIndex)
-        while (this.lanes.size < lanes) this.lanes += Lane(this.lanes.size + 1)
+        while (this.lanes.size < lanes) this.lanes += Lane(this.lanes.size + firstLane)
+        for (i in this.lanes.indices) this.lanes[i] = this.lanes[i].copy(number = i + firstLane)
         numLanes = lanes
+        this.firstLane = firstLane
         refreshPulses()
     }
 
@@ -174,7 +182,7 @@ class ScoreboardState(numLanes: Int, val clock: RaceClock) {
         currentHeat = ""
         eventName = ""
         eventNameParts = null
-        for (i in lanes.indices) lanes[i] = Lane(i + 1)
+        for (i in lanes.indices) lanes[i] = Lane(i + firstLane)
         clearLaps()
         clock.stop()
         refreshPulses()

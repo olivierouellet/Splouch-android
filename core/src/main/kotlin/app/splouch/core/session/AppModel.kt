@@ -728,7 +728,16 @@ class AppModel(
         val prefs = current.prefs
         val lang = prefs.lang ?: config.settings.locale ?: deviceLang
         val strings = table(context.server, lang)
-        val session = MeetSession(context, transport, vidStore, scope, config.settings.numLanes, timing, timeSource)
+        val session = MeetSession(
+            context,
+            transport,
+            vidStore,
+            scope,
+            config.settings.numLanes,
+            config.settings.firstLane,
+            timing,
+            timeSource,
+        )
         _state.update {
             it.copy(
                 meet = MeetState(
@@ -825,7 +834,7 @@ class AppModel(
             if (gen != generation || current.meet?.session !== meet.session) return@launch
             // C-12 by way of A-09: the config came from a base the meet has left.
             if (r is ApiResult.Ok && followBase(meet.session, r.value)) return@launch
-            if (r is ApiResult.Ok) meet.session.resize(r.value.settings.numLanes)
+            if (r is ApiResult.Ok) meet.session.resize(r.value.settings.numLanes, r.value.settings.firstLane)
             when (r) {
                 is ApiResult.Ok -> _state.update { s ->
                     val m = s.meet ?: return@update s

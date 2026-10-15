@@ -171,6 +171,11 @@ data class ConsoleInfo(val key: String = "", val timed: Boolean = true) {
 
 data class MeetSettings(
     val numLanes: Int,
+    /**
+     * L-04: the lane number of board row 1 — `0` for a pool numbered from lane 0, else `1`.
+     * Row *i* is lane `i + firstLane - 1`; a result's `channel` is row `channel - firstLane + 1`.
+     */
+    val firstLane: Int = 1,
     val showName: Boolean = true,
     val showClub: Boolean = true,
     val showDelta: Boolean = true,
@@ -211,6 +216,8 @@ data class MeetSettings(
             fun flag(key: String) = o?.get(key).asBoolOrNull() ?: true
             return MeetSettings(
                 numLanes = (o?.get("num_lanes").asIntOrNull() ?: defaultLanes).coerceIn(1, MAX_LANES),
+                // Absent, or anything but 0, is the pool every server before it described.
+                firstLane = if (o?.get("first_lane").asDoubleOrNull() == 0.0) 0 else 1,
                 showName = flag("show_name"),
                 showClub = flag("show_club"),
                 showDelta = flag("show_delta"),

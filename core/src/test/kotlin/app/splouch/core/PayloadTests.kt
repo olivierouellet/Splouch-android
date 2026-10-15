@@ -250,4 +250,18 @@ class PayloadTests {
         // A `split_step` of 0 would fire the final-stretch test a length early.
         assertEquals(1, ScoreboardFrame.fromJson(j("""{"split_step":0}"""))!!.splitStep)
     }
+
+    @Test fun `first_lane - absent or anything but 0 is 1, from the relay and the Pi`() {
+        fun cloud(settings: String) = MeetConfig.fromCloudJson(j("""{"name":"M","settings":$settings}"""))!!.settings
+        assertEquals(1, cloud("""{"num_lanes":8}""").firstLane)
+        assertEquals(0, cloud("""{"num_lanes":8,"first_lane":0}""").firstLane)
+        assertEquals(1, cloud("""{"num_lanes":8,"first_lane":1}""").firstLane)
+        assertEquals(1, cloud("""{"num_lanes":8,"first_lane":2}""").firstLane)
+        assertEquals(1, cloud("""{"num_lanes":8,"first_lane":null}""").firstLane)
+        assertEquals(1, cloud("""{"num_lanes":8,"first_lane":"x"}""").firstLane)
+        val pi = MeetConfig.fromPiJson(j("""{"meet_title":"Pool","num_lanes":10,"first_lane":0}"""))!!.settings
+        assertEquals(10, pi.numLanes)
+        assertEquals(0, pi.firstLane)
+        assertEquals(1, MeetConfig.fromPiJson(j("""{"meet_title":"Pool"}"""))!!.settings.firstLane)
+    }
 }

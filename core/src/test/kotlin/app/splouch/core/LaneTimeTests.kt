@@ -1,6 +1,8 @@
 package app.splouch.core
 
 import app.splouch.core.schedule.LaneTime
+import app.splouch.core.schedule.ScheduleFilter
+import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.wire.ResultsSnapshot
 import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ScheduleLane
@@ -121,5 +123,26 @@ class LaneTimeTests {
         assertFalse(heats[1].official)
         assertEquals("", heats[1].lanes[0].consoleTime)
         assertNull(heats[1].lanes[0].resultDeltaSeconds)
+    }
+
+    @Test fun `a lane-0 entry is a lane - decoded, kept in order, and matched by channel 0`() {
+        val heats = ScheduleHeat.listFromJson(
+            parseJsonOrNull(
+                """{"heats":[{"event":1,"heat":2,"lanes":[{"lane":0,"name":"Zed","seed_time":""},""" +
+                    """{"lane":1,"name":"Ann","seed_time":""}]}]}""",
+            ),
+        )!!
+        assertEquals(listOf(0, 1), heats[0].lanes.map { it.lane })
+        val visible = ScheduleFilter.visible(heats, ScheduleFilterState(), null)
+        assertEquals(listOf("Zed", "Ann"), visible[0].lanes.map { it.name })
+
+        val snap = ResultsSnapshot.fromJson(
+            parseJsonOrNull(
+                """{"event":"1","heat":"2","lanes":[{"channel":0,"time":"30.15"},{"channel":1,"time":"31.00"}]}""",
+            ),
+        )!!
+        val patched = LaneTime.applyConsoleTimes(heats, snap)[0].lanes
+        assertEquals("00:00:30.15", patched[0].consoleTime)
+        assertEquals("00:00:31.00", patched[1].consoleTime)
     }
 }

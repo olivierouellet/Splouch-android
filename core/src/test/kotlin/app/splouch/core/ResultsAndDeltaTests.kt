@@ -79,4 +79,41 @@ class ResultsAndDeltaTests {
         assertEquals("-1:02.50", DeltaFormat.text(-62.5))
         assertEquals("", DeltaFormat.text(Double.NaN))
     }
+
+    @Test fun `lane sort - channel 0 is lane 0 on row 1 when the pool starts at 0`() {
+        val r = ResultsBoard(4, firstLane = 0)
+        assertEquals(listOf("0", "1", "2", "3"), r.view().rows.map { it.laneLabel })
+        r.apply(
+            snap(
+                """{"event":"1","heat":"1","sort":"lane","lanes":[{"channel":0,"place":"2","time":"30.00","name":"Zed"},{"channel":3,"place":"1","time":"29.00","name":"Dee"}]}""",
+            ),
+        )
+        val v = r.view()
+        assertEquals(listOf("Zed", "", "", "Dee"), v.rows.map { it.name })
+        assertEquals(listOf("0", "1", "2", "3"), v.rows.map { it.laneLabel })
+        assertEquals(listOf(false, true, true, false), v.rows.map { it.vacant })
+    }
+
+    @Test fun `place sort - lane 0 keeps its number, unfilled ranks have none`() {
+        val r = ResultsBoard(4, firstLane = 0)
+        r.apply(
+            snap(
+                """{"event":"1","heat":"1","sort":"place","lanes":[{"channel":3,"place":"1","time":"29.00","name":"Dee"},{"channel":0,"place":"2","time":"30.00","name":"Zed"}]}""",
+            ),
+        )
+        val v = r.view()
+        assertEquals(listOf("Dee", "Zed", "", ""), v.rows.map { it.name })
+        assertEquals(listOf("3", "0", "", ""), v.rows.map { it.laneLabel })
+    }
+
+    @Test fun `a pool from lane 1 has no row for channel 0, as before`() {
+        val r = ResultsBoard(2)
+        r.apply(
+            snap(
+                """{"event":"1","heat":"1","lanes":[{"channel":0,"time":"1.00","name":"X"},{"channel":2,"time":"2.00","name":"B"}]}""",
+            ),
+        )
+        assertEquals(listOf("", "B"), r.view().rows.map { it.name })
+        assertEquals(listOf("1", "2"), r.view().rows.map { it.laneLabel })
+    }
 }

@@ -427,4 +427,38 @@ class ScoreboardStateTests {
         assertFalse(ScoreboardState.Lane(1, running = true).vacant)
         assertFalse(ScoreboardState.Lane(1, pulsing = true).vacant)
     }
+
+    // L-04: `lane_*<i>` is board row i; its label is `i + first_lane - 1`.
+    @Test fun `rows are labelled from first_lane, frames still address rows`() = runTest {
+        assertEquals(listOf(1, 2, 3, 4), board().view().lanes.map { it.number })
+
+        val b = ScoreboardState(4, RaceClock(testScheduler.timeSource), firstLane = 0).also {
+            it.onConnect()
+            it.setMeetLive(true)
+        }
+        assertEquals(listOf(0, 1, 2, 3), b.view().lanes.map { it.number })
+        b.apply(frame("""{"current_event":"1","current_heat":"1","lane_name1":"Zed","lane_name4":"Dee"}"""))
+        assertEquals("Zed", b.lane(1).name)
+        assertEquals(0, b.lane(1).number)
+        assertEquals("Dee", b.lane(4).name)
+        assertEquals(3, b.lane(4).number)
+
+        // L-12: the pulse sits on lane 0's number like any other.
+        b.apply(frame("""{"lane_running1":true}"""))
+        assertTrue(b.lane(1).pulsing)
+        assertEquals(0, b.lane(1).number)
+
+        b.reset()
+        assertEquals(listOf(0, 1, 2, 3), b.view().lanes.map { it.number })
+    }
+
+    @Test fun `a re-fetched first_lane relabels the rows and keeps what they show`() = runTest {
+        val b = board()
+        b.apply(frame("""{"current_event":"1","current_heat":"1","lane_name2":"Bea"}"""))
+        b.resize(5, firstLane = 0)
+        assertEquals(listOf(0, 1, 2, 3, 4), b.view().lanes.map { it.number })
+        assertEquals("Bea", b.lane(2).name)
+        b.resize(5, firstLane = 1)
+        assertEquals(listOf(1, 2, 3, 4, 5), b.view().lanes.map { it.number })
+    }
 }

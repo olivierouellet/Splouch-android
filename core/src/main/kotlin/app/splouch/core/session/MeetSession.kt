@@ -48,6 +48,7 @@ class MeetSession(
     private val vidStore: VidStore,
     private val scope: CoroutineScope,
     numLanes: Int,
+    firstLane: Int = 1,
     private val timing: SplouchSocket.Timing = SplouchSocket.Timing(),
     private val timeSource: kotlin.time.TimeSource.WithComparableMarks = kotlin.time.TimeSource.Monotonic,
     clock: RaceClock = RaceClock(timeSource),
@@ -56,8 +57,8 @@ class MeetSession(
     var context: MeetContext = context
         private set
 
-    val board = ScoreboardState(numLanes, clock)
-    val results = ResultsBoard(numLanes)
+    val board = ScoreboardState(numLanes, clock, firstLane)
+    val results = ResultsBoard(numLanes, firstLane)
 
     private val _scoreboard = MutableStateFlow(board.view())
     val scoreboard: StateFlow<ScoreboardState.View> = _scoreboard
@@ -159,11 +160,15 @@ class MeetSession(
         moveTo(base)
     }
 
-    /** C-08: a re-fetched config changed `num_lanes` — both boards take the new row count. */
-    fun resize(numLanes: Int) {
-        if (numLanes == board.numLanes && numLanes == results.numLanes) return
-        board.resize(numLanes)
-        results.resize(numLanes)
+    /** C-08: a re-fetched config changed `num_lanes` or `first_lane` — both boards follow. */
+    fun resize(numLanes: Int, firstLane: Int = board.firstLane) {
+        if (numLanes == board.numLanes && numLanes == results.numLanes &&
+            firstLane == board.firstLane && firstLane == results.firstLane
+        ) {
+            return
+        }
+        board.resize(numLanes, firstLane)
+        results.resize(numLanes, firstLane)
         publishScoreboard()
         _resultsView.value = results.view()
     }
