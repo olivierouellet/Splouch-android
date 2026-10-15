@@ -30,9 +30,34 @@ enum class Appearance {
 }
 
 /**
+ * P-23: the reader's results order. [POOL] follows the snapshot's `sort`, the order the operator
+ * set; the other two outrank it on every meet.
+ */
+enum class ResultsOrder {
+    POOL,
+    LANE,
+    PLACE,
+
+    ;
+
+    /** The Results tab draws in lane order (`R-05`): the reader's, else the pool's `sort`. */
+    fun isLaneOrder(poolSort: String?): Boolean = when (this) {
+        POOL -> poolSort == null || poolSort == "lane"
+        LANE -> true
+        PLACE -> false
+    }
+
+    companion object {
+        /** A stored value, or [POOL] for anything absent or unrecognised. */
+        fun parse(raw: String?): ResultsOrder = entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: POOL
+    }
+}
+
+/**
  * What survives a relaunch, per device: the server, the language and style choices (T-08, T-09),
- * the appearance (P-15), the tab (A-04), whether the introduction has been seen (P-20), and the
- * picker's filter (P-21). The schedule's filters are deliberately not here (S-20).
+ * the appearance (P-15), the tab (A-04), whether the introduction has been seen (P-20), the
+ * picker's filter (P-21), the results order (P-23) and which meets run their lanes the other way
+ * (L-26). The schedule's filters are deliberately not here (S-20).
  */
 data class Preferences(
     val server: String? = null,
@@ -53,6 +78,10 @@ data class Preferences(
     val introSeen: Boolean = false,
     /** P-21: one for the app, whichever server is in use. */
     val meetFilter: MeetFilter = MeetFilter(),
+    /** P-23: [ResultsOrder.POOL] until the reader picks. */
+    val resultsOrder: ResultsOrder = ResultsOrder.POOL,
+    /** L-26: the meets whose lanes this reader turned around, by [MeetContext.laneKey]. */
+    val descendingLanes: Set<String> = emptySet(),
 ) {
     /**
      * What the board actually renders (T-09). The control is withdrawn from the UI, so

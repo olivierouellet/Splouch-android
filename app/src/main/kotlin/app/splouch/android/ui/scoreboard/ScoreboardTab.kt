@@ -25,7 +25,14 @@ import app.splouch.core.strings.EventName
  * whole page rather than sharing it with a second band of chrome.
  */
 @Composable
-fun ScoreboardTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
+fun ScoreboardTab(
+    meet: MeetState,
+    wide: Boolean,
+    metrics: BoardMetrics,
+    headerInBar: Boolean,
+    /** L-26: the reader turned this meet's lanes around. */
+    descending: Boolean,
+) {
     val view by meet.session.scoreboard.collectAsStateWithLifecycle()
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
@@ -38,13 +45,13 @@ fun ScoreboardTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerI
     // it reads are part of that state — so a phone that joins mid-heat gets the same answer
     // from the cached snapshot as one that watched every frame arrive.
     val laps = remember(meet.config.settings) { LapSettings.from(meet.config.settings) }
-    val rows = remember(view.lanes, view.expectedSplits, view.splitStep, laps) {
-        view.lanes.map { l ->
+    val rows = remember(view.lanes, view.expectedSplits, view.splitStep, laps, descending) {
+        view.lanes.mapIndexed { i, l ->
             GridRow(
                 l.number.toString(), l.pulsing, l.name, l.alt, l.club, l.time, l.timeStyle, l.lockEdge,
-                l.deltaSeconds, l.deltaBetter, l.place, view.lap(l, laps), l.vacant,
+                l.deltaSeconds, l.deltaBetter, l.place, view.lap(l, laps), l.vacant, id = i,
             )
-        }
+        }.let { if (descending) it.reversed() else it }
     }
     Column(Modifier.fillMaxSize()) {
         // The app bar hands this back when it is drawing the row itself — always in

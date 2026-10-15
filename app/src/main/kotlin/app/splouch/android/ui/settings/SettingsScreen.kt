@@ -48,6 +48,7 @@ import app.splouch.android.ui.common.rememberFocusReturn
 import app.splouch.android.ui.picker.ServerSheet
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.Appearance
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.session.UiState
 import app.splouch.core.strings.BuiltInStrings
 import app.splouch.core.wire.LocaleEntry
@@ -85,10 +86,11 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            // ── Display: language (T-08), Appearance (P-15) ──
+            // ── Display: language (T-08), Appearance (P-15), results order (P-23) ──
             // Language is one row naming the current choice and opening the list: the server
             // may offer many more languages than today's three, and inline they would push
-            // everything below them off the screen. Appearance is three fixed choices, inline.
+            // everything below them off the screen. Appearance and results order are three
+            // fixed choices each, inline.
             Section(stringResource(R.string.settings_display), first = true)
             ListItem(
                 modifier = Modifier.focusRequester(languageRow.requester).clickable { showLanguages = true },
@@ -108,6 +110,16 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
                 R.string.appearance_auto to Appearance.AUTO,
             ).forEach { (label, value) ->
                 ChoiceRow(stringResource(label), state.prefs.appearance == value) { model.setAppearance(value) }
+            }
+            // The pool's order is the default and named as such, so a reader who never opens
+            // this sees what the operator chose.
+            SubHeader(stringResource(R.string.results_order))
+            listOf(
+                R.string.results_order_pool to ResultsOrder.POOL,
+                R.string.results_order_lane to ResultsOrder.LANE,
+                R.string.results_order_place to ResultsOrder.PLACE,
+            ).forEach { (label, value) ->
+                ChoiceRow(stringResource(label), state.prefs.resultsOrder == value) { model.setResultsOrder(value) }
             }
 
             // ── Notifications (N-12): every followed meet, from every server, then Pause all ──

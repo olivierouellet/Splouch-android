@@ -18,11 +18,21 @@ import app.splouch.android.ui.board.wallClock
 import app.splouch.android.ui.common.EmptyState
 import app.splouch.core.board.ScoreboardState.TimeStyle
 import app.splouch.core.session.MeetState
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.strings.EventName
 
 /** The last confirmed heat, held still (app.md §4). */
 @Composable
-fun ResultsTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBar: Boolean) {
+fun ResultsTab(
+    meet: MeetState,
+    wide: Boolean,
+    metrics: BoardMetrics,
+    headerInBar: Boolean,
+    /** P-23: the reader's order, over the pool's. */
+    order: ResultsOrder,
+    /** L-26: lanes turned around, while the order is by lane. */
+    descending: Boolean,
+) {
     val view by meet.session.resultsView.collectAsStateWithLifecycle()
     val labels = boardLabels(meet)
     fun label(key: String) = labels[key].orEmpty()
@@ -31,12 +41,13 @@ fun ResultsTab(meet: MeetState, wide: Boolean, metrics: BoardMetrics, headerInBa
         remember(view.eventName, view.eventNameParts, vocab) {
             EventName.display(view.eventName, view.eventNameParts, vocab)
         }
-    val rows = remember(view.rows) {
-        view.rows.map { r ->
+    val rows = remember(view, order, descending) {
+        view.rows(order, descending).map { r ->
             val style = if (r.locked) TimeStyle.LOCKED else TimeStyle.NORMAL
             GridRow(
                 r.laneLabel, false, r.name, r.alt, r.club, r.time, style, 0, r.deltaSeconds, r.deltaBetter, r.place,
                 vacant = r.vacant,
+                id = r.slot,
             )
         }
     }

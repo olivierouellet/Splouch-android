@@ -39,6 +39,12 @@ data class MeetContext(
     /** The meet's icon, cloud only (api.md §4). No screen draws it yet. */
     val iconUrl: String? get() = meetId?.takeIf { kind == ServerKind.CLOUD }?.let { base.httpUrl("/icon/${enc(it)}") }
 
+    /**
+     * L-26's key for this meet. A cloud meet by its id, which a move of [base] (C-12) does not
+     * change; a Pi's one meet by the server, which is the pool.
+     */
+    val laneKey: String get() = if (kind == ServerKind.CLOUD) meetId ?: server.origin else server.origin
+
     fun i18nUrl(lang: String): String = server.httpUrl("/i18n/${enc(lang)}")
 
     fun wsUrl(path: String): String = base.wsUrl(path)

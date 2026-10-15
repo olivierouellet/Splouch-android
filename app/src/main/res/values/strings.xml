@@ -52,6 +52,14 @@
     <string name="appearance_dark">Dark</string>
     <string name="appearance_light">Light</string>
     <string name="appearance_auto">Automatic</string>
+    <!-- P-23, after Appearance. -->
+    <string name="results_order">Results order</string>
+    <string name="results_order_pool">As the pool sets it</string>
+    <string name="results_order_lane">By lane</string>
+    <string name="results_order_place">By place</string>
+    <!-- L-26: the board's action, and the order it now shows, "1 to 8". -->
+    <string name="lane_order">Lane order</string>
+    <string name="lane_order_value">%1$d to %2$d</string>
     <string name="language">Language</string>
     <string name="language_auto">Automatic</string>
     <!-- Settings (P-19), counting (P-07, C-10) and the introduction (P-20). Section names,

@@ -959,6 +959,18 @@ class AppModel(
         savePrefs(current.prefs.copy(appearance = appearance))
     }
 
+    /** P-23: every meet's Results tab reads it from [UiState.prefs], so an open one follows at once. */
+    fun setResultsOrder(order: ResultsOrder) {
+        savePrefs(current.prefs.copy(resultsOrder = order))
+    }
+
+    /** L-26: turn the open meet's lanes around, and remember it for that meet. */
+    fun setLanesDescending(descending: Boolean) {
+        val key = current.meet?.context?.laneKey ?: return
+        val lanes = current.prefs.descendingLanes
+        savePrefs(current.prefs.copy(descendingLanes = if (descending) lanes + key else lanes - key))
+    }
+
     /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */
     fun setLabelStyle(style: String) {
         savePrefs(current.prefs.copy(labelStyle = if (style == Labels.SHORT) Labels.SHORT else Labels.LONG))

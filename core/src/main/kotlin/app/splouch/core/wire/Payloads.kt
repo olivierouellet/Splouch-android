@@ -419,12 +419,15 @@ data class ResultLane(
     val alt: String,
     val deltaSeconds: Double?,
     val deltaBetter: Boolean?,
+    /** The place as a number, what a reader's place order ranks by (`R-06`). */
+    val placeInt: Int? = null,
 ) {
     companion object {
         fun fromJson(e: JsonElement?): ResultLane? {
             val o = e.asObjectOrNull() ?: return null
             return ResultLane(
                 channel = o["channel"].asIntOrNull(),
+                placeInt = o["place_int"].asIntOrNull(),
                 place = o["place"].asStringOrNull()?.trim().orEmpty(),
                 time = o["time"].asStringOrNull()?.trim().orEmpty(),
                 name = o["name"].asStringOrNull().orEmpty(),

@@ -7,6 +7,7 @@ import app.splouch.core.session.MeetFilter
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
 import app.splouch.core.session.PreferencesStore
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.session.VidEntry
 import app.splouch.core.session.VidStore
 import app.splouch.core.strings.BundleCache
@@ -70,6 +71,9 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         tab = storedTab(),
         introSeen = prefs.getBoolean("intro_seen", false),
         meetFilter = MeetFilter.decode(prefs.getString("meet_filter", null)),
+        // P-23, L-26. Absent before either existed: the pool's order, every lane ascending.
+        resultsOrder = ResultsOrder.parse(prefs.getString("results_order", null)),
+        descendingLanes = prefs.getStringSet("descending_lanes", null)?.toSet().orEmpty(),
     )
 
     /**
@@ -96,6 +100,8 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
             .putString("appearance", prefs.appearance.name)
             .putBoolean("intro_seen", prefs.introSeen)
             .putString("meet_filter", MeetFilter.encode(prefs.meetFilter))
+            .putString("results_order", prefs.resultsOrder.name)
+            .putStringSet("descending_lanes", prefs.descendingLanes)
             .apply {
                 val tab = prefs.tab
                 if (tab == null) remove("tab") else putString("tab", tab.name)

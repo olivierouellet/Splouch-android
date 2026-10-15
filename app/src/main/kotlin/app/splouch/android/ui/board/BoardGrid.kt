@@ -1,6 +1,8 @@
 package app.splouch.android.ui.board
 
 import androidx.compose.animation.Animatable
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.animateBounds
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,6 +29,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -94,6 +98,11 @@ data class GridRow(
     val lap: LapCount? = null,
     /** L-25: nothing in the lane. Drawn as still water only when the heat has names. */
     val vacant: Boolean = false,
+    /**
+     * The row this is wherever it is drawn: the lane's row on the Scoreboard, the result's
+     * `slot` on Results. L-26 moves rows by it.
+     */
+    val id: Int = 0,
 )
 
 /**
@@ -191,6 +200,7 @@ private fun spoken(r: GridRow, settings: MeetSettings, labels: Map<String, Strin
 
 // ── portrait: the two-line compact row (L-15) ────────────────────────────────
 
+@OptIn(ExperimentalSharedTransitionApi::class) // animateBounds (L-26)
 @Composable
 private fun PortraitGrid(
     rows: List<GridRow>,
@@ -302,22 +312,32 @@ private fun PortraitGrid(
                 }
             }
             val still = stillLanes(rows)
+            val moves = !reduceMotion()
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                rows.forEachIndexed { i, r ->
-                    val description = spoken(r, settings, labels, lapsWord)
-                    PortraitRow(
-                        r,
-                        settings,
-                        base,
-                        scale,
-                        showsAlt,
-                        rowFit,
-                        clubMax * scale,
-                        still = still[i],
-                        modifier = Modifier.height(rowHeight)
-                            .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
-                            .clearAndSetSemantics { contentDescription = description },
-                    )
+                // L-26: rows keyed by their own identity, so turning the lanes around moves
+                // each row to its new place rather than repainting every one.
+                LookaheadScope {
+                    rows.forEachIndexed { i, r ->
+                        key(r.id) {
+                            val description = spoken(r, settings, labels, lapsWord)
+                            PortraitRow(
+                                r,
+                                settings,
+                                base,
+                                scale,
+                                showsAlt,
+                                rowFit,
+                                clubMax * scale,
+                                still = still[i],
+                                modifier = Modifier.then(
+                                    if (moves) Modifier.animateBounds(this@LookaheadScope) else Modifier,
+                                )
+                                    .height(rowHeight)
+                                    .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                                    .clearAndSetSemantics { contentDescription = description },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -540,6 +560,7 @@ private fun KeyLine(spokenValue: String, meaning: String, value: @Composable () 
 
 // ── landscape: the full table, font scaled to lane count (L-16) ──────────────
 
+@OptIn(ExperimentalSharedTransitionApi::class) // animateBounds (L-26)
 @Composable
 private fun LandscapeGrid(
     rows: List<GridRow>,
@@ -684,78 +705,85 @@ private fun LandscapeGrid(
                 }
             }
             val still = stillLanes(rows)
-            rows.forEachIndexed { i, r ->
-                val description = spoken(r, settings, labels, lapsWord)
-                Row(
-                    Modifier.fillMaxWidth().height(rowHeight)
-                        .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
-                        .clearAndSetSemantics { contentDescription = description },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LaneNumber(r.lane, r.pulsing, size * laneFit, Modifier.weight(cols.lane))
-                    if (still[i]) {
-                        StillWater(
-                            size * 0.1f,
-                            Modifier.weight(1f - cols.lane).fillMaxHeight().padding(horizontal = CellPad),
-                        )
-                        return@Row
-                    }
-                    if (cols.name > 0f) {
-                        Column(Modifier.weight(cols.name).padding(horizontal = CellPad)) {
-                            AutoSizeText(
-                                r.name,
-                                Modifier.fillMaxWidth(),
-                                maxSize = cell.asSp(),
-                                minSize = shrinkFloor(cell, size * 0.5f).asSp(),
-                            )
-                            if (r.alt.isNotEmpty()) {
+            val moves = !reduceMotion()
+            // L-26, as the portrait rows: keyed by identity, so they slide when turned around.
+            LookaheadScope {
+                rows.forEachIndexed { i, r ->
+                    key(r.id) {
+                        val description = spoken(r, settings, labels, lapsWord)
+                        Row(
+                            Modifier.then(if (moves) Modifier.animateBounds(this@LookaheadScope) else Modifier)
+                                .fillMaxWidth().height(rowHeight)
+                                .background(if (i % 2 == 0) colors.rowOdd else colors.rowEven)
+                                .clearAndSetSemantics { contentDescription = description },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LaneNumber(r.lane, r.pulsing, size * laneFit, Modifier.weight(cols.lane))
+                            if (still[i]) {
+                                StillWater(
+                                    size * 0.1f,
+                                    Modifier.weight(1f - cols.lane).fillMaxHeight().padding(horizontal = CellPad),
+                                )
+                                return@Row
+                            }
+                            if (cols.name > 0f) {
+                                Column(Modifier.weight(cols.name).padding(horizontal = CellPad)) {
+                                    AutoSizeText(
+                                        r.name,
+                                        Modifier.fillMaxWidth(),
+                                        maxSize = cell.asSp(),
+                                        minSize = shrinkFloor(cell, size * 0.5f).asSp(),
+                                    )
+                                    if (r.alt.isNotEmpty()) {
+                                        AutoSizeText(
+                                            r.alt,
+                                            Modifier.fillMaxWidth(),
+                                            color = colors.thText,
+                                            maxSize = (size * 0.5f).asSp(),
+                                            minSize = shrinkFloor(size * 0.5f).asSp(),
+                                        )
+                                    }
+                                }
+                            }
+                            if (cols.spacer > 0f) Spacer(Modifier.weight(cols.spacer))
+                            if (cols.club > 0f) {
                                 AutoSizeText(
-                                    r.alt,
-                                    Modifier.fillMaxWidth(),
-                                    color = colors.thText,
-                                    maxSize = (size * 0.5f).asSp(),
-                                    minSize = shrinkFloor(size * 0.5f).asSp(),
+                                    r.club,
+                                    Modifier.weight(cols.club).padding(horizontal = CellPad),
+                                    maxSize = cell.asSp(),
+                                    minSize = shrinkFloor(cell).asSp(),
+                                    textAlign = TextAlign.Center,
                                 )
                             }
-                        }
-                    }
-                    if (cols.spacer > 0f) Spacer(Modifier.weight(cols.spacer))
-                    if (cols.club > 0f) {
-                        AutoSizeText(
-                            r.club,
-                            Modifier.weight(cols.club).padding(horizontal = CellPad),
-                            maxSize = cell.asSp(),
-                            minSize = shrinkFloor(cell).asSp(),
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                    TimeText(
-                        r.time,
-                        r.timeStyle,
-                        r.lockEdge,
-                        cell * timeFit,
-                        Modifier.weight(cols.time).padding(horizontal = CellPad),
-                        TextAlign.Center,
-                    )
-                    // L-23: the lap is centred in the column the delta shares with it, and
-                    // the header above them both says nothing while it may hold either. Both
-                    // take the column's one size, so the column never goes ragged.
-                    if (cols.delta > 0f) {
-                        Box(
-                            Modifier.weight(cols.delta).padding(horizontal = CellPad),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (r.lap != null) {
-                                LapText(r.lap, cell * deltaFit)
-                            } else {
-                                DeltaText(r.deltaSeconds, r.deltaBetter, cell * deltaFit)
+                            TimeText(
+                                r.time,
+                                r.timeStyle,
+                                r.lockEdge,
+                                cell * timeFit,
+                                Modifier.weight(cols.time).padding(horizontal = CellPad),
+                                TextAlign.Center,
+                            )
+                            // L-23: the lap is centred in the column the delta shares with it, and
+                            // the header above them both says nothing while it may hold either. Both
+                            // take the column's one size, so the column never goes ragged.
+                            if (cols.delta > 0f) {
+                                Box(
+                                    Modifier.weight(cols.delta).padding(horizontal = CellPad),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (r.lap != null) {
+                                        LapText(r.lap, cell * deltaFit)
+                                    } else {
+                                        DeltaText(r.deltaSeconds, r.deltaBetter, cell * deltaFit)
+                                    }
+                                }
+                            }
+                            // The place takes the row font whole — it is one character, it is the
+                            // answer, and it has a column to itself — unless the column cannot hold it.
+                            if (cols.place > 0f) {
+                                PlaceText(r.place, size * placeFit, Modifier.weight(cols.place), Arrangement.Center)
                             }
                         }
-                    }
-                    // The place takes the row font whole — it is one character, it is the
-                    // answer, and it has a column to itself — unless the column cannot hold it.
-                    if (cols.place > 0f) {
-                        PlaceText(r.place, size * placeFit, Modifier.weight(cols.place), Arrangement.Center)
                     }
                 }
             }

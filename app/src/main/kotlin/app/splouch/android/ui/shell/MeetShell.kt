@@ -45,8 +45,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.R
 import app.splouch.android.ui.board.BoardBarHeader
 import app.splouch.android.ui.board.BoardMetrics
@@ -223,6 +226,13 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     val onBoard = tab != MeetTab.SCHEDULE
     val headerInBar = onBoard && (landscape || metrics.needsBar)
 
+    // L-26: this meet's lanes, turned around by the reader. Offered on the Scoreboard, and on
+    // Results while it is in lane order — a ranking has no lanes to turn around.
+    val descending = meet.context.laneKey in state.prefs.descendingLanes
+    val results by meet.session.resultsView.collectAsStateWithLifecycle()
+    val showsLaneOrder = tab == MeetTab.SCOREBOARD ||
+        (tab == MeetTab.RESULTS && results.isLaneOrder(state.prefs.resultsOrder))
+
     Scaffold(
         modifier = Modifier
             .scale(1f - 0.08f * backProgress.floatValue)
@@ -272,6 +282,23 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                     }
                 },
                 actions = {
+                    // L-26: the rows slide to their new places (`BoardGrid`). Read out as what
+                    // it is and the order now shown, "1 to 8".
+                    if (showsLaneOrder) {
+                        val first = meet.config.settings.firstLane
+                        val last = first + meet.config.settings.numLanes.coerceAtLeast(1) - 1
+                        val order = if (descending) {
+                            stringResource(R.string.lane_order_value, last, first)
+                        } else {
+                            stringResource(R.string.lane_order_value, first, last)
+                        }
+                        IconButton(
+                            onClick = { model.setLanesDescending(!descending) },
+                            modifier = Modifier.semantics { stateDescription = order },
+                        ) {
+                            Icon(painterResource(R.drawable.ic_swap_vert), stringResource(R.string.lane_order))
+                        }
+                    }
                     // N-01: beside the filter, where the meet's node can notify this phone.
                     // Active while someone is followed, with the count — the filter's way.
                     // Struck through, no count, while paused (N-11).
@@ -356,8 +383,15 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
                                 // Both board tabs answer the same question, the way they
                                 // already did in landscape: the bar carries whichever one is
                                 // in view, so neither draws its own band.
-                                MeetTab.SCOREBOARD -> ScoreboardTab(meet, wide, metrics, headerInBar)
-                                MeetTab.RESULTS -> ResultsTab(meet, wide, metrics, headerInBar)
+                                MeetTab.SCOREBOARD -> ScoreboardTab(meet, wide, metrics, headerInBar, descending)
+                                MeetTab.RESULTS -> ResultsTab(
+                                    meet,
+                                    wide,
+                                    metrics,
+                                    headerInBar,
+                                    state.prefs.resultsOrder,
+                                    descending,
+                                )
                                 MeetTab.SCHEDULE -> ScheduleTab(
                                     meet,
                                     filter,

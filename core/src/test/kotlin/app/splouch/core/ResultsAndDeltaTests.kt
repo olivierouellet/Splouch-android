@@ -2,6 +2,7 @@ package app.splouch.core
 
 import app.splouch.core.board.DeltaFormat
 import app.splouch.core.board.ResultsBoard
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.wire.ResultsSnapshot
 import app.splouch.core.wire.parseJsonOrNull
 import kotlin.test.Test
@@ -11,6 +12,55 @@ import kotlin.test.assertTrue
 
 class ResultsAndDeltaTests {
     private fun snap(json: String) = ResultsSnapshot.fromJson(parseJsonOrNull(json))!!
+
+    @Test fun `P-23 - a reader's place order ranks a heat the pool sorted by lane, by place_int`() {
+        val r = ResultsBoard(4)
+        r.apply(
+            snap(
+                """{"event":"3","heat":"1","sort":"lane","lanes":[{"channel":1,"place":"","time":"","name":"DQ"},{"channel":2,"place":"2","place_int":2,"time":"2.00","name":"B"},{"channel":3,"place":"1","place_int":1,"time":"1.00","name":"A"}]}""",
+            ),
+        )
+        val v = r.view()
+        assertTrue(v.isLaneOrder(ResultsOrder.POOL))
+        assertFalse(v.isLaneOrder(ResultsOrder.PLACE))
+        val rows = v.rows(ResultsOrder.PLACE, descending = false)
+        assertEquals(listOf("A", "B", "DQ", ""), rows.map { it.name })
+        assertEquals(listOf(1, 2, 3, 4), rows.map { it.slot })
+        assertEquals("", rows[3].laneLabel)
+    }
+
+    @Test fun `P-23 - a reader's lane order puts a place-sorted heat back on its lanes`() {
+        val r = ResultsBoard(4)
+        r.apply(
+            snap(
+                """{"event":"3","heat":"1","sort":"place","lanes":[{"channel":4,"place":"1","time":"1.00","name":"D"},{"channel":2,"place":"2","time":"2.00","name":"B"}]}""",
+            ),
+        )
+        assertEquals(listOf("", "B", "", "D"), r.view().rows(ResultsOrder.LANE, descending = false).map { it.name })
+    }
+
+    @Test fun `L-26 - lanes turned around keep their numbers and identity, a ranking never turns`() {
+        val r = ResultsBoard(4, firstLane = 0)
+        r.apply(
+            snap(
+                """{"event":"3","heat":"1","sort":"lane","lanes":[{"channel":1,"place":"2","time":"2.00","name":"B"},{"channel":3,"place":"1","time":"1.00","name":"A"}]}""",
+            ),
+        )
+        val down = r.view().rows(ResultsOrder.POOL, descending = true)
+        assertEquals(listOf("3", "2", "1", "0"), down.map { it.laneLabel })
+        assertEquals(listOf(4, 3, 2, 1), down.map { it.slot })
+        assertEquals(listOf("A", "", "B", ""), down.map { it.name })
+        val ranked = r.view().rows(ResultsOrder.PLACE, descending = true)
+        assertEquals(listOf("A", "B", "", ""), ranked.map { it.name })
+    }
+
+    @Test fun `P-23 - an unknown stored order is the pool's`() {
+        assertEquals(ResultsOrder.POOL, ResultsOrder.parse(null))
+        assertEquals(ResultsOrder.POOL, ResultsOrder.parse("time"))
+        assertEquals(ResultsOrder.PLACE, ResultsOrder.parse("PLACE"))
+        assertTrue(ResultsOrder.POOL.isLaneOrder(null))
+        assertFalse(ResultsOrder.POOL.isLaneOrder("place"))
+    }
 
     @Test fun `waiting until the first snapshot`() {
         val r = ResultsBoard(4)
