@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardActions
@@ -36,15 +38,18 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -94,6 +99,19 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
     val removedMessage = stringResource(R.string.server_removed)
     val undoLabel = stringResource(R.string.undo)
     val withLocalNetwork = rememberLocalNetworkAccess()
+    val sheetState = rememberModalBottomSheetState()
+    val fieldInView = remember { BringIntoViewRequester() }
+
+    // P-13: a check can take seconds, and in landscape the field sits below the fold — so its
+    // answer is brought into view rather than left for the official to scroll to. The sheet
+    // goes fully up first: a half-raised sheet hides its bottom from the scroll, too. One
+    // frame's wait lets the error line be laid out before it is measured.
+    LaunchedEffect(error) {
+        if (error == null) return@LaunchedEffect
+        sheetState.expand()
+        withFrameNanos {}
+        fieldInView.bringIntoView()
+    }
 
     // P-13: a swipe is one finger and a saved server is a typed address, so taking one
     // away has to be undoable. The snackbar carries the only way back; `restoreServer`
@@ -137,7 +155,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
     // P-12: the browse lives no longer than the sheet that asked for it.
     DisposableEffect(model) { onDispose { model.stopLocalSearch() } }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Box {
             Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
                 SectionHeader(stringResource(R.string.server))
@@ -234,7 +252,7 @@ fun ServerSheet(model: AppModel, state: UiState, onDismiss: () -> Unit, onChosen
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                     keyboardActions = KeyboardActions(onGo = { add() }),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).bringIntoViewRequester(fieldInView),
                 )
             }
             SnackbarHost(sheetSnackbar, Modifier.align(Alignment.BottomCenter).padding(8.dp))
