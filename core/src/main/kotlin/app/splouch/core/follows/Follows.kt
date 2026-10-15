@@ -1,6 +1,7 @@
 package app.splouch.core.follows
 
-import app.splouch.core.wire.ScheduleHeat
+import app.splouch.core.schedule.Filter
+import app.splouch.core.schedule.SuggestionType
 import app.splouch.core.wire.asArrayOrNull
 import app.splouch.core.wire.asBoolOrNull
 import app.splouch.core.wire.asIntOrNull
@@ -98,16 +99,10 @@ data class MeetFollows(
             )
         }
 
-        /**
-         * `N-03`: a filter chip names a swimmer, not a club; the follow carries the club the
-         * start list gives that name — one follow per club when two swimmers share it.
-         */
-        fun swimmersNamed(name: String, heats: List<ScheduleHeat>): List<FollowedSwimmer> = heats
-            .flatMap { it.lanes }
-            .filter { l -> l.name == name || l.swimmers.any { it.name == name } }
-            .map { it.club }
-            .distinct()
-            .map { FollowedSwimmer(name, it) }
+        /** `N-03`: the swimmer chips as follows, each with the club it was found with; club chips are not copied. */
+        fun swimmersOf(filters: List<Filter>): List<FollowedSwimmer> = filters
+            .filter { it.type == SuggestionType.SWIMMER }
+            .map { FollowedSwimmer(it.name, it.club) }
     }
 }
 

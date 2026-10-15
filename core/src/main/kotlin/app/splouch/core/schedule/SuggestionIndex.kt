@@ -5,7 +5,10 @@ import app.splouch.core.wire.ScheduleHeat
 enum class SuggestionType { SWIMMER, CLUB }
 
 /** One typeahead row (app.md `S-10`): its kind, the name to filter on, and the club to show. */
-data class Suggestion(val type: SuggestionType, val name: String, val club: String)
+data class Suggestion(val type: SuggestionType, val name: String, val club: String) {
+    /** The chip this row adds; a swimmer's carries its club (`S-11`). */
+    val filter: Filter get() = Filter(type, name, if (type == SuggestionType.SWIMMER) club else "")
+}
 
 /**
  * `S-09`: typeahead over the swimmers and clubs of the start list, built entirely on the
@@ -46,15 +49,15 @@ data class SuggestionIndex(private val entries: List<Entry>) {
 
         fun from(heats: List<ScheduleHeat>?): SuggestionIndex {
             if (heats.isNullOrEmpty()) return EMPTY
-            // Name → club, in schedule order: a later lane's club wins for the same name.
-            val names = LinkedHashMap<String, String>()
+            // Name and club, in schedule order: one name in two clubs is two swimmers.
+            val names = LinkedHashSet<Pair<String, String>>()
             val clubs = LinkedHashSet<String>()
             for (h in heats) {
                 for (l in h.lanes) {
                     // The lane's own name too, relay teams included: a spectator may know the
                     // team and not one swimmer on it.
-                    if (l.name.isNotEmpty()) names[l.name] = l.club
-                    for (s in l.swimmers) if (s.name.isNotEmpty()) names[s.name] = l.club
+                    if (l.name.isNotEmpty()) names += l.name to l.club
+                    for (s in l.swimmers) if (s.name.isNotEmpty()) names += s.name to l.club
                     if (l.club.isNotEmpty()) clubs += l.club
                 }
             }
@@ -67,7 +70,7 @@ data class SuggestionIndex(private val entries: List<Entry>) {
         private fun entry(type: SuggestionType, name: String, club: String) =
             Entry(Suggestion(type, name, club), SearchFold.fold(name))
 
-        /** By the folded key, so accents sort where a reader expects; the raw name breaks ties. */
-        private val ORDER = compareBy<Entry>({ it.key }, { it.suggestion.name })
+        /** By the folded key, so accents sort where a reader expects; the raw name, then the club, break ties. */
+        private val ORDER = compareBy<Entry>({ it.key }, { it.suggestion.name }, { it.suggestion.club })
     }
 }

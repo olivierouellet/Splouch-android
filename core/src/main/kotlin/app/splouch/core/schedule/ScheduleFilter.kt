@@ -6,7 +6,11 @@ import app.splouch.core.wire.ScheduleLane
 /** The event and heat the meet is on, as strings (app.md S-05). */
 data class HeatRef(val event: String, val heat: String)
 
-data class Filter(val type: SuggestionType, val name: String)
+/**
+ * One active filter chip (app.md `S-11`). A swimmer also carries the club it was found with:
+ * two swimmers of one name in two clubs are two people (`S-09`). Always `""` for a club.
+ */
+data class Filter(val type: SuggestionType, val name: String, val club: String = "")
 
 /** The Schedule tab's client-side state (app.md §5.2). Session-only, never persisted (S-20). */
 data class ScheduleFilterState(
@@ -33,13 +37,17 @@ enum class EmptyState { NONE, NO_SCHEDULE, NO_MATCHES }
 
 object ScheduleFilter {
 
-    /** S-13, S-14: OR-ed; a swimmer filter matches relay members, not just the display name. */
+    /**
+     * S-13, S-14: OR-ed; a swimmer filter matches relay members, not just the display name, and
+     * only in the club it was found with.
+     */
     fun laneMatches(lane: ScheduleLane, filters: List<Filter>): Boolean {
         if (filters.isEmpty()) return true
         return filters.any { f ->
             when (f.type) {
                 SuggestionType.CLUB -> lane.club == f.name
-                SuggestionType.SWIMMER -> lane.name == f.name || lane.swimmers.any { it.name == f.name }
+                SuggestionType.SWIMMER ->
+                    lane.club == f.club && (lane.name == f.name || lane.swimmers.any { it.name == f.name })
             }
         }
     }
@@ -109,15 +117,10 @@ object ScheduleFilter {
      */
     fun retain(state: ScheduleFilterState, heats: List<ScheduleHeat>): ScheduleFilterState {
         if (!state.hasFilters) return state
-        val lanes = heats.asSequence().flatMap { it.lanes.asSequence() }
-        val clubs = lanes.map { it.club }.toSet()
-        val swimmers = lanes.flatMap { l -> sequenceOf(l.name) + l.swimmers.asSequence().map { it.name } }.toSet()
+        // Kept while some lane still matches it — a swimmer by name and club.
         return state.copy(
-            filters = state.filters.filter {
-                when (it.type) {
-                    SuggestionType.CLUB -> it.name in clubs
-                    SuggestionType.SWIMMER -> it.name in swimmers
-                }
+            filters = state.filters.filter { f ->
+                heats.any { h -> h.lanes.any { laneMatches(it, listOf(f)) } }
             },
         )
     }

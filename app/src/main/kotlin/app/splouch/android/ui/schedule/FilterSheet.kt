@@ -54,7 +54,6 @@ import app.splouch.android.R
 import app.splouch.android.ui.common.DialogSystemBars
 import app.splouch.core.follows.FollowedSwimmer
 import app.splouch.core.follows.MeetFollows
-import app.splouch.core.schedule.Filter
 import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.Suggestion
 import app.splouch.core.schedule.SuggestionType
@@ -137,8 +136,8 @@ fun FilterSheet(
                         imeAction = ImeAction.Search,
                     ),
                     keyboardActions = KeyboardActions(onSearch = {
-                        suggestions.firstOrNull { !state.contains(Filter(it.type, it.name)) }?.let {
-                            onChange(state.add(Filter(it.type, it.name)))
+                        suggestions.firstOrNull { !state.contains(it.filter) }?.let {
+                            onChange(state.add(it.filter))
                             query = ""
                         }
                     }),
@@ -170,7 +169,8 @@ fun FilterSheet(
                                 InputChip(
                                     selected = true,
                                     onClick = { onChange(state.remove(f)) },
-                                    label = { Text(f.name) },
+                                    // Two swimmers of one name in two clubs are two chips.
+                                    label = { Text(if (f.club.isEmpty()) f.name else "${f.name} · ${f.club}") },
                                     // A chip is 32dp tall and they sit shoulder to shoulder, so
                                     // a slightly-off tap removed the wrong swimmer. This grows
                                     // the touch target to the 48dp floor and not the chip.
@@ -186,11 +186,8 @@ fun FilterSheet(
                             }
                         }
                     }
-                    // N-03: each swimmer chip with the club the start list gives it.
-                    val toFollow = remember(state.filters, meet.schedule) {
-                        state.filters.filter { it.type == SuggestionType.SWIMMER }
-                            .flatMap { MeetFollows.swimmersNamed(it.name, meet.schedule.orEmpty()) }
-                    }
+                    // N-03: each swimmer chip with the club it was found with.
+                    val toFollow = remember(state.filters) { MeetFollows.swimmersOf(state.filters) }
                     if (onNotify != null && toFollow.isNotEmpty()) {
                         TextButton(
                             onClick = { onNotify(toFollow) },
@@ -254,7 +251,7 @@ fun FilterSheet(
                         LazyColumn(Modifier.fillMaxSize()) {
                             items(suggestions, key = { it.type.name + "|" + it.name + "|" + it.club }) { s ->
                                 SuggestionRow(s, state, t.mobile("swimmer"), t.mobile("club")) {
-                                    onChange(state.add(Filter(s.type, s.name)))
+                                    onChange(state.add(s.filter))
                                     query = ""
                                 }
                             }
@@ -306,7 +303,7 @@ private fun SuggestionRow(
     clubWord: String,
     onAdd: () -> Unit,
 ) {
-    val already = state.contains(Filter(s.type, s.name))
+    val already = state.contains(s.filter)
     val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
     ListItem(
         modifier = if (already) Modifier else Modifier.clickable(onClick = onAdd),

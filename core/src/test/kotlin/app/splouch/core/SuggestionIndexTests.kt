@@ -94,9 +94,15 @@ class SuggestionIndexTests {
         assertTrue(SuggestionIndex.from(null).search("a").isEmpty())
     }
 
-    @Test fun `one entry per name, the later lane's club winning, and capped at 20`() {
-        // "Bo Xu" swims for Rays in event 1 and Sharks in event 3: the later lane wins.
-        assertEquals(listOf(Suggestion(SuggestionType.SWIMMER, "Bo Xu", "Sharks")), index.search("bo xu"))
+    @Test fun `one entry per name and club, by club after the name, and capped at 20`() {
+        // "Bo Xu" for Rays in event 1 and for Sharks in event 3: two swimmers, two rows.
+        assertEquals(
+            listOf(
+                Suggestion(SuggestionType.SWIMMER, "Bo Xu", "Rays"),
+                Suggestion(SuggestionType.SWIMMER, "Bo Xu", "Sharks"),
+            ),
+            index.search("bo xu"),
+        )
         assertEquals(1, index.search("sharks").count { it.type == SuggestionType.CLUB })
 
         val many = ScheduleHeat.listFromJson(

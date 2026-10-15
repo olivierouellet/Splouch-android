@@ -9,6 +9,8 @@ import app.splouch.core.follows.HeatFocus
 import app.splouch.core.follows.InMemoryFollowStore
 import app.splouch.core.follows.MeetFollows
 import app.splouch.core.follows.PushPermission
+import app.splouch.core.schedule.Filter
+import app.splouch.core.schedule.SuggestionType
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.InMemoryPreferencesStore
 import app.splouch.core.session.InMemoryVidStore
@@ -19,9 +21,6 @@ import app.splouch.core.strings.InMemoryBundleCache
 import app.splouch.core.support.FakeTransport
 import app.splouch.core.support.StubHttp
 import app.splouch.core.wire.MeetConfig
-import app.splouch.core.wire.ScheduleHeat
-import app.splouch.core.wire.ScheduleLane
-import app.splouch.core.wire.ScheduleSwimmer
 import app.splouch.core.wire.parseJsonOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -119,21 +118,13 @@ class FollowsTests {
         assertTrue(store.load().isEmpty(), "an empty list is no row")
     }
 
-    @Test fun `a filter chip becomes one follow per club`() {
-        val heats = listOf(
-            ScheduleHeat(
-                "1",
-                "1",
-                "",
-                null,
-                "",
-                listOf(
-                    ScheduleLane(1, "Emma Roy", "CNQ", "", emptyList()),
-                    ScheduleLane(2, "MEGO A", "MEGO", "", listOf(ScheduleSwimmer("Emma Roy", "Emma"))),
-                ),
-            ),
+    @Test fun `a filter chip becomes the follow it names`() {
+        // N-03: the swimmer it was found as, not every swimmer of that name; clubs not copied.
+        val filters = listOf(
+            Filter(SuggestionType.SWIMMER, "Emma Roy", "CNQ"),
+            Filter(SuggestionType.CLUB, "MEGO"),
         )
-        assertEquals(listOf("CNQ", "MEGO"), MeetFollows.swimmersNamed("Emma Roy", heats).map { it.club })
+        assertEquals(listOf(FollowedSwimmer("Emma Roy", "CNQ")), MeetFollows.swimmersOf(filters))
     }
 
     // ── N-01, N-04, N-07 ──────────────────────────────────────────────────────

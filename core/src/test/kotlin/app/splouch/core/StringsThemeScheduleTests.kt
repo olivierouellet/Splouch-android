@@ -160,7 +160,7 @@ class StringsThemeScheduleTests {
     )!!
 
     @Test fun `filters are OR-ed and match relay members, heats with no match disappear`() {
-        val st = ScheduleFilterState(filters = listOf(Filter(SuggestionType.SWIMMER, "Ann Lee")))
+        val st = ScheduleFilterState(filters = listOf(Filter(SuggestionType.SWIMMER, "Ann Lee", "Sharks")))
         val v = ScheduleFilter.visible(heats, st, null)
         assertEquals(listOf("1/1", "2/1"), v.map { "${it.heat.event}/${it.heat.heat}" })
         assertEquals(listOf(0, 1), v.map { it.index })
@@ -197,8 +197,33 @@ class StringsThemeScheduleTests {
             app.splouch.core.schedule.EmptyState.NO_SCHEDULE,
             ScheduleFilter.emptyState(emptyList(), emptyList(), ScheduleFilterState()),
         )
-        val kept = ScheduleFilter.retain(none.add(Filter(SuggestionType.SWIMMER, "Di Fu")), heats)
-        assertEquals(listOf(Filter(SuggestionType.SWIMMER, "Di Fu")), kept.filters)
+        val kept = ScheduleFilter.retain(
+            // Bo Xu is still there, but not for Sharks.
+            none.add(
+                Filter(SuggestionType.SWIMMER, "Di Fu", "Sharks"),
+            ).add(Filter(SuggestionType.SWIMMER, "Bo Xu", "Sharks")),
+            heats,
+        )
+        assertEquals(listOf(Filter(SuggestionType.SWIMMER, "Di Fu", "Sharks")), kept.filters)
+    }
+
+    @Test fun `a swimmer filter matches only the club it was found with`() {
+        // S-13: two swimmers of one name in two clubs are two people.
+        val twins = ScheduleHeat.listFromJson(
+            parseJsonOrNull(
+                """{"heats":[
+        {"event":2,"heat":1,"event_name":"a","time":"","lanes":[{"lane":3,"name":"Olivia Gagné","club":"PPO","seed_time":"","swimmers":[]},{"lane":4,"name":"PPO A","club":"PPO","seed_time":"","swimmers":[{"name":"Olivia Gagné","first":"Olivia"}]}]},
+        {"event":3,"heat":1,"event_name":"b","time":"","lanes":[{"lane":5,"name":"Olivia Gagné","club":"CNQ","seed_time":"","swimmers":[]}]}
+    ]}""",
+            ),
+        )!!
+        fun lanes(club: String) = ScheduleFilter.visible(
+            twins,
+            ScheduleFilterState(filters = listOf(Filter(SuggestionType.SWIMMER, "Olivia Gagné", club))),
+            null,
+        ).flatMap { v -> v.lanes.map { it.lane } }
+        assertEquals(listOf(5), lanes("CNQ"))
+        assertEquals(listOf(3, 4), lanes("PPO"))
     }
 
     /**
