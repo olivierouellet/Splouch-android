@@ -17,7 +17,7 @@ object MeetSearch {
     fun shows(meetCount: Int): Boolean = meetCount >= THRESHOLD
 
     /**
-     * What one meet is searched on. The day, sport and organizer are not on the card but are
+     * What one meet is searched on. The day and organizer are not on the card but are
      * searched, because a spectator may know a meet by them. The country is searched
      * by its code and by its name in [lang], the reader's language; the province as sent and
      * by its full name in [lang] ([Subdivisions]).
@@ -26,7 +26,6 @@ object MeetSearch {
         m.name,
         m.meetDate,
         m.location,
-        m.sport,
         m.organizer,
         m.province,
         Subdivisions.lookup(m.country, m.province)?.name(lang).orEmpty(),

@@ -69,7 +69,6 @@ data class MeetSummary(
     val id: String,
     val name: String,
     val location: String,
-    val sport: String,
     val organizer: String,
     val meetDate: String,
     val offline: Boolean,
@@ -90,7 +89,6 @@ data class MeetSummary(
                 id = id,
                 name = o["name"].asStringOrNull().orEmpty(),
                 location = o["location"].asStringOrNull().orEmpty(),
-                sport = o["sport"].asStringOrNull().orEmpty(),
                 organizer = o["organizer"].asStringOrNull().orEmpty(),
                 meetDate = o["meet_date"].asStringOrNull().orEmpty(),
                 offline = o["offline"].asBoolOrNull() ?: false,
@@ -260,7 +258,6 @@ data class MeetSettings(
 data class MeetConfig(
     val name: String,
     val location: String = "",
-    val sport: String = "",
     val appWindowTitle: String = "",
     val meetDate: String = "",
     /** The cloud says whether a relay is attached; the Pi does not say, the socket does. */
@@ -280,7 +277,6 @@ data class MeetConfig(
             return MeetConfig(
                 name = o["name"].asStringOrNull().orEmpty(),
                 location = o["location"].asStringOrNull().orEmpty(),
-                sport = o["sport"].asStringOrNull().orEmpty(),
                 appWindowTitle = o["app_window_title"].asStringOrNull().orEmpty(),
                 meetDate = o["meet_date"].asStringOrNull().orEmpty(),
                 live = o["live"].asBoolOrNull(),

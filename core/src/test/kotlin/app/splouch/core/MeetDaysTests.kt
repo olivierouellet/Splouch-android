@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 /** P-01: the cards under their day, and the one line of place each card carries. */
 class MeetDaysTests {
     private fun meet(id: String = "x", date: String = "", country: String = "", province: String = "") =
-        MeetSummary(id, id, "Pool", "Swimming", "", date, offline = false, hasPickerImage = false, country, province)
+        MeetSummary(id, id, "Pool", "", date, offline = false, hasPickerImage = false, country, province)
 
     @Test fun `meets go under their day, an undated one last, in the server's order within a day`() {
         val days = MeetDay.group(
@@ -20,7 +20,7 @@ class MeetDaysTests {
         assertEquals(listOf("b", "d"), days[1].meets.map { it.id })
     }
 
-    @Test fun `the card shows the city and the codes, never the day or the sport`() {
+    @Test fun `the card shows the city and the codes, never the day`() {
         assertEquals(listOf("Pool", "QC", "CA"), meet(country = "CA", province = "Québec").place())
         assertEquals(listOf("Pool", "Bayern", "DE"), meet(country = "de", province = "Bayern").place())
         assertEquals(listOf("Pool"), meet().place())

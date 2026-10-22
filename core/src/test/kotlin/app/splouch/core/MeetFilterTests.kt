@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 /** P-21: the picker's filter by country, state/province and club, remembered. */
 class MeetFilterTests {
     private fun meet(id: String, country: String = "", province: String = "", organizer: String = "") =
-        MeetSummary(id, id, "", "", organizer, "", offline = false, hasPickerImage = false, country, province)
+        MeetSummary(id, id, "", organizer, "", offline = false, hasPickerImage = false, country, province)
 
     private val meets = listOf(
         meet("mtl", "CA", "QC", "CAMO"),

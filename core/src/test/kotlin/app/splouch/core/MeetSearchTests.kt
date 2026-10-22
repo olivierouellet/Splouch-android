@@ -12,10 +12,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MeetSearchTests {
-    private val card = "Coupe du Québec 2026-10-04 Île-des-Sœurs Swimming CAMO"
+    private val card = "Coupe du Québec 2026-10-04 Île-des-Sœurs CAMO"
 
     private fun meet(id: String, name: String = "", location: String = "", organizer: String = "", date: String = "") =
-        MeetSummary(id, name, location, sport = "", organizer, date, offline = false, hasPickerImage = false)
+        MeetSummary(id, name, location, organizer, date, offline = false, hasPickerImage = false)
 
     @Test fun `every word must be in the card, in any order, folded`() {
         assertTrue(MeetSearch.matches(card, "quebec 2026"))
@@ -36,7 +36,6 @@ class MeetSearchTests {
             "m",
             "Coupe du Québec",
             "Île-des-Sœurs",
-            "Swimming",
             "CAMO",
             "2026-10-04",
             offline = false,
@@ -74,7 +73,6 @@ class MeetSearchTests {
         "",
         "",
         "",
-        "",
         offline = false,
         hasPickerImage = false,
         country = country,
@@ -109,7 +107,7 @@ class MeetSearchTests {
     @Test fun `P-18 ten meets are cards with their images, eleven are compact rows that fetch none`() {
         val server = ServerAddress.parseOrNull("https://c.example")!!
         fun list(n: Int) = PickerState(
-            meets = List(n) { MeetSummary("m$it", "Meet $it", "", "", "", "", offline = false, hasPickerImage = true) },
+            meets = List(n) { MeetSummary("m$it", "Meet $it", "", "", "", offline = false, hasPickerImage = true) },
         )
         val ten = list(10)
         assertFalse(ten.compact)

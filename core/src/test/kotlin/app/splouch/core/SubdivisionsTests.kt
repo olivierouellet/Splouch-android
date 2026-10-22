@@ -51,9 +51,9 @@ class SubdivisionsTests {
     }
 
     @Test fun `a meet is found by its province's full name`() {
-        val m = MeetSummary("m", "Invitational", "", "", "", "", offline = false, hasPickerImage = false, "CA", "QC")
+        val m = MeetSummary("m", "Invitational", "", "", "", offline = false, hasPickerImage = false, "CA", "QC")
         assertEquals(1, MeetSearch.filter(listOf(m), "québec").size)
-        val bc = MeetSummary("b", "Invitational", "", "", "", "", offline = false, hasPickerImage = false, "CA", "BC")
+        val bc = MeetSummary("b", "Invitational", "", "", "", offline = false, hasPickerImage = false, "CA", "BC")
         assertEquals(1, MeetSearch.filter(listOf(bc), "colombie", "fr").size)
         assertEquals("Colombie-Britannique, Canada", MeetFilter.Province("CA", "BC").label("fr"))
     }
