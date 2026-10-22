@@ -967,8 +967,14 @@ class AppModel(
     /** L-26: turn the open meet's lanes around, and remember it for that meet. */
     fun setLanesDescending(descending: Boolean) {
         val key = current.meet?.context?.laneKey ?: return
-        val lanes = current.prefs.descendingLanes
-        savePrefs(current.prefs.copy(descendingLanes = if (descending) lanes + key else lanes - key))
+        val p = current.prefs
+        savePrefs(
+            if (descending) {
+                p.copy(descendingLanes = p.descendingLanes + key, ascendingLanes = p.ascendingLanes - key)
+            } else {
+                p.copy(descendingLanes = p.descendingLanes - key, ascendingLanes = p.ascendingLanes + key)
+            },
+        )
     }
 
     /** T-09: short or long, nothing else — the choice is the device's, not the meet's. */

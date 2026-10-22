@@ -71,9 +71,10 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
         tab = storedTab(),
         introSeen = prefs.getBoolean("intro_seen", false),
         meetFilter = MeetFilter.decode(prefs.getString("meet_filter", null)),
-        // P-23, L-26. Absent before either existed: the pool's order, every lane ascending.
+        // P-23, L-26. Absent before either existed: by place, every lane the pool's way.
         resultsOrder = ResultsOrder.parse(prefs.getString("results_order", null)),
         descendingLanes = prefs.getStringSet("descending_lanes", null)?.toSet().orEmpty(),
+        ascendingLanes = prefs.getStringSet("ascending_lanes", null)?.toSet().orEmpty(),
     )
 
     /**
@@ -102,6 +103,7 @@ class PrefsPreferencesStore(context: Context) : PreferencesStore {
             .putString("meet_filter", MeetFilter.encode(prefs.meetFilter))
             .putString("results_order", prefs.resultsOrder.name)
             .putStringSet("descending_lanes", prefs.descendingLanes)
+            .putStringSet("ascending_lanes", prefs.ascendingLanes)
             .apply {
                 val tab = prefs.tab
                 if (tab == null) remove("tab") else putString("tab", tab.name)

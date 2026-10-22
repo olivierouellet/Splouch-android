@@ -3,6 +3,7 @@ package app.splouch.core
 import app.splouch.core.board.LapDirection
 import app.splouch.core.board.LapSettings
 import app.splouch.core.session.MeetTab
+import app.splouch.core.session.Preferences
 import app.splouch.core.wire.I18nBundle
 import app.splouch.core.wire.MeetConfig
 import app.splouch.core.wire.MeetSummary
@@ -203,6 +204,18 @@ class PayloadTests {
         )!!
         assertEquals("Tableau", b.mobile["scoreboard"])
         assertEquals("ÉPREUVE", b.labels["long"]!!["event"])
+    }
+
+    @Test fun `L-26 the pool sets where the lanes start, and the reader's choice either way outranks it`() {
+        fun cloud(settings: String) = MeetConfig.fromCloudJson(j("""{"name":"M","settings":$settings}"""))!!.settings
+        val down = cloud("""{"lane_direction":"Down"}""")
+        val up = cloud("""{}""")
+        assertTrue(Preferences().lanesDescending("m1", down))
+        assertFalse(Preferences().lanesDescending("m1", up))
+        assertFalse(Preferences().lanesDescending("m1", cloud("""{"lane_direction":"sideways"}""")))
+        val chose = Preferences(descendingLanes = setOf("m1"), ascendingLanes = setOf("m2"))
+        assertTrue(chose.lanesDescending("m1", up))
+        assertFalse(chose.lanesDescending("m2", down))
     }
 
     @Test fun `L-23 show_laps is off unless the meet says so, and anything but down counts up`() {

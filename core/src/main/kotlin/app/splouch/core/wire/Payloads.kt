@@ -196,6 +196,11 @@ data class MeetSettings(
     val showLaps: Boolean = false,
     /** `"up"` or `"down"` as the operator set it, raw; anything else counts up ([app.splouch.core.board.LapDirection]). */
     val lapDirection: String? = null,
+    /**
+     * L-26: `"down"` when the pool lists its lanes last-first for a reader who has not turned
+     * them around; anything else, or absent, is ascending.
+     */
+    val laneDirection: String? = null,
     val themeColors: Map<String, String> = emptyMap(),
     val themeFonts: Map<String, String> = emptyMap(),
     /** The meet's language (app.md T-06); null when the server did not say. */
@@ -233,6 +238,8 @@ data class MeetSettings(
                 // send it must not turn the column into lengths on its own.
                 showLaps = o?.get("show_laps").asBoolOrNull() ?: false,
                 lapDirection = o?.get("lap_direction").asStringOrNull()?.trim()?.lowercase()
+                    ?.takeIf { it.isNotEmpty() },
+                laneDirection = o?.get("lane_direction").asStringOrNull()?.trim()?.lowercase()
                     ?.takeIf { it.isNotEmpty() },
                 themeColors = o?.get("theme_colors").asObjectOrNull().stringMap(),
                 themeFonts = o?.get("theme_fonts").asObjectOrNull().stringMap(),

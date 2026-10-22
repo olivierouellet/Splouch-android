@@ -1,6 +1,7 @@
 package app.splouch.core.session
 
 import app.splouch.core.strings.Labels
+import app.splouch.core.wire.MeetSettings
 
 /**
  * P-15: light or dark, the app's own and not the meet's.
@@ -72,9 +73,20 @@ data class Preferences(
     val meetFilter: MeetFilter = MeetFilter(),
     /** P-23: [ResultsOrder.PLACE] until the reader picks. */
     val resultsOrder: ResultsOrder = ResultsOrder.PLACE,
-    /** L-26: the meets whose lanes this reader turned around, by [MeetContext.laneKey]. */
+    /**
+     * L-26: the meets this reader set descending, and those set ascending, by
+     * [MeetContext.laneKey]. A key is in one at most; a meet in neither follows the pool.
+     */
     val descendingLanes: Set<String> = emptySet(),
+    val ascendingLanes: Set<String> = emptySet(),
 ) {
+    /** L-26: this meet's lanes run bottom to top — the reader's choice, else the pool's `lane_direction`. */
+    fun lanesDescending(laneKey: String, settings: MeetSettings): Boolean = when (laneKey) {
+        in descendingLanes -> true
+        in ascendingLanes -> false
+        else -> settings.laneDirection == "down"
+    }
+
     /**
      * What the board actually renders (T-09). The control is withdrawn from the UI, so
      * this answers [Labels.LONG] whatever [labelStyle] holds.

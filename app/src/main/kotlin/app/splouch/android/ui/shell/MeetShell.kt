@@ -226,9 +226,9 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     val onBoard = tab != MeetTab.SCHEDULE
     val headerInBar = onBoard && (landscape || metrics.needsBar)
 
-    // L-26: this meet's lanes, turned around by the reader. Offered on the Scoreboard, and on
-    // Results while it is in lane order — a ranking has no lanes to turn around.
-    val descending = meet.context.laneKey in state.prefs.descendingLanes
+    // L-26: this meet's lanes, the pool's way until the reader turns them around. Offered on the
+    // Scoreboard, and on Results while it is in lane order — a ranking has no lanes to turn around.
+    val descending = state.prefs.lanesDescending(meet.context.laneKey, meet.config.settings)
     val showsLaneOrder = tab == MeetTab.SCOREBOARD ||
         (tab == MeetTab.RESULTS && state.prefs.resultsOrder == ResultsOrder.LANE)
 
