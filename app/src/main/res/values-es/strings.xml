@@ -39,7 +39,6 @@
     <string name="appearance_light">Claro</string>
     <string name="appearance_auto">Automático</string>
     <string name="results_order">Orden de resultados</string>
-    <string name="results_order_pool">Como lo fija la piscina</string>
     <string name="results_order_lane">Por calle</string>
     <string name="results_order_place">Por posición</string>
     <string name="lane_order">Orden de calles</string>

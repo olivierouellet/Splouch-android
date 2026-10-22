@@ -25,6 +25,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,6 +57,7 @@ import app.splouch.android.ui.board.LaneKeyWords
 import app.splouch.android.ui.settings.CountingSwitch
 import app.splouch.android.ui.theme.BoardTheme
 import app.splouch.core.session.AppModel
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.session.UiState
 import app.splouch.core.theme.Theme
 import kotlinx.coroutines.launch
@@ -132,6 +136,7 @@ fun IntroScreen(model: AppModel, state: UiState) {
                                 Modifier.clip(RoundedCornerShape(12.dp)),
                             )
                         }
+                        ResultsOrderToggle(state.prefs.resultsOrder, model::setResultsOrder)
                     }
                     IntroPage.TIMES -> Page(
                         R.drawable.ic_tab_schedule,
@@ -190,6 +195,31 @@ private fun Page(icon: Int, title: String, body: String, extra: @Composable () -
         )
         if (body.isNotEmpty()) BodyWithIcons(body)
         extra()
+    }
+}
+
+/**
+ * P-23 on the tabs page: the same setting as Settings › Display, two ways, so a reader picks
+ * before the first Results tab.
+ */
+@Composable
+private fun ResultsOrderToggle(order: ResultsOrder, onChange: (ResultsOrder) -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.results_order),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(ResultsOrder.LANE to R.string.results_order_lane, ResultsOrder.PLACE to R.string.results_order_place)
+                .forEachIndexed { i, (value, label) ->
+                    SegmentedButton(
+                        selected = order == value,
+                        onClick = { onChange(value) },
+                        shape = SegmentedButtonDefaults.itemShape(i, 2),
+                    ) { Text(stringResource(label)) }
+                }
+        }
     }
 }
 

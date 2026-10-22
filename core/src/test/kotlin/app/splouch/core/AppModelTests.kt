@@ -10,6 +10,7 @@ import app.splouch.core.session.LocalSearch
 import app.splouch.core.session.MeetBase
 import app.splouch.core.session.MeetTab
 import app.splouch.core.session.Preferences
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.session.ServerAddress
 import app.splouch.core.session.ServerBrowser
 import app.splouch.core.session.ServerInvite
@@ -543,7 +544,7 @@ class AppModelTests {
         runCurrent()
         assertSame(session, r.model.current.meet!!.session)
         assertEquals((1..8).toList(), session.scoreboard.value.lanes.map { it.number })
-        assertEquals(8, session.resultsView.value.rows.size)
+        assertEquals(8, session.resultsView.value.rows(ResultsOrder.LANE, descending = false).size)
         assertEquals(3, r.transport.connections.count { !it.closed })
     }
 

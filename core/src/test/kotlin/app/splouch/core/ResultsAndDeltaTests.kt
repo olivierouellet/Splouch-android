@@ -13,6 +13,9 @@ import kotlin.test.assertTrue
 class ResultsAndDeltaTests {
     private fun snap(json: String) = ResultsSnapshot.fromJson(parseJsonOrNull(json))!!
 
+    private val ResultsBoard.View.byLane get() = rows(ResultsOrder.LANE, descending = false)
+    private val ResultsBoard.View.byPlace get() = rows(ResultsOrder.PLACE, descending = false)
+
     @Test fun `P-23 - a reader's place order ranks a heat the pool sorted by lane, by place_int`() {
         val r = ResultsBoard(4)
         r.apply(
@@ -20,10 +23,7 @@ class ResultsAndDeltaTests {
                 """{"event":"3","heat":"1","sort":"lane","lanes":[{"channel":1,"place":"","time":"","name":"DQ"},{"channel":2,"place":"2","place_int":2,"time":"2.00","name":"B"},{"channel":3,"place":"1","place_int":1,"time":"1.00","name":"A"}]}""",
             ),
         )
-        val v = r.view()
-        assertTrue(v.isLaneOrder(ResultsOrder.POOL))
-        assertFalse(v.isLaneOrder(ResultsOrder.PLACE))
-        val rows = v.rows(ResultsOrder.PLACE, descending = false)
+        val rows = r.view().byPlace
         assertEquals(listOf("A", "B", "DQ", ""), rows.map { it.name })
         assertEquals(listOf(1, 2, 3, 4), rows.map { it.slot })
         assertEquals("", rows[3].laneLabel)
@@ -36,7 +36,7 @@ class ResultsAndDeltaTests {
                 """{"event":"3","heat":"1","sort":"place","lanes":[{"channel":4,"place":"1","time":"1.00","name":"D"},{"channel":2,"place":"2","time":"2.00","name":"B"}]}""",
             ),
         )
-        assertEquals(listOf("", "B", "", "D"), r.view().rows(ResultsOrder.LANE, descending = false).map { it.name })
+        assertEquals(listOf("", "B", "", "D"), r.view().byLane.map { it.name })
     }
 
     @Test fun `L-26 - lanes turned around keep their numbers and identity, a ranking never turns`() {
@@ -46,7 +46,7 @@ class ResultsAndDeltaTests {
                 """{"event":"3","heat":"1","sort":"lane","lanes":[{"channel":1,"place":"2","time":"2.00","name":"B"},{"channel":3,"place":"1","time":"1.00","name":"A"}]}""",
             ),
         )
-        val down = r.view().rows(ResultsOrder.POOL, descending = true)
+        val down = r.view().rows(ResultsOrder.LANE, descending = true)
         assertEquals(listOf("3", "2", "1", "0"), down.map { it.laneLabel })
         assertEquals(listOf(4, 3, 2, 1), down.map { it.slot })
         assertEquals(listOf("A", "", "B", ""), down.map { it.name })
@@ -54,22 +54,22 @@ class ResultsAndDeltaTests {
         assertEquals(listOf("A", "B", "", ""), ranked.map { it.name })
     }
 
-    @Test fun `P-23 - an unknown stored order is the pool's`() {
-        assertEquals(ResultsOrder.POOL, ResultsOrder.parse(null))
-        assertEquals(ResultsOrder.POOL, ResultsOrder.parse("time"))
-        assertEquals(ResultsOrder.PLACE, ResultsOrder.parse("PLACE"))
-        assertTrue(ResultsOrder.POOL.isLaneOrder(null))
-        assertFalse(ResultsOrder.POOL.isLaneOrder("place"))
+    @Test fun `P-23 - an absent, unknown or withdrawn stored order is by place`() {
+        assertEquals(ResultsOrder.PLACE, ResultsOrder.parse(null))
+        assertEquals(ResultsOrder.PLACE, ResultsOrder.parse("time"))
+        assertEquals(ResultsOrder.PLACE, ResultsOrder.parse("POOL"))
+        assertEquals(ResultsOrder.LANE, ResultsOrder.parse("LANE"))
+        assertEquals(listOf(ResultsOrder.LANE, ResultsOrder.PLACE), ResultsOrder.entries)
     }
 
     @Test fun `waiting until the first snapshot`() {
         val r = ResultsBoard(4)
         assertTrue(r.view().waiting)
-        assertEquals(listOf("1", "2", "3", "4"), r.view().rows.map { it.laneLabel })
-        assertTrue(r.view().rows.all { it.time == "—" && it.place == "" })
+        assertEquals(listOf("1", "2", "3", "4"), r.view().byLane.map { it.laneLabel })
+        assertTrue(r.view().byLane.all { it.time == "—" && it.place == "" })
     }
 
-    @Test fun `lane sort - row index is the channel, gaps stay blank, absent sort means lane`() {
+    @Test fun `lane sort - row index is the channel, gaps stay blank`() {
         val r = ResultsBoard(4)
         r.apply(
             snap(
@@ -79,15 +79,15 @@ class ResultsAndDeltaTests {
         val v = r.view()
         assertFalse(v.waiting)
         assertEquals("3", v.event)
-        assertEquals("D", v.rows[3].name)
-        assertEquals("1", v.rows[3].place)
-        assertTrue(v.rows[3].locked)
-        assertEquals("B", v.rows[1].name)
-        assertEquals("", v.rows[1].place)
-        assertEquals("", v.rows[0].name)
-        assertEquals("—", v.rows[0].time)
-        assertEquals("1", v.rows[0].laneLabel)
-        assertFalse(v.rows[0].locked)
+        assertEquals("D", v.byLane[3].name)
+        assertEquals("1", v.byLane[3].place)
+        assertTrue(v.byLane[3].locked)
+        assertEquals("B", v.byLane[1].name)
+        assertEquals("", v.byLane[1].place)
+        assertEquals("", v.byLane[0].name)
+        assertEquals("—", v.byLane[0].time)
+        assertEquals("1", v.byLane[0].laneLabel)
+        assertFalse(v.byLane[0].locked)
     }
 
     @Test fun `place sort fills top-down, unfilled ranks leave the lane blank`() {
@@ -98,16 +98,16 @@ class ResultsAndDeltaTests {
             ),
         )
         val v = r.view()
-        assertEquals(listOf("D", "A", "", ""), v.rows.map { it.name })
-        assertEquals(listOf("4", "1", "", ""), v.rows.map { it.laneLabel })
-        assertEquals(listOf(false, false, true, true), v.rows.map { it.vacant })
+        assertEquals(listOf("D", "A", "", ""), v.byPlace.map { it.name })
+        assertEquals(listOf("4", "1", "", ""), v.byPlace.map { it.laneLabel })
+        assertEquals(listOf(false, false, true, true), v.byPlace.map { it.vacant })
     }
 
     @Test fun `a missing time renders as a dash and an empty snapshot is ignored`() {
         val r = ResultsBoard(2)
         r.apply(snap("""{"event":"1","heat":"1","lanes":[{"channel":1,"place":"","time":"","name":"A"}]}"""))
-        assertEquals("—", r.view().rows[0].time)
-        assertFalse(r.view().rows[0].locked)
+        assertEquals("—", r.view().byLane[0].time)
+        assertFalse(r.view().byLane[0].locked)
         r.apply(snap("""{"event":"9","heat":"9","lanes":[]}"""))
         assertEquals("1", r.view().event)
     }
@@ -118,7 +118,7 @@ class ResultsAndDeltaTests {
         r.clear()
         assertTrue(r.view().waiting)
         assertEquals("", r.view().event)
-        assertEquals("", r.view().rows[0].name)
+        assertEquals("", r.view().byLane[0].name)
     }
 
     @Test fun `delta format`() {
@@ -132,16 +132,16 @@ class ResultsAndDeltaTests {
 
     @Test fun `lane sort - channel 0 is lane 0 on row 1 when the pool starts at 0`() {
         val r = ResultsBoard(4, firstLane = 0)
-        assertEquals(listOf("0", "1", "2", "3"), r.view().rows.map { it.laneLabel })
+        assertEquals(listOf("0", "1", "2", "3"), r.view().byLane.map { it.laneLabel })
         r.apply(
             snap(
                 """{"event":"1","heat":"1","sort":"lane","lanes":[{"channel":0,"place":"2","time":"30.00","name":"Zed"},{"channel":3,"place":"1","time":"29.00","name":"Dee"}]}""",
             ),
         )
         val v = r.view()
-        assertEquals(listOf("Zed", "", "", "Dee"), v.rows.map { it.name })
-        assertEquals(listOf("0", "1", "2", "3"), v.rows.map { it.laneLabel })
-        assertEquals(listOf(false, true, true, false), v.rows.map { it.vacant })
+        assertEquals(listOf("Zed", "", "", "Dee"), v.byLane.map { it.name })
+        assertEquals(listOf("0", "1", "2", "3"), v.byLane.map { it.laneLabel })
+        assertEquals(listOf(false, true, true, false), v.byLane.map { it.vacant })
     }
 
     @Test fun `place sort - lane 0 keeps its number, unfilled ranks have none`() {
@@ -152,8 +152,8 @@ class ResultsAndDeltaTests {
             ),
         )
         val v = r.view()
-        assertEquals(listOf("Dee", "Zed", "", ""), v.rows.map { it.name })
-        assertEquals(listOf("3", "0", "", ""), v.rows.map { it.laneLabel })
+        assertEquals(listOf("Dee", "Zed", "", ""), v.byPlace.map { it.name })
+        assertEquals(listOf("3", "0", "", ""), v.byPlace.map { it.laneLabel })
     }
 
     @Test fun `a pool from lane 1 has no row for channel 0, as before`() {
@@ -163,7 +163,7 @@ class ResultsAndDeltaTests {
                 """{"event":"1","heat":"1","lanes":[{"channel":0,"time":"1.00","name":"X"},{"channel":2,"time":"2.00","name":"B"}]}""",
             ),
         )
-        assertEquals(listOf("", "B"), r.view().rows.map { it.name })
-        assertEquals(listOf("1", "2"), r.view().rows.map { it.laneLabel })
+        assertEquals(listOf("", "B"), r.view().byLane.map { it.name })
+        assertEquals(listOf("1", "2"), r.view().byLane.map { it.laneLabel })
     }
 }

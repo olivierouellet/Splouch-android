@@ -111,11 +111,9 @@ fun SettingsScreen(model: AppModel, state: UiState, onClose: () -> Unit, onRepla
             ).forEach { (label, value) ->
                 ChoiceRow(stringResource(label), state.prefs.appearance == value) { model.setAppearance(value) }
             }
-            // The pool's order is the default and named as such, so a reader who never opens
-            // this sees what the operator chose.
+            // P-23: by place until the reader picks; also on the introduction (P-20).
             SubHeader(stringResource(R.string.results_order))
             listOf(
-                R.string.results_order_pool to ResultsOrder.POOL,
                 R.string.results_order_lane to ResultsOrder.LANE,
                 R.string.results_order_place to ResultsOrder.PLACE,
             ).forEach { (label, value) ->

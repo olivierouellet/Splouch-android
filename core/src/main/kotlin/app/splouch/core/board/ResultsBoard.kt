@@ -61,25 +61,19 @@ class ResultsBoard(numLanes: Int, firstLane: Int = 1) {
         val eventNameParts: EventNameParts?,
         /** R-01: no snapshot yet, or wiped (R-02). */
         val waiting: Boolean,
-        /** The pool's order, `"lane"`, `"place"`, or null — read as lane (R-05). */
+        /** The pool's order, `"lane"`, `"place"`, or null. Not what is drawn: the reader's P-23 order is. */
         val sort: String? = null,
         val lanes: List<ResultLane> = emptyList(),
         val numLanes: Int = 0,
         val firstLane: Int = 1,
     ) {
-        /** The rows in the pool's order, lanes ascending. */
-        val rows: List<Row> get() = rows(ResultsOrder.POOL, descending = false)
-
-        /** R-05, R-06: in lane order unless the reader's, else the pool's, order is place. */
-        fun isLaneOrder(order: ResultsOrder): Boolean = order.isLaneOrder(sort)
-
         /**
          * Lane order puts a result on the row of its `channel` (R-05), turned around when
          * [descending] (L-26). Place order fills rows top-down as a ranking (R-06), ranked here by
          * `place_int` since the pool may have sorted by lane; a ranking is never turned around.
          */
         fun rows(order: ResultsOrder, descending: Boolean): List<Row> {
-            val laneSort = waiting || isLaneOrder(order)
+            val laneSort = waiting || order == ResultsOrder.LANE
             val ranked = if (laneSort) {
                 lanes
             } else {

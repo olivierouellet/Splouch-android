@@ -30,26 +30,18 @@ enum class Appearance {
 }
 
 /**
- * P-23: the reader's results order. [POOL] follows the snapshot's `sort`, the order the operator
- * set; the other two outrank it on every meet.
+ * P-23: the reader's results order. It outranks the snapshot's `sort`, the order the operator set,
+ * on every meet's Results tab; the Scoreboard is always by lane.
  */
 enum class ResultsOrder {
-    POOL,
     LANE,
     PLACE,
 
     ;
 
-    /** The Results tab draws in lane order (`R-05`): the reader's, else the pool's `sort`. */
-    fun isLaneOrder(poolSort: String?): Boolean = when (this) {
-        POOL -> poolSort == null || poolSort == "lane"
-        LANE -> true
-        PLACE -> false
-    }
-
     companion object {
-        /** A stored value, or [POOL] for anything absent or unrecognised. */
-        fun parse(raw: String?): ResultsOrder = entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: POOL
+        /** A stored value, or [PLACE] for anything absent or unrecognised — the withdrawn `POOL` too. */
+        fun parse(raw: String?): ResultsOrder = entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: PLACE
     }
 }
 
@@ -78,8 +70,8 @@ data class Preferences(
     val introSeen: Boolean = false,
     /** P-21: one for the app, whichever server is in use. */
     val meetFilter: MeetFilter = MeetFilter(),
-    /** P-23: [ResultsOrder.POOL] until the reader picks. */
-    val resultsOrder: ResultsOrder = ResultsOrder.POOL,
+    /** P-23: [ResultsOrder.PLACE] until the reader picks. */
+    val resultsOrder: ResultsOrder = ResultsOrder.PLACE,
     /** L-26: the meets whose lanes this reader turned around, by [MeetContext.laneKey]. */
     val descendingLanes: Set<String> = emptySet(),
 ) {

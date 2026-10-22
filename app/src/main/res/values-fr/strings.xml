@@ -39,7 +39,6 @@
     <string name="appearance_light">Clair</string>
     <string name="appearance_auto">Automatique</string>
     <string name="results_order">Ordre des résultats</string>
-    <string name="results_order_pool">Comme la piscine le règle</string>
     <string name="results_order_lane">Par couloir</string>
     <string name="results_order_place">Par position</string>
     <string name="lane_order">Ordre des couloirs</string>

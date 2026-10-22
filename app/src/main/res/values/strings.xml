@@ -54,7 +54,6 @@
     <string name="appearance_auto">Automatic</string>
     <!-- P-23, after Appearance. -->
     <string name="results_order">Results order</string>
-    <string name="results_order_pool">As the pool sets it</string>
     <string name="results_order_lane">By lane</string>
     <string name="results_order_place">By place</string>
     <!-- L-26: the board's action, and the order it now shows, "1 to 8". -->

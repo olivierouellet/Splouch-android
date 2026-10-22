@@ -49,7 +49,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.splouch.android.R
 import app.splouch.android.ui.board.BoardBarHeader
 import app.splouch.android.ui.board.BoardMetrics
@@ -64,6 +63,7 @@ import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.session.AppModel
 import app.splouch.core.session.MeetState
 import app.splouch.core.session.MeetTab
+import app.splouch.core.session.ResultsOrder
 import app.splouch.core.session.UiState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.async
@@ -229,9 +229,8 @@ fun MeetShell(model: AppModel, state: UiState, meet: MeetState, snackbar: Snackb
     // L-26: this meet's lanes, turned around by the reader. Offered on the Scoreboard, and on
     // Results while it is in lane order — a ranking has no lanes to turn around.
     val descending = meet.context.laneKey in state.prefs.descendingLanes
-    val results by meet.session.resultsView.collectAsStateWithLifecycle()
     val showsLaneOrder = tab == MeetTab.SCOREBOARD ||
-        (tab == MeetTab.RESULTS && results.isLaneOrder(state.prefs.resultsOrder))
+        (tab == MeetTab.RESULTS && state.prefs.resultsOrder == ResultsOrder.LANE)
 
     Scaffold(
         modifier = Modifier
