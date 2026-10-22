@@ -62,7 +62,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: shrink, optimise and obfuscate. Play flags a release whose DEX is left
+            // unobfuscated. The libraries (kotlinx.serialization, OkHttp, Firebase) ship
+            // their own keep rules; `proguard-rules.pro` holds only what they do not cover.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("upload")
         }
     }
@@ -118,6 +123,9 @@ dependencies {
     // policy names it (`[privacy] notify_1`).
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    // play-services-basement, under Firebase, still pulls fragment 1.1.0, which Play reports
+    // as outdated. Nothing here uses fragments; this only lifts the transitive version.
+    implementation(libs.androidx.fragment)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
