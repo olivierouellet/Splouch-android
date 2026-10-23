@@ -5,7 +5,7 @@ it, and it does that on a phone that may be sitting in a noisy pool gallery on a
 no internet, or four hundred kilometres away through the cloud relay. The bar for a change
 is not "it compiles", it is "it still reads at arm's length while a heat is swimming".
 
-By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). If you use AI tools, read the [AI policy](AI_POLICY.md) first.
 
 ---
 
