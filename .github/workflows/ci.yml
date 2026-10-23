@@ -242,9 +242,9 @@ jobs:
           exit $status
 
       - name: ShellCheck
-        # `render-play-icon.sh` only: ShellCheck reads sh, bash, dash and ksh, and
-        # `update-strings.sh` is zsh — the syntax check above is all it gets.
-        run: uvx --from "$SHELLCHECK" shellcheck -S warning scripts/render-play-icon.sh
+        # `render-play-icon.sh` and `release.sh` only: ShellCheck reads sh, bash, dash
+        # and ksh, and `update-strings.sh` is zsh — the syntax check above is all it gets.
+        run: uvx --from "$SHELLCHECK" shellcheck -S warning scripts/render-play-icon.sh scripts/release.sh
 
       - name: Workflows
         # Expressions, runner labels, and ShellCheck over every `run:` block.

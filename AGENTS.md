@@ -50,6 +50,8 @@ passing: not enough for a change to `SplouchApi`, `SplouchSocket` or `MeetSessio
   reads as a sentence.
 * **Never commit, push, tag, publish a release, or open an issue or pull request unless asked.** Approval for
   one of these is not approval for the next.
+* Releases go through `scripts/release.sh` (see `docs/play-store.md`): it tags the release and moves
+  `appVersionName` to the next version. `main` is always one version ahead; don't tag by hand.
 * `main` is protected against force-pushes and deletion: never rewrite history that is already pushed.
 * Never post comments on issues or pull requests on the user's behalf without their review.
 
