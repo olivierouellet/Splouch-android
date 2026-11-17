@@ -70,6 +70,17 @@ object ScheduleFilter {
     }
 
     /**
+     * S-26: the session heading drawn above `visible[i]`, null where there is none — the
+     * first card shown of a session, so a filter moves it to the first heat it leaves.
+     * [word] is `mobile.session`, its `{n}` the number, for a session the file gives no name.
+     */
+    fun sessionHeading(visible: List<VisibleHeat>, i: Int, word: String): String? {
+        val h = visible[i].heat
+        if (h.session == 0 || (i > 0 && visible[i - 1].heat.session == h.session)) return null
+        return h.sessionName.ifEmpty { word.replace("{n}", h.session.toString()) }
+    }
+
+    /**
      * The heading's name, with the heat's own age group after it (S-25): `100 m libre · 13-14`.
      * The band is numbers, so it needs no translation.
      */

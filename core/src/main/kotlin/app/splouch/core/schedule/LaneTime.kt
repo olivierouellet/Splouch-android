@@ -59,7 +59,8 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
         fun of(lane: ScheduleLane, diff: Boolean = false): LaneTime? {
             val status = lane.resultStatus
             // Not official yet: the console's own gap, on the server's rule.
-            val consoleGap = if (diff && lane.resultTime.isEmpty()) {
+            // None to a seed from another course (S-27).
+            val consoleGap = if (diff && lane.resultTime.isEmpty() && lane.seedCourse.isEmpty()) {
                 hundredths(lane.consoleTime)?.let { c -> hundredths(lane.seedTime)?.let { c - it } }
             } else {
                 null
@@ -80,11 +81,7 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
                         if (consoleGap < 0) Kind.BETTER else Kind.WORSE,
                         "seed_diff",
                     )
-                    else -> return LaneTime(
-                        if (lane.seedTime.isEmpty()) "NT" else display(lane.seedTime),
-                        Kind.SEED,
-                        "time_seed",
-                    )
+                    else -> return LaneTime(seedText(lane), Kind.SEED, "time_seed")
                 }
             }
             return when {
@@ -96,9 +93,19 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
                 )
                 lane.resultTime.isNotEmpty() -> LaneTime(display(lane.resultTime), Kind.OFFICIAL, "time_official")
                 lane.consoleTime.isNotEmpty() -> LaneTime(display(lane.consoleTime), Kind.CONSOLE, "time_console")
-                lane.seedTime.isNotEmpty() -> LaneTime(display(lane.seedTime), Kind.SEED, "time_seed")
+                lane.seedTime.isNotEmpty() -> LaneTime(seedText(lane), Kind.SEED, "time_seed")
                 else -> null
             }
+        }
+
+        /**
+         * The seed as drawn: `NT` for none, and the course after it when it is not the meet's
+         * (S-27), `01:01.00 LCM`. A course is the same three letters in every language.
+         */
+        fun seedText(lane: ScheduleLane): String = when {
+            lane.seedTime.isEmpty() -> "NT"
+            lane.seedCourse.isEmpty() -> display(lane.seedTime)
+            else -> display(lane.seedTime) + " " + lane.seedCourse
         }
 
         /**

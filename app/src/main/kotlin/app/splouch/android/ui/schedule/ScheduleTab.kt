@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -161,12 +161,36 @@ fun ScheduleTab(
                 onAction = onResetFilters,
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                items(visible, key = { it.heat.key }) { v ->
-                    HeatCard(v, labels, spoken, t.eventVocab, seedTemplate) { t.mobile(it) }
+                // S-26: a session's heading rides in its first card's item, so an item is
+                // still a heat and S-06 / N-08 scroll by the same index.
+                itemsIndexed(visible, key = { _, v -> v.heat.key }) { i, v ->
+                    Column {
+                        ScheduleFilter.sessionHeading(visible, i, t.mobile("session"))?.let { SessionHeading(it) }
+                        HeatCard(v, labels, spoken, t.eventVocab, seedTemplate) { t.mobile(it) }
+                    }
                 }
             }
         }
     }
+}
+
+/** S-26: the name of the session the cards below it are swum in. */
+@Composable
+private fun SessionHeading(title: String) {
+    Text(
+        title.uppercase(),
+        color = LocalBoardColors.current.scheduleTime,
+        style = MaterialTheme.typography.titleSmall,
+        fontFamily = LocalBoardFonts.current.family,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp)
+            .semantics {
+                heading()
+                contentDescription = title
+            },
+    )
 }
 
 @Composable

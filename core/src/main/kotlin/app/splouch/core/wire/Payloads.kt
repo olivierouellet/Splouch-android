@@ -505,9 +505,14 @@ data class ScheduleLane(
     val resultTime: String = "",
     /** `DSQ`, `DNS`, `DNF`, `WDR`, `SICK`, or "" for a finish. */
     val resultStatus: String = "",
-    /** Official − seed, negative = faster; null with no seed, no official time, or a status. */
+    /** Official − seed, negative = faster; null with no seed, no official time, a status, or [seedCourse]. */
     val resultDeltaSeconds: Double? = null,
     val resultDeltaBetter: Boolean? = null,
+    /**
+     * The course the seed was swum in when it is not the meet's (`LCM`), else `""`: shown
+     * beside the seed, and no gap is drawn to it (S-27).
+     */
+    val seedCourse: String = "",
 ) {
     companion object {
         fun fromJson(e: JsonElement?): ScheduleLane? {
@@ -518,6 +523,7 @@ data class ScheduleLane(
                 club = o["club"].asStringOrNull()?.trim().orEmpty(),
                 seedTime = o["seed_time"].asStringOrNull()?.trim().orEmpty(),
                 swimmers = o["swimmers"].asArrayOrNull()?.mapNotNull { ScheduleSwimmer.fromJson(it) } ?: emptyList(),
+                seedCourse = o["seed_course"].asStringOrNull()?.trim().orEmpty(),
                 consoleTime = o["console_time"].asStringOrNull()?.trim().orEmpty(),
                 resultTime = o["result_time"].asStringOrNull()?.trim().orEmpty(),
                 resultStatus = o["result_status"].asStringOrNull()?.trim().orEmpty(),
@@ -544,6 +550,10 @@ data class ScheduleHeat(
     val age: String = "",
     /** False while the heat's round has no swimmer yet: empty because unseeded, not empty (S-25). */
     val seeded: Boolean = true,
+    /** The meet file's session the heat is swum in: its number, 0 outside one (S-26). */
+    val session: Int = 0,
+    /** That session's name, or `""` (S-26). */
+    val sessionName: String = "",
 ) {
     /** Event, heat and round: a prelim and its final share their numbers (S-24). */
     val key: String get() = "$event/$heat/$round"
@@ -562,6 +572,8 @@ data class ScheduleHeat(
                 round = o["round"].asStringOrNull()?.trim().orEmpty(),
                 age = o["age"].asStringOrNull()?.trim().orEmpty(),
                 seeded = o["seeded"].asBoolOrNull() ?: true,
+                session = o["session"].asIntOrNull() ?: 0,
+                sessionName = o["session_name"].asStringOrNull()?.trim().orEmpty(),
             )
         }
 
