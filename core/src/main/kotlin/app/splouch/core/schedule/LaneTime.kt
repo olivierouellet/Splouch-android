@@ -56,32 +56,44 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
             return total?.takeIf { it > 0 }
         }
 
-        fun of(lane: ScheduleLane, diff: Boolean = false): LaneTime? {
+        /**
+         * `console_time` − `seed_time` in hundredths, on the server's rule. Null with no
+         * console time, no seed, or a seed from another course (S-27).
+         */
+        private fun consoleGap(lane: ScheduleLane): Int? = if (lane.seedCourse.isEmpty()) {
+            hundredths(lane.consoleTime)?.let { c -> hundredths(lane.seedTime)?.let { c - it } }
+        } else {
+            null
+        }
+
+        private fun gap(d: Int) =
+            LaneTime(DeltaFormat.text(d / 100.0), if (d < 0) Kind.BETTER else Kind.WORSE, "seed_diff")
+
+        /**
+         * The cell for [lane]; with [diff], its S-23 gap to the seed. [late] is the swap's
+         * second half, where a status lane, which has no official gap, turns from its console
+         * time to the console's gap.
+         */
+        fun of(lane: ScheduleLane, diff: Boolean = false, late: Boolean = false): LaneTime? {
             val status = lane.resultStatus
-            // Not official yet: the console's own gap, on the server's rule.
-            // None to a seed from another course (S-27).
-            val consoleGap = if (diff && lane.resultTime.isEmpty() && lane.seedCourse.isEmpty()) {
-                hundredths(lane.consoleTime)?.let { c -> hundredths(lane.seedTime)?.let { c - it } }
-            } else {
-                null
-            }
             if (diff) {
                 when {
-                    status.isNotEmpty() ->
+                    status.isNotEmpty() -> {
+                        if (late) consoleGap(lane)?.let { return gap(it) }
                         if (lane.consoleTime.isNotEmpty()) {
                             return LaneTime(display(lane.consoleTime), Kind.CONSOLE, "time_console")
                         }
+                    }
                     lane.resultDeltaSeconds != null -> return LaneTime(
                         DeltaFormat.text(lane.resultDeltaSeconds),
                         if (lane.resultDeltaBetter == true) Kind.BETTER else Kind.WORSE,
                         "seed_diff",
                     )
-                    consoleGap != null -> return LaneTime(
-                        DeltaFormat.text(consoleGap / 100.0),
-                        if (consoleGap < 0) Kind.BETTER else Kind.WORSE,
-                        "seed_diff",
-                    )
-                    else -> return LaneTime(seedText(lane), Kind.SEED, "time_seed")
+                    else -> {
+                        // Not official yet: the console's own gap.
+                        if (lane.resultTime.isEmpty()) consoleGap(lane)?.let { return gap(it) }
+                        return LaneTime(seedText(lane), Kind.SEED, "time_seed")
+                    }
                 }
             }
             return when {

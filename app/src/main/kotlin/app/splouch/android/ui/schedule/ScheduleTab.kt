@@ -207,15 +207,20 @@ private fun HeatCard(
     val fonts = LocalBoardFonts.current
     val h = v.heat
     // S-23: a heat swaps its times — official, or the console's before then — for their gaps
-    // to the seed, and springs back after four seconds or a second tap. Keyed by heat, so a
-    // recycled card starts clean, and by `official`, which changes which gap a swap shows:
-    // the swap ends rather than jumping from the console's gaps to the result's.
+    // to the seed, and springs back after four seconds or a second tap. A status lane shows
+    // its console time for the first two, its gap for the last two (`diffLate`). Keyed by
+    // heat, so a recycled card starts clean, and by `official`, which changes which gap a
+    // swap shows: the swap ends rather than jumping from the console's gaps to the result's.
     var showingDiff by remember(h.key, h.official) { mutableStateOf(false) }
+    var diffLate by remember(h.key, h.official) { mutableStateOf(false) }
     val swaps = LaneTime.swaps(h.official, v.lanes)
     val diff = showingDiff && swaps
     LaunchedEffect(diff) {
+        diffLate = false
         if (diff) {
-            delay(4_000)
+            delay(2_000)
+            diffLate = true
+            delay(2_000)
             showingDiff = false
         }
     }
@@ -361,7 +366,7 @@ private fun HeatCard(
                 )
             }
             v.lanes.forEach { lane ->
-                val cell = LaneTime.of(lane, diff)
+                val cell = LaneTime.of(lane, diff, diffLate)
                 val laneSpoken = spokenLane(lane, spoken, cell, word)
                 Row(
                     Modifier.fillMaxWidth().padding(top = 6.dp)

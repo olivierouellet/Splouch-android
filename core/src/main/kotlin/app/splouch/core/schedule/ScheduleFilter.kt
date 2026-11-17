@@ -135,6 +135,7 @@ object ScheduleFilter {
                 sequenceOf(
                     LaneTime.of(lane)?.text,
                     if (swaps) LaneTime.of(lane, diff = true)?.text else null,
+                    if (swaps) LaneTime.of(lane, diff = true, late = true)?.text else null,
                 ).filterNotNull()
             }
         }

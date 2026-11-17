@@ -69,6 +69,24 @@ class LaneTimeTests {
         assertEquals("NT", LaneTime.of(lane(seed = "", result = "00:00:30.12"), diff = true)?.text)
     }
 
+    @Test fun `a status lane shows its gap in the second half`() {
+        val dsq = lane(console = "00:00:30.15", status = "DSQ")
+        assertEquals(LaneTime("-0.85", LaneTime.Kind.BETTER, "seed_diff"), LaneTime.of(dsq, diff = true, late = true))
+        assertEquals("DSQ", LaneTime.of(dsq, late = true)?.text) // not swapped: the status
+        // No console time: the status throughout.
+        assertEquals("DSQ", LaneTime.of(lane(status = "DSQ"), diff = true, late = true)?.text)
+        // No seed, or one from another course: the console time throughout.
+        assertEquals(
+            LaneTime.Kind.CONSOLE,
+            LaneTime.of(lane(seed = "", console = "00:00:30.15", status = "DSQ"), diff = true, late = true)?.kind,
+        )
+        assertEquals(LaneTime.Kind.CONSOLE, LaneTime.of(dsq.copy(seedCourse = "LCM"), diff = true, late = true)?.kind)
+        // Other lanes don't change halfway.
+        val official = lane(result = "00:00:30.12", delta = -0.88, better = true)
+        assertEquals(LaneTime.of(official, diff = true), LaneTime.of(official, diff = true, late = true))
+        assertEquals("-0.85", LaneTime.of(lane(console = "00:00:30.15"), diff = true, late = true)?.text)
+    }
+
     @Test fun `the console time's gap before the result`() {
         assertEquals(
             LaneTime("-0.85", LaneTime.Kind.BETTER, "seed_diff"),
