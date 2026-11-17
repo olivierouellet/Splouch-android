@@ -12,7 +12,8 @@
 #      docs/play-store.md to the next version, the next patch in the same month
 #      or <year>.<month>.0 in a new one, as "[Build] Version <next>";
 #   4. pushes the tag and that commit together, and opens a draft GitHub
-#      release for the notes.
+#      release whose notes list every commit since the last tag, merges and
+#      "[Build] Version" bumps left out.
 #
 # main is then never on a released version, and versionCode, derived from the
 # name, is already above the one Play has.
@@ -75,8 +76,23 @@ NOT_GREEN=$(echo "$CHECKS" | grep -Ev '^completed (success|skipped|neutral) ' ||
 [ -z "$NOT_GREEN" ] || fail "Not every check on $SHORT passed:
 $NOT_GREEN"
 
+# Every commit since the last tag, oldest first: commits pushed straight to
+# main have no pull request, so GitHub's generated notes would miss them.
+PREV=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
+RANGE=${PREV:+$PREV..}HEAD
+COMMITS=$(git log --reverse --no-merges --format='- %s (%h)' "$RANGE" |
+  grep -Ev '^- \[Build\] Version [0-9.]+ \(' || true)
+[ -n "$COMMITS" ] || fail "No commits since $PREV: nothing to release."
+REPO_URL=$(gh repo view --json url -q .url)
+NOTES="$COMMITS"
+[ -z "$PREV" ] || NOTES="$NOTES
+
+**Full Changelog**: $REPO_URL/compare/$PREV...$TAG"
+
 echo "Release $VERSION (versionCode $(version_code "$VERSION")): tag $TAG on $(git log -1 --format='%h %s')"
 echo "Then main moves to $NEXT (versionCode $(version_code "$NEXT")): \"[Build] Version $NEXT\""
+echo "Notes:"
+echo "$NOTES"
 if $DRY_RUN; then
   echo "Dry run: nothing changed."
   exit 0
@@ -96,7 +112,7 @@ git commit --quiet -m "[Build] Version $NEXT" -- "$GRADLE" "$PLAY"
 # One push for both, so main never has the tag without the bump.
 git push --quiet --atomic origin main "refs/tags/$TAG"
 
-gh release create "$TAG" --verify-tag --draft --generate-notes --title "$TAG" >/dev/null ||
+gh release create "$TAG" --verify-tag --draft --notes "$NOTES" --title "$TAG" >/dev/null ||
   echo "Pushed, but the draft release failed: create it on GitHub from $TAG." >&2
 echo "Released $TAG; main is now $NEXT."
 echo "Edit and publish the draft: $(gh browse --no-browser --releases 2>/dev/null || echo 'the Releases page on GitHub')"

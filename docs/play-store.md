@@ -129,8 +129,8 @@ next upload's. Once the build from `HEAD` is the one sent to Play, run
 `scripts/release.sh --dry-run`, then `scripts/release.sh` (or the two *Release* tasks in
 VS Code, Terminal → Run Task). It checks that `main` is clean, in step with GitHub and
 green, tags `HEAD` `v<version>`, moves `appVersionName` and this row to the next version as
-`[Build] Version <next>`, pushes both at once, and opens a draft GitHub release for the
-notes. The next version is the next patch in the same month, or `<year>.<month>.0` in a
+`[Build] Version <next>`, pushes both at once, and opens a draft GitHub release that lists
+every commit since the last tag. The next version is the next patch in the same month, or `<year>.<month>.0` in a
 new one; `versionCode` follows from it.
 
 Release notes, first release:
