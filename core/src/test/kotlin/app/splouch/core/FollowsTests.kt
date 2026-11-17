@@ -64,7 +64,7 @@ class FollowsTests {
             "$base/meet/m1/config",
             body = """{"name":"Meet One","push":$push,"settings":{"num_lanes":6,"locale":"fr"}}""",
         )
-        on("$base/meet/m1/schedule", body = """{"heats":[]}""")
+        on("$base/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
         on("$base/meet/m1/follow", status = 204)
     }
 
@@ -220,7 +220,7 @@ class FollowsTests {
             "$base/w2/meet/m1/config",
             body = """{"name":"Meet One","base":"$base/w2","push":["fcm"],"settings":{"num_lanes":6}}""",
         )
-        rig.http.on("$base/w2/meet/m1/schedule", body = """{"heats":[]}""")
+        rig.http.on("$base/w2/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
         rig.http.on("$base/w2/meet/m1/follow", status = 204)
         rig.model.setFollows(MeetFollows(listOf(emma)))
         runCurrent()

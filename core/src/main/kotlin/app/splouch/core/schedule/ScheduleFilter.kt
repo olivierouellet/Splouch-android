@@ -3,8 +3,13 @@ package app.splouch.core.schedule
 import app.splouch.core.wire.ScheduleHeat
 import app.splouch.core.wire.ScheduleLane
 
-/** The event and heat the meet is on, as strings (app.md S-05). */
-data class HeatRef(val event: String, val heat: String)
+/**
+ * The event, heat and round the meet is on, as strings (app.md S-05). The round tells a prelim
+ * from its final under one number (S-24): `""` for a number with one round.
+ */
+data class HeatRef(val event: String, val heat: String, val round: String = "") {
+    fun matches(h: ScheduleHeat): Boolean = h.event == event && h.heat == heat && h.round == round
+}
 
 /**
  * One active filter chip (app.md `S-11`). A swimmer also carries the club it was found with:
@@ -61,7 +66,17 @@ object ScheduleFilter {
     /** The index of the current heat in the start list, or null when unknown or absent (S-17). */
     fun currentIndex(heats: List<ScheduleHeat>, current: HeatRef?): Int? {
         if (current == null) return null
-        return heats.indexOfFirst { it.event == current.event && it.heat == current.heat }.takeIf { it >= 0 }
+        return heats.indexOfFirst(current::matches).takeIf { it >= 0 }
+    }
+
+    /**
+     * The heat a notification names (N-08), which carries no round: of the heats with its
+     * numbers, the last that has swimmers — the live round, the one the cloud notifies about
+     * (S-24) — else the first. Null when none.
+     */
+    fun focusIndex(heats: List<ScheduleHeat>, event: String, heat: String): Int? {
+        val same = heats.indices.filter { heats[it].event == event && heats[it].heat == heat }
+        return same.lastOrNull { heats[it].lanes.isNotEmpty() } ?: same.firstOrNull()
     }
 
     fun visible(heats: List<ScheduleHeat>, state: ScheduleFilterState, current: HeatRef?): List<VisibleHeat> {
@@ -72,7 +87,7 @@ object ScheduleFilter {
             if (cut != null && i < cut) return@forEachIndexed
             val lanes = if (state.hasFilters) h.lanes.filter { laneMatches(it, state.filters) } else h.lanes
             if (state.hasFilters && !state.allHeats && lanes.isEmpty()) return@forEachIndexed
-            val isCurrent = current != null && h.event == current.event && h.heat == current.heat
+            val isCurrent = current?.matches(h) ?: false
             out += VisibleHeat(h, lanes, isCurrent, out.size)
         }
         return out

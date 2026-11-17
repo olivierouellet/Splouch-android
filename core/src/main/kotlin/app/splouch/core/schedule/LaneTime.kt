@@ -104,7 +104,7 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
         /**
          * A finished heat's console times, from the `results_snapshot` that announced it
          * (S-22): patched in rather than re-fetching every heat. A lane's `channel` is its
-         * lane number.
+         * lane number; the heat is matched on its round too (S-24).
          */
         fun applyConsoleTimes(heats: List<ScheduleHeat>, snap: ResultsSnapshot): List<ScheduleHeat> {
             val times = snap.lanes.mapNotNull { r ->
@@ -112,8 +112,9 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
                 if (r.channel == null || t.isEmpty()) null else r.channel to t
             }.toMap()
             if (times.isEmpty()) return heats
+            val ref = HeatRef(snap.event, snap.heat, snap.round)
             return heats.map { h ->
-                if (h.event != snap.event || h.heat != snap.heat) {
+                if (!ref.matches(h)) {
                     h
                 } else {
                     h.copy(lanes = h.lanes.map { l -> times[l.lane]?.let { l.copy(consoleTime = it) } ?: l })

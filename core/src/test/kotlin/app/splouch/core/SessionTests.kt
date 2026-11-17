@@ -96,11 +96,11 @@ class SessionTests {
         val s = ServerAddress.parseOrNull("https://c.example")!!
         val cloud = MeetContext(s, ServerKind.CLOUD, "ab c")
         assertEquals("https://c.example/meet/ab%20c/config", cloud.configUrl)
-        assertEquals("https://c.example/meet/ab%20c/schedule", cloud.scheduleUrl)
+        assertEquals("https://c.example/meet/ab%20c/schedule?rounds=1", cloud.scheduleUrl)
         assertTrue(cloud.joinsMeet)
         val pi = MeetContext(ServerAddress.parseOrNull("http://pi.local:5000")!!, ServerKind.PI, null)
         assertEquals("http://pi.local:5000/config", pi.configUrl)
-        assertEquals("http://pi.local:5000/schedule.json", pi.scheduleUrl)
+        assertEquals("http://pi.local:5000/schedule.json?rounds=1", pi.scheduleUrl)
         assertFalse(pi.joinsMeet)
     }
 
@@ -234,6 +234,15 @@ class SessionTests {
             )
             runCurrent()
             assertEquals(HeatRef("2", "9"), session.currentHeat.value)
+            // S-24: the round rides with the heat, from either socket.
+            sb.serverSend("""{"event":"update_scoreboard","data":{"current_round":"final"}}""")
+            runCurrent()
+            assertEquals(HeatRef("2", "9", "final"), session.currentHeat.value)
+            rs.serverSend(
+                """{"event":"results_snapshot","data":{"event":"15","heat":"1","round":"prelims","lanes":[{"channel":1,"place":"1","time":"1.00","name":"A"}]}}""",
+            )
+            runCurrent()
+            assertEquals(HeatRef("15", "1", "prelims"), session.currentHeat.value)
             assertFalse(session.resultsView.value.waiting)
             val updates = ArrayList<Unit>()
             backgroundScope.launch { session.scheduleUpdates.toList(updates) }
@@ -319,14 +328,14 @@ class SessionTests {
         val server = ServerAddress.parseOrNull("https://c.example")!!
         val ctx = MeetContext(server, ServerKind.CLOUD, "m 1", MeetBase.parse("https://ca1.example/w2")!!)
         assertEquals("https://ca1.example/w2/meet/m%201/config", ctx.configUrl)
-        assertEquals("https://ca1.example/w2/meet/m%201/schedule", ctx.scheduleUrl)
+        assertEquals("https://ca1.example/w2/meet/m%201/schedule?rounds=1", ctx.scheduleUrl)
         assertEquals("https://ca1.example/w2/icon/m%201", ctx.iconUrl)
         // strings stay on the server the list came from
         assertEquals("https://c.example/i18n/fr", ctx.i18nUrl("fr"))
         // no base (a server older than v3): the server URL, as before
         val plain = MeetContext(server, ServerKind.CLOUD, "m1")
         assertEquals("https://c.example/meet/m1/config", plain.configUrl)
-        assertEquals("https://c.example/meet/m1/schedule", plain.scheduleUrl)
+        assertEquals("https://c.example/meet/m1/schedule?rounds=1", plain.scheduleUrl)
         assertEquals("https://c.example/icon/m1", plain.iconUrl)
         assertNull(MeetContext(ServerAddress.parseOrNull("http://pi.local:5000")!!, ServerKind.PI, null).iconUrl)
 

@@ -247,9 +247,14 @@ class MeetSession(
                     board.apply(frame)
                     val ev = frame.currentEvent
                     val ht = frame.currentHeat
-                    if (ev != null || ht != null) {
+                    val rnd = frame.currentRound
+                    if (ev != null || ht != null || rnd != null) {
                         val cur = _currentHeat.value
-                        _currentHeat.value = HeatRef(ev ?: cur?.event ?: "", ht ?: cur?.heat ?: "")
+                        _currentHeat.value = HeatRef(
+                            ev ?: cur?.event ?: "",
+                            ht ?: cur?.heat ?: "",
+                            rnd ?: cur?.round ?: "",
+                        )
                     }
                 }
                 // api.md §2.2, a local Pi only: the explicit wipe when a test session ends and
@@ -276,7 +281,7 @@ class MeetSession(
             is SocketEvent.Message -> when (e.event) {
                 "results_snapshot" -> ResultsSnapshot.fromJson(e.data)?.let { s ->
                     results.apply(s)
-                    _currentHeat.value = HeatRef(s.event, s.heat)
+                    _currentHeat.value = HeatRef(s.event, s.heat, s.round)
                     resultsChannel.trySend(s)
                 }
                 "meet_live" -> if (!MeetLive.fromJson(e.data).live) results.clear()

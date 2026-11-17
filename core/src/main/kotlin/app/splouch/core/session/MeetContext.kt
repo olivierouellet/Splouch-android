@@ -28,11 +28,13 @@ data class MeetContext(
             "/meet/${enc(meetId)}/config"
         },
     )
+
+    /** Every round of a number several share (S-24): asked for, as a client keying cards by event and heat alone would see two alike. */
     val scheduleUrl: String get() = base.httpUrl(
         if (kind == ServerKind.PI) {
-            "/schedule.json"
+            "/schedule.json?rounds=1"
         } else {
-            "/meet/${enc(meetId)}/schedule"
+            "/meet/${enc(meetId)}/schedule?rounds=1"
         },
     )
 

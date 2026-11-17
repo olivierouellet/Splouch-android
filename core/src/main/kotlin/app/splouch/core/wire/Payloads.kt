@@ -345,6 +345,9 @@ class ScoreboardFrame(val fields: Map<String, JsonElement>) {
     /** Event and heat, as strings, trimmed — the only form they are ever compared in. */
     val currentEvent: String? get() = string("current_event")?.trim()
     val currentHeat: String? get() = string("current_heat")?.trim()
+
+    /** The current heat's round (S-24); null when this frame does not carry it. */
+    val currentRound: String? get() = string("current_round")?.trim()
     val eventName: String? get() = string("event_name")
     val hasEventNameParts: Boolean get() = has("event_name_parts")
     val eventNameParts: EventNameParts? get() = EventNameParts.fromJson(fields["event_name_parts"])
@@ -451,6 +454,8 @@ data class ResultsSnapshot(
     /** `"lane"`, `"place"`, or null when the relay predates the field — read as lane (R-05). */
     val sort: String?,
     val lanes: List<ResultLane>,
+    /** The heat's round (S-24): `""` when its number has one, or the server predates the field. */
+    val round: String = "",
 ) {
     val isLaneSort: Boolean get() = sort == null || sort == "lane"
 
@@ -464,6 +469,7 @@ data class ResultsSnapshot(
                 eventNameParts = EventNameParts.fromJson(o["event_name_parts"]),
                 sort = o["sort"].asStringOrNull()?.trim()?.lowercase()?.takeIf { it.isNotEmpty() },
                 lanes = o["lanes"].asArrayOrNull()?.mapNotNull { ResultLane.fromJson(it) } ?: emptyList(),
+                round = o["round"].asStringOrNull()?.trim().orEmpty(),
             )
         }
     }
@@ -532,7 +538,12 @@ data class ScheduleHeat(
     val lanes: List<ScheduleLane>,
     /** Every lane with a swimmer has an official time or status (S-23). */
     val official: Boolean = false,
+    /** The round, when the meet gives the number several (S-24): `""` for one, or an older server. */
+    val round: String = "",
 ) {
+    /** Event, heat and round: a prelim and its final share their numbers (S-24). */
+    val key: String get() = "$event/$heat/$round"
+
     companion object {
         fun fromJson(e: JsonElement?): ScheduleHeat? {
             val o = e.asObjectOrNull() ?: return null
@@ -544,6 +555,7 @@ data class ScheduleHeat(
                 time = o["time"].asStringOrNull()?.trim().orEmpty(),
                 lanes = o["lanes"].asArrayOrNull()?.mapNotNull { ScheduleLane.fromJson(it) } ?: emptyList(),
                 official = o["official"].asBoolOrNull() ?: false,
+                round = o["round"].asStringOrNull()?.trim().orEmpty(),
             )
         }
 

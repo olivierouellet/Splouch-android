@@ -85,7 +85,7 @@ class AppModelTests {
             "$base/meet/m1/config",
             body = """{"name":"Meet One","live":true,"settings":{"num_lanes":6,"locale":"en","labels":{"event":"EV","heat":"HT"},"label_style":"short"}}""",
         )
-        on("$base/meet/m1/schedule", body = """{"heats":[]}""")
+        on("$base/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
     }
 
     @Test fun `a cloud server loads the picker, its directory and the strings`() = runTest {
@@ -225,7 +225,7 @@ class AppModelTests {
             "$pi/config",
             body = """{"meet_title":"Pool Meet","num_lanes":8,"locale":"fr","labels":{"event":"ÉP"}}""",
         )
-        r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
+        r.http.on("$pi/schedule.json?rounds=1", body = """{"heats":[]}""")
         r.model.start()
         runCurrent()
         val s = r.model.current
@@ -311,7 +311,7 @@ class AppModelTests {
 
         r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
         r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
-        r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
+        r.http.on("$pi/schedule.json?rounds=1", body = """{"heats":[]}""")
         r.model.selectServer(ServerAddress.parseOrNull(pi)!!)
         r.model.stopLocalSearch()
         runCurrent()
@@ -335,7 +335,7 @@ class AppModelTests {
         assertEquals(emptyList(), r.prefsStore.load().servers)
         r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
         r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
-        r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
+        r.http.on("$pi/schedule.json?rounds=1", body = """{"heats":[]}""")
         val ok = r.model.addServer(pi)
         assertIs<AddServerResult.Ok>(ok)
         assertEquals("Piscine", ok.server.name)
@@ -422,7 +422,7 @@ class AppModelTests {
         runCurrent()
         r.http.on("$pi/server", body = """{"kind":"pi","name":"Piscine","contract":{"api":"v2","app":"v2"}}""")
         r.http.on("$pi/config", body = """{"meet_title":"Pool","num_lanes":8}""")
-        r.http.on("$pi/schedule.json", body = """{"heats":[]}""")
+        r.http.on("$pi/schedule.json?rounds=1", body = """{"heats":[]}""")
 
         // P-16: scanning names the server and does nothing else — no save, no select, and
         // no request to the address either. Only the question is on screen.
@@ -728,7 +728,7 @@ class AppModelTests {
             body = """{"meets":[{"id":"m1","name":"Meet One","offline":false,"country":"CA","province":"QC","base":"https://w.example/w2"}]}""",
         )
         r.http.on("https://w.example/w2/meet/m1/config", body = configOne)
-        r.http.on("https://w.example/w2/meet/m1/schedule", body = """{"heats":[]}""")
+        r.http.on("https://w.example/w2/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
         r.model.start()
         runCurrent()
         val listed = r.model.current.picker.meets.single()
@@ -740,7 +740,7 @@ class AppModelTests {
         assertEquals(emptyList(), m.schedule)
         val urls = r.http.calls.map { it.first }
         assertTrue("https://w.example/w2/meet/m1/config" in urls)
-        assertTrue("https://w.example/w2/meet/m1/schedule" in urls)
+        assertTrue("https://w.example/w2/meet/m1/schedule?rounds=1" in urls)
         assertFalse(urls.any { it.startsWith("$cloud/meet/") })
         // strings stay on the server the list came from
         assertFalse(urls.any { it.startsWith("https://w.example/w2/i18n") })
@@ -774,7 +774,7 @@ class AppModelTests {
             val r = Rig(this)
             r.http.cloudRoutes()
             r.http.on("https://w.example/w3/meet/m1/config", body = configOne)
-            r.http.on("https://w.example/w3/meet/m1/schedule", body = """{"heats":[]}""")
+            r.http.on("https://w.example/w3/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
             r.model.start()
             runCurrent()
             r.model.openMeet("m1")
@@ -812,7 +812,7 @@ class AppModelTests {
             body = """{"name":"Meet One","live":true,"base":"https://w.example/w4","settings":{"num_lanes":6,"locale":"en"}}""",
         )
         r.http.on("https://w.example/w4/meet/m1/config", body = configOne)
-        r.http.on("https://w.example/w4/meet/m1/schedule", body = """{"heats":[]}""")
+        r.http.on("https://w.example/w4/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
         r.model.start()
         runCurrent()
         r.model.openMeet("m1")
@@ -828,7 +828,7 @@ class AppModelTests {
             body = """{"name":"Meet One","live":true,"base":"https://w.example/w5","settings":{"num_lanes":6,"locale":"en"}}""",
         )
         r.http.on("https://w.example/w5/meet/m1/config", body = configOne)
-        r.http.on("https://w.example/w5/meet/m1/schedule", body = """{"heats":[]}""")
+        r.http.on("https://w.example/w5/meet/m1/schedule?rounds=1", body = """{"heats":[]}""")
         r.model.refreshMeet()
         runCurrent()
         val m = r.model.current.meet!!

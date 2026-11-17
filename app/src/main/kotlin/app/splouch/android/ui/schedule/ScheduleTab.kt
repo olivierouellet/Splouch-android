@@ -123,7 +123,7 @@ fun ScheduleTab(
     // the current heat does not scroll it away.
     LaunchedEffect(visible, meet.focus) {
         val focus = meet.focus ?: return@LaunchedEffect
-        val idx = visible.indexOfFirst { it.heat.event == focus.event && it.heat.heat == focus.heat }
+        val idx = ScheduleFilter.focusIndex(visible.map { it.heat }, focus.event, focus.heat) ?: -1
         if (idx >= 0) {
             needsScroll = false
             listState.animateScrollToItem(idx)
@@ -160,7 +160,7 @@ fun ScheduleTab(
                 onAction = onResetFilters,
             )
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                items(visible, key = { it.heat.event + "/" + it.heat.heat }) { v ->
+                items(visible, key = { it.heat.key }) { v ->
                     HeatCard(v, labels, spoken, t.eventVocab, seedTemplate) { t.mobile(it) }
                 }
             }
