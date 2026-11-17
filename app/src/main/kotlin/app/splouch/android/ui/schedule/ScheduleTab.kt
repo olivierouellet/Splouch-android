@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -185,7 +186,7 @@ private fun HeatCard(
     // to the seed, and springs back after four seconds or a second tap. Keyed by heat, so a
     // recycled card starts clean, and by `official`, which changes which gap a swap shows:
     // the swap ends rather than jumping from the console's gaps to the result's.
-    var showingDiff by remember(h.event, h.heat, h.official) { mutableStateOf(false) }
+    var showingDiff by remember(h.key, h.official) { mutableStateOf(false) }
     val swaps = LaneTime.swaps(h.official, v.lanes)
     val diff = showingDiff && swaps
     LaunchedEffect(diff) {
@@ -227,7 +228,7 @@ private fun HeatCard(
                 append("  ${labels["heat"].orEmpty()} ")
                 withStyle(SpanStyle(color = colors.scheduleName)) { append(h.heat) }
             }
-            val name = EventName.display(h.eventName, h.eventNameParts, vocab)
+            val name = ScheduleFilter.heading(EventName.display(h.eventName, h.eventNameParts, vocab), h.age)
             val heading: @Composable (Int) -> Unit = { lines ->
                 Text(
                     eventHeat,
@@ -323,6 +324,17 @@ private fun HeatCard(
                         }
                     }
                 }
+            }
+            // S-25: a round no swimmer is in yet says so, rather than an empty card.
+            if (!h.seeded) {
+                Text(
+                    word("not_seeded"),
+                    color = colors.scheduleEvent.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = fonts.family,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
             v.lanes.forEach { lane ->
                 val cell = LaneTime.of(lane, diff)

@@ -70,6 +70,16 @@ object ScheduleFilter {
     }
 
     /**
+     * The heading's name, with the heat's own age group after it (S-25): `100 m libre · 13-14`.
+     * The band is numbers, so it needs no translation.
+     */
+    fun heading(eventName: String, age: String): String = when {
+        age.isEmpty() -> eventName
+        eventName.isEmpty() -> age
+        else -> "$eventName · $age"
+    }
+
+    /**
      * The heat a notification names (N-08), which carries no round: of the heats with its
      * numbers, the last that has swimmers — the live round, the one the cloud notifies about
      * (S-24) — else the first. Null when none.

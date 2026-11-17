@@ -540,6 +540,10 @@ data class ScheduleHeat(
     val official: Boolean = false,
     /** The round, when the meet gives the number several (S-24): `""` for one, or an older server. */
     val round: String = "",
+    /** The heat's own age group, numbers only (`"13-14"`, `"17+"`), or `""` (S-25). */
+    val age: String = "",
+    /** False while the heat's round has no swimmer yet: empty because unseeded, not empty (S-25). */
+    val seeded: Boolean = true,
 ) {
     /** Event, heat and round: a prelim and its final share their numbers (S-24). */
     val key: String get() = "$event/$heat/$round"
@@ -556,6 +560,8 @@ data class ScheduleHeat(
                 lanes = o["lanes"].asArrayOrNull()?.mapNotNull { ScheduleLane.fromJson(it) } ?: emptyList(),
                 official = o["official"].asBoolOrNull() ?: false,
                 round = o["round"].asStringOrNull()?.trim().orEmpty(),
+                age = o["age"].asStringOrNull()?.trim().orEmpty(),
+                seeded = o["seeded"].asBoolOrNull() ?: true,
             )
         }
 

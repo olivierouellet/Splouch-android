@@ -64,4 +64,18 @@ class RoundsTests {
         assertEquals(0, ScheduleFilter.focusIndex(listOf(heat("prelims"), heat("final", emptyList())), "15", "1"))
         assertNull(ScheduleFilter.focusIndex(listOf(heat("")), "9", "1"))
     }
+
+    /** S-25: a finals heat names its age group; an unseeded round says so. */
+    @Test fun `a heat carries its age group and whether it is seeded`() {
+        val heats = ScheduleHeat.listFromJson(
+            parseJsonOrNull(
+                """{"heats":[{"event":15,"heat":2,"age":"13-14","seeded":false,"lanes":[]},{"event":3,"heat":1,"lanes":[]}]}""",
+            ),
+        )!!
+        assertEquals(listOf("13-14", ""), heats.map { it.age })
+        assertEquals(listOf(false, true), heats.map { it.seeded }) // an older server: seeded
+        assertEquals("100 Free · 13-14", ScheduleFilter.heading("100 Free", "13-14"))
+        assertEquals("100 Free", ScheduleFilter.heading("100 Free", ""))
+        assertEquals("17+", ScheduleFilter.heading("", "17+"))
+    }
 }
