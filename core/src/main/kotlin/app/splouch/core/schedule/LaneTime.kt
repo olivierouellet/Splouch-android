@@ -12,10 +12,19 @@ import app.splouch.core.wire.ScheduleLane
  * console time's.
  *
  * [spokenKey] is the `[mobile]` word a screen reader says for the cell, before [text] when
- * [speaksText] — "Official time 30.12", but "Disqualified" alone.
+ * [speaksText] — "Official time 30.12", but "Disqualified" alone. [spokenSuffix] is said
+ * after [text]: a [Kind.SEED_OTHER] seed's course (S-27), "Seed time 1:01.00 LCM", since the
+ * cell shows it only by colour.
  */
-data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val speaksText: Boolean = true) {
-    enum class Kind { SEED, CONSOLE, OFFICIAL, BETTER, WORSE }
+data class LaneTime(
+    val text: String,
+    val kind: Kind,
+    val spokenKey: String,
+    val speaksText: Boolean = true,
+    val spokenSuffix: String = "",
+) {
+    /** [SEED_OTHER]: a seed swum in another course than the meet's (S-27), in its own colour. */
+    enum class Kind { SEED, SEED_OTHER, CONSOLE, OFFICIAL, BETTER, WORSE }
 
     companion object {
         /** Every time travels as `HH:MM:SS.hh`; the hours go when there are none. */
@@ -92,7 +101,7 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
                     else -> {
                         // Not official yet: the console's own gap.
                         if (lane.resultTime.isEmpty()) consoleGap(lane)?.let { return gap(it) }
-                        return LaneTime(seedText(lane), Kind.SEED, "time_seed")
+                        return seed(lane)
                     }
                 }
             }
@@ -105,19 +114,24 @@ data class LaneTime(val text: String, val kind: Kind, val spokenKey: String, val
                 )
                 lane.resultTime.isNotEmpty() -> LaneTime(display(lane.resultTime), Kind.OFFICIAL, "time_official")
                 lane.consoleTime.isNotEmpty() -> LaneTime(display(lane.consoleTime), Kind.CONSOLE, "time_console")
-                lane.seedTime.isNotEmpty() -> LaneTime(seedText(lane), Kind.SEED, "time_seed")
+                lane.seedTime.isNotEmpty() -> seed(lane)
                 else -> null
             }
         }
 
         /**
-         * The seed as drawn: `NT` for none, and the course after it when it is not the meet's
-         * (S-27), `01:01.00 LCM`. A course is the same three letters in every language.
+         * The seed's cell: `NT` for none. One swum in another course than the meet's (S-27) is
+         * [Kind.SEED_OTHER], drawn in its own colour with nothing beside it; the screen reader
+         * says the course after it, the same three letters in every language.
          */
-        fun seedText(lane: ScheduleLane): String = when {
-            lane.seedTime.isEmpty() -> "NT"
-            lane.seedCourse.isEmpty() -> display(lane.seedTime)
-            else -> display(lane.seedTime) + " " + lane.seedCourse
+        internal fun seed(lane: ScheduleLane): LaneTime = when {
+            lane.seedTime.isEmpty() -> LaneTime("NT", Kind.SEED, "time_seed")
+            else -> LaneTime(
+                display(lane.seedTime),
+                if (lane.seedCourse.isEmpty()) Kind.SEED else Kind.SEED_OTHER,
+                "time_seed",
+                spokenSuffix = lane.seedCourse,
+            )
         }
 
         /**

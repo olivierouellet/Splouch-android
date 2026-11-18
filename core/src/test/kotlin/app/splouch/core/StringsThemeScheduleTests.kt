@@ -333,6 +333,7 @@ class StringsThemeScheduleTests {
             "podium_bronze" to "#343434", "schedule_event" to "#3b9eff",
             "schedule_time" to "#FFD700", "schedule_name" to "#e0e0e0", "schedule_club" to "#666666",
             "schedule_seed" to "#e0e0e0", "schedule_console" to "#FFD700", "schedule_official" to "#4ade80",
+            "schedule_seed_other" to "#3b9eff",
         )
         val light = mapOf(
             "bg" to "#f8f8f8", "header_bg" to "#ffffff", "header_border" to "#dddddd",
@@ -343,6 +344,7 @@ class StringsThemeScheduleTests {
             "podium_bronze" to "#e8e8e8", "schedule_event" to "#0055cc",
             "schedule_time" to "#0055aa", "schedule_name" to "#111111", "schedule_club" to "#888888",
             "schedule_seed" to "#111111", "schedule_console" to "#0055aa", "schedule_official" to "#2e7d32",
+            "schedule_seed_other" to "#7b1fa2",
         )
         Theme.DEFAULT_COLORS.forEach { (key, value) -> assertEquals(dark[key], value, "dark $key") }
         Theme.LIGHT_COLORS.forEach { (key, value) -> assertEquals(light[key], value, "light $key") }

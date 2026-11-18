@@ -61,6 +61,9 @@ class BoardColors(val isDark: Boolean) {
     val scheduleConsole = c("schedule_console")
     val scheduleOfficial = c("schedule_official")
 
+    /** A seed swum in another course than the meet's (`S-27`). */
+    val scheduleSeedOther = c("schedule_seed_other")
+
     /**
      * A running time (`L-11`), dimmed against the row it sits on rather than against an
      * assumed black. It was a fixed `#A0A0A0` — the web's `.time-running` grey, from a

@@ -477,12 +477,13 @@ private fun TimingCell(cell: LaneTime?, seedTemplate: String, onTap: (() -> Unit
                     LaneTime.Kind.OFFICIAL -> colors.scheduleOfficial
                     LaneTime.Kind.BETTER -> colors.deltaBetter
                     LaneTime.Kind.WORSE -> colors.deltaWorse
+                    LaneTime.Kind.SEED_OTHER -> colors.scheduleSeedOther
                     LaneTime.Kind.SEED, null -> colors.scheduleSeed
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 fontFamily = fonts.timing,
                 fontWeight = when (c?.kind) {
-                    LaneTime.Kind.SEED, LaneTime.Kind.CONSOLE, null -> FontWeight.Normal
+                    LaneTime.Kind.SEED, LaneTime.Kind.SEED_OTHER, LaneTime.Kind.CONSOLE, null -> FontWeight.Normal
                     else -> FontWeight.Bold
                 },
                 maxLines = 1,
@@ -529,6 +530,12 @@ private fun spokenLane(
     parts += ScheduleFilter.displayName(lane)
     if (lane.club.isNotEmpty()) parts += "${word("club")} ${lane.club}".trim()
     // The kind of time, named (`S-22`): colour alone says nothing aloud.
-    cell?.let { parts += if (it.speaksText) "${mobile(it.spokenKey)} ${it.text}".trim() else mobile(it.spokenKey) }
+    cell?.let {
+        parts += if (it.speaksText) {
+            "${mobile(it.spokenKey)} ${it.text} ${it.spokenSuffix}".trim()
+        } else {
+            mobile(it.spokenKey)
+        }
+    }
     return parts.joinToString(", ")
 }

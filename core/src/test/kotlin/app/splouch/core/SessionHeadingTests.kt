@@ -8,7 +8,6 @@ import app.splouch.core.wire.ScheduleLane
 import app.splouch.core.wire.parseJsonOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 
 /** S-26: a heading where the session changes. S-27: a seed from another course. */
 class SessionHeadingTests {
@@ -59,12 +58,17 @@ class SessionHeadingTests {
         assertEquals("Samedi am", ScheduleFilter.sessionHeading(v, 0, ""))
     }
 
-    @Test fun `a seed from another course shows it and no gap`() {
+    @Test fun `a seed from another course is its own colour and no gap`() {
         var lane = ScheduleLane(4, "N", "C", "00:01:01.00", emptyList(), seedCourse = "LCM")
-        assertEquals("01:01.00 LCM", LaneTime.of(lane)?.text)
+        val other = LaneTime("01:01.00", LaneTime.Kind.SEED_OTHER, "time_seed", spokenSuffix = "LCM")
+        assertEquals(other, LaneTime.of(lane))
         // Not official yet: the console's gap would be to a long-course seed.
         lane = lane.copy(consoleTime = "00:00:59.00")
-        assertEquals("01:01.00 LCM", LaneTime.of(lane, diff = true)?.text)
-        assertNotEquals("01:01.00 LCM", LaneTime.of(lane.copy(seedCourse = ""), diff = true)?.text)
+        assertEquals(other, LaneTime.of(lane, diff = true))
+        assertEquals(LaneTime.Kind.BETTER, LaneTime.of(lane.copy(seedCourse = ""), diff = true)?.kind)
+        assertEquals(
+            LaneTime("01:01.00", LaneTime.Kind.SEED, "time_seed"),
+            LaneTime.of(lane.copy(seedCourse = "", consoleTime = "")),
+        )
     }
 }
