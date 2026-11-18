@@ -7,6 +7,7 @@ import app.splouch.core.schedule.ScheduleFilterState
 import app.splouch.core.schedule.SuggestionType
 import app.splouch.core.session.Appearance
 import app.splouch.core.session.Preferences
+import app.splouch.core.strings.BuiltInStrings
 import app.splouch.core.strings.EventName
 import app.splouch.core.strings.Labels
 import app.splouch.core.strings.StringTable
@@ -123,6 +124,47 @@ class StringsThemeScheduleTests {
             "4x50 m Backstroke Relay",
             EventName.compose(EventNameParts(dist = "4x50", stroke = "backstroke", relay = true), en.eventName),
         )
+    }
+
+    @Test fun `the short vocabulary composes a card-sized name`() {
+        // S-01, against the snapshots the server ships: the same strings its own test expects.
+        val cases = mapOf(
+            "en" to listOf("4x100 Medley MX 13-14 FH", "1500 Breast W Sn QF", "200 IM B Pr"),
+            "fr" to listOf("4x100 4N MX 13-14 SR", "1500 brasse F Sn QF", "200 4N G Pr"),
+            "es" to listOf("4x100 est MX 13-14 SR", "1500 pecho F Sn CF", "200 est NO Pr"),
+        )
+        val relay = EventNameParts(
+            dist = "4x100",
+            stroke = "medley",
+            relay = true,
+            gender = "mixed",
+            age = "13-14",
+            round = "fastest_heat",
+        )
+        val senior =
+            EventNameParts(
+                dist = "1500",
+                stroke = "breaststroke",
+                gender = "women",
+                ageKey = "senior",
+                round = "quarterfinal",
+            )
+        val im = EventNameParts(dist = "200", stroke = "medley", gender = "boys", round = "prelims")
+        for ((lang, want) in cases) {
+            val t = BuiltInStrings.table(lang)
+            val v = t.eventVocabShort
+            assertEquals(want[0], EventName.compose(relay, v), lang)
+            assertEquals(want[1], EventName.compose(senior, v), lang)
+            assertEquals(want[2], EventName.compose(im, v), lang)
+            // The long vocabulary still says `m`.
+            assertTrue(EventName.compose(im, t.eventVocab)!!.startsWith("200 m "), lang)
+        }
+    }
+
+    @Test fun `an empty unit is no unit`() {
+        val p = EventNameParts(dist = "50", stroke = "freestyle")
+        assertEquals("50 libre", EventName.compose(p, mapOf("unit" to "", "freestyle" to "libre")))
+        assertEquals("50 m libre", EventName.compose(p, mapOf("freestyle" to "libre")))
     }
 
     @Test fun `a kind is its word alone`() {

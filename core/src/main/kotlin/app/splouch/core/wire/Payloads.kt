@@ -608,6 +608,8 @@ data class I18nBundle(
     /** `short` and `long` tables, each key → word. */
     val labels: Map<String, Map<String, String>>,
     val eventName: Map<String, String>,
+    /** The same vocabulary, short, for the Schedule's cards (app.md `S-01`); empty from an older server. */
+    val eventNameShort: Map<String, String> = emptyMap(),
 ) {
     companion object {
         fun fromJson(e: JsonElement?): I18nBundle? {
@@ -620,6 +622,7 @@ data class I18nBundle(
                     ?.mapNotNull { (style, words) -> words.asObjectOrNull()?.let { style to it.stringMap() } }
                     ?.toMap() ?: emptyMap(),
                 eventName = o["event_name"].asObjectOrNull().stringMap(),
+                eventNameShort = o["event_name_short"].asObjectOrNull().stringMap(),
             )
         }
 

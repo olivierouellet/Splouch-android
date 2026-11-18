@@ -33,6 +33,19 @@ class StringTable(
     /** The vocabulary an `event_name_parts` composes against (T-11). */
     val eventVocab: Map<String, String> get() = merged { it.eventName }
 
+    /**
+     * The short vocabulary the Schedule's cards compose against (`S-01`). Its `unit` and
+     * `relay` are empty on purpose — no unit, no relay word — so here an empty value is a
+     * word after all: one no layer has a non-empty value for is kept, empty, rather than
+     * dropped and read as "absent", which would bring the default `m` back.
+     */
+    val eventVocabShort: Map<String, String>
+        get() {
+            val out = HashMap(merged { it.eventNameShort })
+            for (layer in layers) layer.eventNameShort.forEach { (k, v) -> if (v.isEmpty()) out.putIfAbsent(k, "") }
+            return out
+        }
+
     // An empty value is a gap, not a word: it falls through to the next layer, as on iOS,
     // so a blank key in a cached or older bundle never renders as a blank control.
     private fun resolve(key: String, section: (I18nBundle) -> Map<String, String>): String {

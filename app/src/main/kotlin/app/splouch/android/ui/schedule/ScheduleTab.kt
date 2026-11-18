@@ -166,7 +166,7 @@ fun ScheduleTab(
                 itemsIndexed(visible, key = { _, v -> v.heat.key }) { i, v ->
                     Column {
                         ScheduleFilter.sessionHeading(visible, i, t.mobile("session"))?.let { SessionHeading(it) }
-                        HeatCard(v, labels, spoken, t.eventVocab, seedTemplate) { t.mobile(it) }
+                        HeatCard(v, labels, spoken, t.eventVocab, t.eventVocabShort, seedTemplate) { t.mobile(it) }
                     }
                 }
             }
@@ -199,6 +199,8 @@ private fun HeatCard(
     labels: Map<String, String>,
     spoken: Map<String, String>,
     vocab: Map<String, String>,
+    /** `S-01`: the card draws the short name; TalkBack still hears the long one. */
+    shortVocab: Map<String, String>,
     seedTemplate: String,
     /** The `[mobile]` words a screen reader says for a time's kind (`S-22`). */
     word: (String) -> String,
@@ -257,7 +259,12 @@ private fun HeatCard(
                 append("  ${labels["heat"].orEmpty()} ")
                 withStyle(SpanStyle(color = colors.scheduleName)) { append(h.heat) }
             }
-            val name = ScheduleFilter.heading(EventName.display(h.eventName, h.eventNameParts, vocab), h.age)
+            val longName = EventName.display(h.eventName, h.eventNameParts, vocab)
+            // `4x100 4N MX 13-14 SR`, where the long name was cropped; the long one when
+            // no bundle has a short vocabulary yet.
+            val name = ScheduleFilter.heading(EventName.compose(h.eventNameParts, shortVocab) ?: longName, h.age)
+            // `MX` and `SR` are not words: the screen reader hears the long name.
+            val spokenName = ScheduleFilter.heading(longName, h.age)
             val heading: @Composable (Int) -> Unit = { lines ->
                 Text(
                     eventHeat,
@@ -302,7 +309,7 @@ private fun HeatCard(
             val headingSpoken = listOf(
                 "${spoken["event"].orEmpty()} ${h.event}".trim(),
                 "${spoken["heat"].orEmpty()} ${h.heat}".trim(),
-                name,
+                spokenName,
                 h.time,
             ).filter { it.isNotEmpty() }.joinToString(", ")
             Column(
