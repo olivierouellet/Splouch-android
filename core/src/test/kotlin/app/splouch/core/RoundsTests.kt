@@ -77,5 +77,8 @@ class RoundsTests {
         assertEquals("100 Free · 13-14", ScheduleFilter.heading("100 Free", "13-14"))
         assertEquals("100 Free", ScheduleFilter.heading("100 Free", ""))
         assertEquals("17+", ScheduleFilter.heading("", "17+"))
+        // A server that puts the age in the name's parts: not twice.
+        assertEquals("50 Free M 13-14 Fi", ScheduleFilter.heading("50 Free M 13-14 Fi", "13-14", "13-14"))
+        assertEquals("50 Free M 11+ Fi · 13-14", ScheduleFilter.heading("50 Free M 11+ Fi", "13-14", "11+"))
     }
 }

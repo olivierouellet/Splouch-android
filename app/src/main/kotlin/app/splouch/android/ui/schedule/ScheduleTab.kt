@@ -262,9 +262,14 @@ private fun HeatCard(
             val longName = EventName.display(h.eventName, h.eventNameParts, vocab)
             // `4x100 4N MX 13-14 SR`, where the long name was cropped; the long one when
             // no bundle has a short vocabulary yet.
-            val name = ScheduleFilter.heading(EventName.compose(h.eventNameParts, shortVocab) ?: longName, h.age)
+            val partsAge = h.eventNameParts?.age.orEmpty()
+            val name = ScheduleFilter.heading(
+                EventName.compose(h.eventNameParts, shortVocab) ?: longName,
+                h.age,
+                partsAge,
+            )
             // `MX` and `SR` are not words: the screen reader hears the long name.
-            val spokenName = ScheduleFilter.heading(longName, h.age)
+            val spokenName = ScheduleFilter.heading(longName, h.age, partsAge)
             val heading: @Composable (Int) -> Unit = { lines ->
                 Text(
                     eventHeat,

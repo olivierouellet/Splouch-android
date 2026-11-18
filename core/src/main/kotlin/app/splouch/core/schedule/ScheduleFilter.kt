@@ -81,11 +81,13 @@ object ScheduleFilter {
     }
 
     /**
-     * The heading's name, with the heat's own age group after it (S-25): `100 m libre · 13-14`.
+     * The heading's name with the heat's own age group (S-25). A server that puts it in the
+     * heat's `event_name_parts.age` ([partsAge]) has it in the name already,
+     * `50 Free M 13-14 Fi`; an older one does not, so it goes after: `100 m libre · 13-14`.
      * The band is numbers, so it needs no translation.
      */
-    fun heading(eventName: String, age: String): String = when {
-        age.isEmpty() -> eventName
+    fun heading(eventName: String, age: String, partsAge: String = ""): String = when {
+        age.isEmpty() || age == partsAge -> eventName
         eventName.isEmpty() -> age
         else -> "$eventName · $age"
     }
